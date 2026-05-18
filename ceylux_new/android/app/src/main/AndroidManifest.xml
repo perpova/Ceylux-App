@@ -1,6 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
-        android:label="ceylux_app"
+        android:label="Ceylux"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

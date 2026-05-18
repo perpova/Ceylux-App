@@ -22,7 +22,7 @@ class CeyluxApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Ceylux Fashion',
+      title: 'Ceylux CLOTHING',
       theme: AppTheme.dark,
       debugShowCheckedModeBanner: false,
       home: const SplashGate(),
@@ -123,7 +123,7 @@ class _HomeShellState extends State<HomeShell> {
       builder: (_) => AlertDialog(
         backgroundColor: AppColors.card,
         title: const Text('Logout?', style: TextStyle(color: AppColors.textColor)),
-        content: const Text('Sign out කරන්නද?', style: TextStyle(color: AppColors.muted)),
+        content: const Text('Sign out of your account?', style: TextStyle(color: AppColors.muted)),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel', style: TextStyle(color: AppColors.muted))),
           TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Logout', style: TextStyle(color: AppColors.danger))),
@@ -159,7 +159,7 @@ class _HomeShellState extends State<HomeShell> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('CEYLUX', style: GoogleFonts.playfairDisplay(fontSize: 22, color: AppColors.primary, letterSpacing: 1, fontWeight: FontWeight.bold)),
-                Text('FASHION', style: GoogleFonts.montserrat(fontSize: 8, color: AppColors.muted, letterSpacing: 3, fontWeight: FontWeight.w500)),
+                Text('CLOTHING', style: GoogleFonts.montserrat(fontSize: 8, color: AppColors.muted, letterSpacing: 3, fontWeight: FontWeight.w500)),
               ],
             ),
           ],

@@ -17,12 +17,10 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
   bool _loading = false;
   String? _error;
 
-  // Sign In
   final _siEmail = TextEditingController();
   final _siPass  = TextEditingController();
   bool _siObscure = true;
 
-  // Sign Up
   final _suName  = TextEditingController();
   final _suEmail = TextEditingController();
   final _suPass  = TextEditingController();
@@ -38,7 +36,7 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
 
   Future<void> _signin() async {
     if (_siEmail.text.isEmpty || _siPass.text.isEmpty) {
-      setState(() => _error = 'Email සහ Password දාන්න');
+      setState(() => _error = 'Please enter your Email and Password');
       return;
     }
     setState(() { _loading = true; _error = null; });
@@ -59,7 +57,7 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
         setState(() => _error = data['error'] ?? 'Sign in failed');
       }
     } catch (e) {
-      setState(() => _error = 'Server connect කරන්න බෑ. API run වෙනවාද?');
+      setState(() => _error = 'Cannot connect to server. Is the API running?');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -67,15 +65,15 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
 
   Future<void> _signup() async {
     if (_suName.text.isEmpty || _suEmail.text.isEmpty || _suPass.text.isEmpty) {
-      setState(() => _error = 'සියලු fields පුරවන්න');
+      setState(() => _error = 'Please fill in all fields');
       return;
     }
     if (_suPass.text != _suPass2.text) {
-      setState(() => _error = 'Passwords match නොවෙනවා');
+      setState(() => _error = 'Passwords do not match');
       return;
     }
     if (_suPass.text.length < 6) {
-      setState(() => _error = 'Password අවම characters 6ක් ඕනේ');
+      setState(() => _error = 'Password must be at least 6 characters');
       return;
     }
     setState(() { _loading = true; _error = null; });
@@ -96,7 +94,7 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
         setState(() => _error = data['error'] ?? 'Sign up failed');
       }
     } catch (e) {
-      setState(() => _error = 'Server connect කරන්න බෑ. API run වෙනවාද?');
+      setState(() => _error = 'Cannot connect to server. Is the API running?');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -125,7 +123,7 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
               ),
               const SizedBox(height: 16),
               Text('CEYLUX', style: GoogleFonts.playfairDisplay(fontSize: 28, color: AppColors.primary, fontWeight: FontWeight.bold, letterSpacing: 3)),
-              Text('FASHION BOUTIQUE', style: GoogleFonts.montserrat(fontSize: 11, color: AppColors.muted, letterSpacing: 4, fontWeight: FontWeight.w500)),
+              Text('CLOTHING', style: GoogleFonts.montserrat(fontSize: 11, color: AppColors.muted, letterSpacing: 4, fontWeight: FontWeight.w500)),
               const SizedBox(height: 40),
 
               // Tab bar
@@ -173,29 +171,61 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
                 child: TabBarView(
                   controller: _tabController,
                   children: [
-                    // ── SIGN IN ─────────────────────────────────────────
+                    // ── SIGN IN ──────────────────────────────────
                     Column(children: [
-                      _field(controller: _siEmail, label: 'Email', hint: 'you@example.com', icon: Icons.email_outlined, keyboardType: TextInputType.emailAddress),
+                      _field(
+                        controller: _siEmail,
+                        label: 'Email',
+                        hint: 'you@example.com',
+                        icon: Icons.email_outlined,
+                        keyboardType: TextInputType.emailAddress,
+                      ),
                       const SizedBox(height: 14),
-                      _field(controller: _siPass, label: 'Password', hint: '••••••••', icon: Icons.lock_outline,
+                      _field(
+                        controller: _siPass,
+                        label: 'Password',
+                        hint: '••••••••',
+                        icon: Icons.lock_outline,
                         obscure: _siObscure,
-                        toggle: () => setState(() => _siObscure = !_siObscure)),
+                        toggle: () => setState(() => _siObscure = !_siObscure),
+                      ),
                       const SizedBox(height: 28),
                       _submitBtn('Sign In', _signin),
                     ]),
 
-                    // ── SIGN UP ─────────────────────────────────────────
+                    // ── SIGN UP ──────────────────────────────────
                     Column(children: [
-                      _field(controller: _suName, label: 'Full Name', hint: 'Nimal Perera', icon: Icons.person_outline),
+                      _field(
+                        controller: _suName,
+                        label: 'Full Name',
+                        hint: 'Nimal Perera',
+                        icon: Icons.person_outline,
+                      ),
                       const SizedBox(height: 14),
-                      _field(controller: _suEmail, label: 'Email', hint: 'you@example.com', icon: Icons.email_outlined, keyboardType: TextInputType.emailAddress),
+                      _field(
+                        controller: _suEmail,
+                        label: 'Email',
+                        hint: 'you@example.com',
+                        icon: Icons.email_outlined,
+                        keyboardType: TextInputType.emailAddress,
+                      ),
                       const SizedBox(height: 14),
-                      _field(controller: _suPass, label: 'Password', hint: '••••••••', icon: Icons.lock_outline,
+                      _field(
+                        controller: _suPass,
+                        label: 'Password',
+                        hint: '••••••••',
+                        icon: Icons.lock_outline,
                         obscure: _suObscure,
-                        toggle: () => setState(() => _suObscure = !_suObscure)),
+                        toggle: () => setState(() => _suObscure = !_suObscure),
+                      ),
                       const SizedBox(height: 14),
-                      _field(controller: _suPass2, label: 'Confirm Password', hint: '••••••••', icon: Icons.lock_outline,
-                        obscure: _suObscure),
+                      _field(
+                        controller: _suPass2,
+                        label: 'Confirm Password',
+                        hint: '••••••••',
+                        icon: Icons.lock_outline,
+                        obscure: _suObscure,
+                      ),
                       const SizedBox(height: 28),
                       _submitBtn('Create Account', _signup),
                     ]),
@@ -204,7 +234,8 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
               ),
 
               const SizedBox(height: 24),
-              Text('© 2025 Ceylux Fashion Boutique', style: GoogleFonts.montserrat(fontSize: 11, color: AppColors.muted)),
+              Text('© 2025 Ceylux Fashion Boutique',
+                style: GoogleFonts.montserrat(fontSize: 11, color: AppColors.muted)),
               const SizedBox(height: 24),
             ],
           ),
@@ -225,7 +256,11 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label.toUpperCase(), style: GoogleFonts.montserrat(fontSize: 10, color: AppColors.muted, letterSpacing: 1, fontWeight: FontWeight.w600)),
+        Text(label.toUpperCase(),
+          style: GoogleFonts.montserrat(
+            fontSize: 10, color: AppColors.muted,
+            letterSpacing: 1, fontWeight: FontWeight.w600,
+          )),
         const SizedBox(height: 6),
         TextField(
           controller: controller,
@@ -237,16 +272,25 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
             hintStyle: const TextStyle(color: AppColors.muted),
             prefixIcon: Icon(icon, color: AppColors.muted, size: 20),
             suffixIcon: toggle != null
-              ? GestureDetector(onTap: toggle,
-                  child: Icon(obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                    color: AppColors.muted, size: 20))
+              ? GestureDetector(
+                  onTap: toggle,
+                  child: Icon(
+                    obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                    color: AppColors.muted, size: 20,
+                  ))
               : null,
             filled: true,
             fillColor: AppColors.card,
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.border)),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.border)),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.border)),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
           ),
         ),
       ],
@@ -263,11 +307,17 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
             onTap: onTap,
             child: Container(
               decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [AppColors.primary, Color(0xFF0D4A82)]),
+                gradient: const LinearGradient(
+                  colors: [AppColors.primary, Color(0xFF0D4A82)]),
                 borderRadius: BorderRadius.circular(12),
-                boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 4))],
+                boxShadow: [BoxShadow(
+                  color: AppColors.primary.withOpacity(0.3),
+                  blurRadius: 12, offset: const Offset(0, 4))],
               ),
-              child: Center(child: Text(label, style: GoogleFonts.montserrat(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600))),
+              child: Center(child: Text(label,
+                style: GoogleFonts.montserrat(
+                  color: Colors.white, fontSize: 15,
+                  fontWeight: FontWeight.w600))),
             ),
           ),
     );
@@ -277,7 +327,8 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
   void dispose() {
     _tabController.dispose();
     _siEmail.dispose(); _siPass.dispose();
-    _suName.dispose(); _suEmail.dispose(); _suPass.dispose(); _suPass2.dispose();
+    _suName.dispose(); _suEmail.dispose();
+    _suPass.dispose(); _suPass2.dispose();
     super.dispose();
   }
 }
