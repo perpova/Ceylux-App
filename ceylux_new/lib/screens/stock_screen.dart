@@ -1,0 +1,411 @@
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
+import 'package:google_fonts/google_fonts.dart';
+import '../services/api_service.dart';
+import '../models/stock_item.dart';
+import '../utils/theme.dart';
+import '../widgets/common_widgets.dart';
+
+class StockScreen extends StatefulWidget {
+  const StockScreen({super.key});
+  @override
+  State<StockScreen> createState() => _StockScreenState();
+}
+
+class _StockScreenState extends State<StockScreen> {
+  String _filter = 'All';
+  String _search = '';
+  final svc = ApiService();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: Row(
+            children: [
+              Expanded(
+                child: Container(
+                  decoration: BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                  child: Row(children: [
+                    const Icon(Icons.search, color: AppColors.muted, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(child: TextField(
+                      style: const TextStyle(color: AppColors.textColor, fontSize: 14),
+                      decoration: const InputDecoration(border: InputBorder.none, hintText: 'Search by name or SKU...', hintStyle: TextStyle(color: AppColors.muted)),
+                      onChanged: (v) => setState(() => _search = v),
+                    )),
+                  ]),
+                ),
+              ),
+              const SizedBox(width: 10),
+              GoldButton(label: '+ Add', onTap: () => _showForm(context, null), isSmall: true, icon: Icons.add),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: ['All', 'Men', 'Women', 'Kids'].map((cat) => GestureDetector(
+                onTap: () => setState(() => _filter = cat),
+                child: Container(
+                  margin: const EdgeInsets.only(right: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: _filter == cat ? AppColors.primary.withOpacity(0.1) : Colors.transparent,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: _filter == cat ? AppColors.primary : AppColors.border),
+                  ),
+                  child: Text(cat, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _filter == cat ? AppColors.primary : AppColors.muted)),
+                ),
+              )).toList(),
+            ),
+          ),
+        ),
+        Expanded(
+          child: StreamBuilder<List<StockItem>>(
+            stream: svc.stockStream(),
+            builder: (context, snap) {
+              if (!snap.hasData) return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+              final items = (snap.data ?? []).where((item) {
+                final matchCat = _filter == 'All' || item.category == _filter;
+                final matchSearch = item.name.toLowerCase().contains(_search.toLowerCase()) || item.sku.toLowerCase().contains(_search.toLowerCase());
+                return matchCat && matchSearch;
+              }).toList();
+
+              if (items.isEmpty) {
+                return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  const Text('📦', style: TextStyle(fontSize: 48)),
+                  const SizedBox(height: 12),
+                  Text('No items found', style: GoogleFonts.playfairDisplay(fontSize: 18, color: AppColors.muted)),
+                  const SizedBox(height: 8),
+                  GoldButton(label: '+ Add Item', onTap: () => _showForm(context, null)),
+                ]));
+              }
+
+              return ListView.builder(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
+                itemCount: items.length,
+                itemBuilder: (context, i) => _StockCard(item: items[i], onTap: () => _showForm(context, items[i])),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showForm(BuildContext context, StockItem? item) {
+    showModalBottomSheet(
+      context: context, isScrollControlled: true, backgroundColor: Colors.transparent,
+      builder: (_) => _StockFormSheet(item: item),
+    );
+  }
+}
+
+class _StockCard extends StatelessWidget {
+  final StockItem item;
+  final VoidCallback onTap;
+  const _StockCard({required this.item, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final total = item.totalQty;
+    Color sc = total == 0 ? AppColors.danger : total < item.minQty ? AppColors.warning : AppColors.success;
+    String sl = total == 0 ? '⚠ Out' : total < item.minQty ? '$total Low' : '$total In Stock';
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border),
+          boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.05), blurRadius: 6, offset: const Offset(0, 2))]),
+        child: Row(
+          children: [
+            Container(width: 52, height: 52,
+              decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.circular(10), border: Border.all(color: AppColors.border)),
+              child: item.photoUrl != null
+                ? ClipRRect(borderRadius: BorderRadius.circular(9), child: Image.network(item.photoUrl!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Center(child: Text(item.emoji, style: const TextStyle(fontSize: 28)))))
+                : Center(child: Text(item.emoji, style: const TextStyle(fontSize: 28)))),
+            const SizedBox(width: 12),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(item.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: AppColors.textColor)),
+              const SizedBox(height: 2),
+              Row(children: [
+                Text(item.sku, style: const TextStyle(fontSize: 11, color: AppColors.muted)),
+                const SizedBox(width: 6),
+                _catTag(item.category),
+              ]),
+              const SizedBox(height: 3),
+              Text(item.sizes.entries.where((e) => e.value > 0).map((e) => '${e.key}:${e.value}').join('  '),
+                style: const TextStyle(fontSize: 10, color: AppColors.muted), overflow: TextOverflow.ellipsis),
+            ])),
+            Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+              Text('Rs. ${NumberFormat('#,###').format(item.price)}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary, fontSize: 13)),
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(color: sc.withOpacity(0.1), borderRadius: BorderRadius.circular(20), border: Border.all(color: sc.withOpacity(0.4))),
+                child: Text(sl, style: TextStyle(fontSize: 10, color: sc, fontWeight: FontWeight.w600)),
+              ),
+            ]),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _catTag(String cat) {
+    final colors = {'Men': AppColors.primary, 'Women': const Color(0xFFE91E8C), 'Kids': const Color(0xFF2E7D5E)};
+    final c = colors[cat] ?? AppColors.muted;
+    return Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: c.withOpacity(0.1), borderRadius: BorderRadius.circular(10)), child: Text(cat, style: TextStyle(fontSize: 9, color: c, fontWeight: FontWeight.w600)));
+  }
+}
+
+class _StockFormSheet extends StatefulWidget {
+  final StockItem? item;
+  const _StockFormSheet({this.item});
+  @override
+  State<_StockFormSheet> createState() => _StockFormSheetState();
+}
+
+class _StockFormSheetState extends State<_StockFormSheet> {
+  final _name   = TextEditingController();
+  final _sku    = TextEditingController();
+  final _price  = TextEditingController();
+  final _cost   = TextEditingController();
+  final _minQty = TextEditingController();
+  String _category = 'Men';
+  String _emoji = '👕';
+  Map<String, int> _sizes = {};
+  File? _photo;
+  String? _existingPhotoUrl;
+  bool _saving = false;
+  final svc = ApiService();
+
+  bool get _isEdit => widget.item != null;
+  List<String> get _sizeKeys => _category == 'Kids' ? kidsSizes : allSizes;
+  final _emojis = ['👔','👕','👗','👘','👖','👚','🧥','🧣','👒','👠','👟','🧤'];
+
+  @override
+  void initState() {
+    super.initState();
+    if (_isEdit) {
+      final it = widget.item!;
+      _name.text = it.name; _sku.text = it.sku;
+      _price.text = it.price.toString(); _cost.text = it.cost.toString();
+      _minQty.text = it.minQty.toString();
+      _category = it.category; _emoji = it.emoji;
+      _sizes = Map.from(it.sizes); _existingPhotoUrl = it.photoUrl;
+    } else {
+      for (final s in allSizes) { _sizes[s] = 0; }
+    }
+  }
+
+  void _onCategoryChange(String cat) {
+    setState(() {
+      _category = cat;
+      final newSizes = <String, int>{};
+      for (final s in (cat == 'Kids' ? kidsSizes : allSizes)) { newSizes[s] = _sizes[s] ?? 0; }
+      _sizes = newSizes;
+    });
+  }
+
+  Future<void> _pickPhoto() async {
+    final src = await showModalBottomSheet<ImageSource>(
+      context: context, backgroundColor: AppColors.card,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => Padding(padding: const EdgeInsets.all(20), child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Container(width: 36, height: 4, decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)), margin: const EdgeInsets.only(bottom: 16)),
+        Row(children: [
+          Expanded(child: _srcBtn('📷', 'Camera', ImageSource.camera)),
+          const SizedBox(width: 12),
+          Expanded(child: _srcBtn('🖼️', 'Gallery', ImageSource.gallery)),
+        ]),
+      ])),
+    );
+    if (src == null) return;
+    final picked = await ImagePicker().pickImage(source: src, imageQuality: 80);
+    if (picked != null) setState(() => _photo = File(picked.path));
+  }
+
+  Widget _srcBtn(String icon, String label, ImageSource src) => GestureDetector(
+    onTap: () => Navigator.pop(context, src),
+    child: Container(padding: const EdgeInsets.symmetric(vertical: 14),
+      decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)),
+      child: Column(children: [Text(icon, style: const TextStyle(fontSize: 28)), const SizedBox(height: 4), Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textColor))])),
+  );
+
+  Future<void> _save() async {
+    if (_name.text.isEmpty || _price.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Name and Price required!')));
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      String? photoUrl = _existingPhotoUrl;
+      if (_photo != null) photoUrl = await svc.uploadPhoto(_photo!, 'stock');
+
+      final item = StockItem(
+        id: _isEdit ? widget.item!.id : '',
+        name: _name.text, category: _category, sku: _sku.text,
+        minQty: int.tryParse(_minQty.text) ?? 15,
+        price: int.tryParse(_price.text) ?? 0,
+        cost: int.tryParse(_cost.text) ?? 0,
+        emoji: _emoji, photoUrl: photoUrl, sizes: _sizes,
+      );
+
+      if (_isEdit) { await svc.updateStockItem(item); } else { await svc.addStockItem(item); }
+
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(_isEdit ? 'Item updated ✓' : 'Item added ✓'),
+          backgroundColor: AppColors.success));
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.danger));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _delete() async {
+    final ok = await showDialog<bool>(context: context, builder: (_) => AlertDialog(
+      backgroundColor: AppColors.card,
+      title: const Text('Delete Item?', style: TextStyle(color: AppColors.textColor)),
+      content: Text('${widget.item!.name} delete කරන්නද?', style: const TextStyle(color: AppColors.muted)),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel', style: TextStyle(color: AppColors.muted))),
+        TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete', style: TextStyle(color: AppColors.danger))),
+      ],
+    ));
+    if (ok != true) return;
+    await svc.deleteStockItem(widget.item!.id);
+    if (mounted) Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 20),
+      child: SingleChildScrollView(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Center(child: Container(width: 36, height: 4, decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)), margin: const EdgeInsets.only(bottom: 16))),
+
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Text(_isEdit ? 'Edit Item' : 'Add New Item', style: GoogleFonts.playfairDisplay(fontSize: 20, color: AppColors.primary)),
+          if (_isEdit) GestureDetector(onTap: _delete, child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(color: AppColors.danger.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+            child: const Text('Delete', style: TextStyle(color: AppColors.danger, fontSize: 12, fontWeight: FontWeight.w600)))),
+        ]),
+        const SizedBox(height: 20),
+
+        // Photo + Emoji
+        Row(children: [
+          GestureDetector(onTap: _pickPhoto, child: Container(
+            width: 72, height: 72,
+            decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.primary, width: 1.5)),
+            child: _photo != null
+              ? ClipRRect(borderRadius: BorderRadius.circular(11), child: Image.file(_photo!, fit: BoxFit.cover))
+              : _existingPhotoUrl != null
+                ? ClipRRect(borderRadius: BorderRadius.circular(11), child: Image.network(_existingPhotoUrl!, fit: BoxFit.cover))
+                : const Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Icon(Icons.camera_alt_outlined, color: AppColors.primary, size: 24),
+                    Text('Photo', style: TextStyle(fontSize: 10, color: AppColors.muted))]),
+          )),
+          const SizedBox(width: 16),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('EMOJI', style: TextStyle(fontSize: 10, color: AppColors.muted, letterSpacing: 1)),
+            const SizedBox(height: 6),
+            Wrap(spacing: 6, runSpacing: 6, children: _emojis.map((e) => GestureDetector(
+              onTap: () => setState(() => _emoji = e),
+              child: Container(width: 36, height: 36,
+                decoration: BoxDecoration(
+                  color: _emoji == e ? AppColors.primary.withOpacity(0.1) : AppColors.bg,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: _emoji == e ? AppColors.primary : AppColors.border)),
+                child: Center(child: Text(e, style: const TextStyle(fontSize: 18)))),
+            )).toList()),
+          ])),
+        ]),
+        const SizedBox(height: 16),
+
+        GoldTextField(label: 'Item Name *', controller: _name, hint: 'e.g. Silk Kurta - Navy'),
+        GoldTextField(label: 'SKU Code', controller: _sku, hint: 'e.g. MK-001'),
+
+        // Category
+        const Text('CATEGORY', style: TextStyle(fontSize: 10, color: AppColors.muted, letterSpacing: 1)),
+        const SizedBox(height: 6),
+        Row(children: ['Men', 'Women', 'Kids'].map((cat) => Expanded(child: GestureDetector(
+          onTap: () => _onCategoryChange(cat),
+          child: Container(
+            margin: const EdgeInsets.only(right: 8),
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            decoration: BoxDecoration(
+              color: _category == cat ? AppColors.primary.withOpacity(0.1) : AppColors.bg,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: _category == cat ? AppColors.primary : AppColors.border)),
+            child: Text(cat, textAlign: TextAlign.center, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _category == cat ? AppColors.primary : AppColors.muted))),
+        ))).toList()),
+        const SizedBox(height: 16),
+
+        Row(children: [
+          Expanded(child: GoldTextField(label: 'Selling Price (Rs.) *', controller: _price, keyboardType: TextInputType.number, hint: '4500')),
+          const SizedBox(width: 12),
+          Expanded(child: GoldTextField(label: 'Cost Price (Rs.)', controller: _cost, keyboardType: TextInputType.number, hint: '2800')),
+        ]),
+        GoldTextField(label: 'Min Stock Alert', controller: _minQty, keyboardType: TextInputType.number, hint: '15'),
+
+        // Sizes
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          const Text('SIZE INVENTORY', style: TextStyle(fontSize: 10, color: AppColors.muted, letterSpacing: 1)),
+          Text('Total: ${_sizes.values.fold(0, (a, b) => a + b)}',
+            style: const TextStyle(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.w600)),
+        ]),
+        const SizedBox(height: 10),
+
+        GridView.count(
+          crossAxisCount: 3, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
+          crossAxisSpacing: 8, mainAxisSpacing: 8, childAspectRatio: 2.2,
+          children: _sizeKeys.map((sz) {
+            final qty = _sizes[sz] ?? 0;
+            return Container(
+              decoration: BoxDecoration(
+                color: qty > 0 ? AppColors.primary.withOpacity(0.05) : AppColors.bg,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: qty > 0 ? AppColors.primary.withOpacity(0.3) : AppColors.border)),
+              child: Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+                GestureDetector(onTap: () => setState(() => _sizes[sz] = (qty - 1).clamp(0, 999)),
+                  child: const Icon(Icons.remove, size: 14, color: AppColors.muted)),
+                Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  Text(sz, style: const TextStyle(fontSize: 9, color: AppColors.muted, fontWeight: FontWeight.w600)),
+                  Text('$qty', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: qty > 0 ? AppColors.primary : AppColors.muted)),
+                ]),
+                GestureDetector(onTap: () => setState(() => _sizes[sz] = qty + 1),
+                  child: const Icon(Icons.add, size: 14, color: AppColors.primary)),
+              ]),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 20),
+
+        _saving
+          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+          : SizedBox(width: double.infinity, child: GoldButton(label: _isEdit ? 'Save Changes' : 'Add Item', onTap: _save)),
+        const SizedBox(height: 8),
+      ])),
+    );
+  }
+
+  @override
+  void dispose() { _name.dispose(); _sku.dispose(); _price.dispose(); _cost.dispose(); _minQty.dispose(); super.dispose(); }
+}
