@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 class OrderItem {
   final String name;
   final int qty;
@@ -26,16 +28,43 @@ class AppOrder {
   AppOrder({required this.id, required this.customerId, required this.customerName,
     required this.items, required this.total, required this.status, required this.date});
 
-  factory AppOrder.fromMap(Map<String, dynamic> m) => AppOrder(
-    id: m['id']?.toString() ?? '',
-    customerId: m['customer_id']?.toString() ?? '',
-    customerName: m['customer_name'] ?? '',
-    items: (m['items'] as List<dynamic>? ?? [])
-        .map((e) => OrderItem.fromMap(Map<String, dynamic>.from(e))).toList(),
-    total: m['total'] ?? 0,
-    status: m['status'] ?? 'Pending',
-    date: m['date']?.toString().substring(0, 10) ?? '',
-  );
+  static int _toInt(dynamic v) {
+    if (v == null) return 0;
+    if (v is int) return v;
+    if (v is num) return v.round();
+    return int.tryParse(v.toString().split('.').first) ?? 0;
+  }
+
+  factory AppOrder.fromMap(Map<String, dynamic> m) {
+    // items can be a double-encoded JSON string from MySQL or already a List
+    List<OrderItem> parsedItems = [];
+    try {
+      final raw = m['items'];
+      if (raw != null) {
+        final decoded = raw is String ? jsonDecode(raw) : raw;
+        parsedItems = (decoded as List)
+            .map((e) => OrderItem.fromMap(Map<String, dynamic>.from(e)))
+            .toList();
+      }
+    } catch (_) {}
+
+    // Use order_ref if available (the human-readable ID), fallback to DB id
+    final displayId = (m['order_ref'] != null && m['order_ref'].toString().isNotEmpty)
+        ? m['order_ref'].toString()
+        : m['id']?.toString() ?? '';
+
+    return AppOrder(
+      id: displayId,
+      customerId: m['customer_id']?.toString() ?? '',
+      customerName: m['customer_name'] ?? '',
+      items: parsedItems,
+      total: _toInt(m['total']),
+      status: m['status'] ?? 'Pending',
+      date: m['date']?.toString().length != null && m['date'].toString().length >= 10
+          ? m['date'].toString().substring(0, 10)
+          : m['date']?.toString() ?? '',
+    );
+  }
 
   Map<String, dynamic> toMap() => {
     'order_ref': id, 'customer_id': customerId,

@@ -168,13 +168,12 @@ class _SplashGateState extends State<SplashGate> {
         _showError('Update failed: $err');
       },
       onDone: () async {
-        // Mark update as installed when OTA stream completes successfully
+        // onDone fires when the APK download is complete and the install
+        // intent has been sent to Android's system installer.
+        // We proceed to the app so the user isn't stuck — the installer
+        // dialog will appear on top of the app automatically.
         if (!mounted) return;
-        await UpdateService().markUpdateInstalled(_latestVersion);
-        setState(() {
-          _statusMessage = 'Update installed. Restarting...';
-        });
-        // The app will restart automatically after OTA installation
+        _proceedToApp();
       },
     );
   }

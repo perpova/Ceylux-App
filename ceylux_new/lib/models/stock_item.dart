@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 class StockItem {
   final String id;
   final String name;
@@ -18,20 +20,40 @@ class StockItem {
   bool get isLowStock => totalQty > 0 && totalQty < minQty;
   bool get isOutOfStock => totalQty == 0;
 
-  factory StockItem.fromMap(Map<String, dynamic> m) => StockItem(
-    id: m['id']?.toString() ?? '',
-    name: m['name'] ?? '',
-    category: m['category'] ?? 'Men',
-    sku: m['sku'] ?? '',
-    minQty: m['min_qty'] ?? 15,
-    price: m['price'] ?? 0,
-    cost: m['cost'] ?? 0,
-    emoji: m['emoji'] ?? '👕',
-    photoUrl: m['photo_url'],
-    sizes: m['sizes'] != null
-        ? Map<String, int>.from((m['sizes'] as Map).map((k, v) => MapEntry(k.toString(), (v as num).toInt())))
-        : {},
-  );
+  static int _toInt(dynamic v) {
+    if (v == null) return 0;
+    if (v is int) return v;
+    if (v is num) return v.round();
+    // MySQL DECIMAL returns strings like "6800.00" — parse via double
+    return double.tryParse(v.toString())?.round() ?? 0;
+  }
+
+  factory StockItem.fromMap(Map<String, dynamic> m) {
+    // sizes can be a double-encoded JSON string from MySQL or already a Map
+    Map<String, int> parsedSizes = {};
+    try {
+      final raw = m['sizes'];
+      if (raw != null) {
+        final decoded = raw is String ? jsonDecode(raw) : raw;
+        parsedSizes = Map<String, int>.from(
+          (decoded as Map).map((k, v) => MapEntry(k.toString(), _toInt(v))),
+        );
+      }
+    } catch (_) {}
+
+    return StockItem(
+      id: m['id']?.toString() ?? '',
+      name: m['name'] ?? '',
+      category: m['category'] ?? 'Men',
+      sku: m['sku'] ?? '',
+      minQty: _toInt(m['min_qty'] ?? 15),
+      price: _toInt(m['price']),
+      cost: _toInt(m['cost']),
+      emoji: m['emoji'] ?? '👕',
+      photoUrl: m['photo_url'],
+      sizes: parsedSizes,
+    );
+  }
 
   Map<String, dynamic> toMap() => {
     'name': name, 'category': category, 'sku': sku,

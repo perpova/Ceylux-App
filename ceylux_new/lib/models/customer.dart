@@ -28,16 +28,30 @@ class Customer {
   @override
   int get hashCode => id.hashCode;
 
+  static int _toInt(dynamic v) {
+    if (v == null) return 0;
+    if (v is int) return v;
+    if (v is num) return v.round();
+    return int.tryParse(v.toString().split('.').first) ?? 0;
+  }
+
+  static double _toDouble(dynamic v) {
+    if (v == null) return 0.0;
+    if (v is double) return v;
+    if (v is num) return v.toDouble();
+    return double.tryParse(v.toString()) ?? 0.0;
+  }
+
   factory Customer.fromMap(Map<String, dynamic> m) => Customer(
     id: m['id']?.toString() ?? '',
     name: m['name'] ?? '',
     phone: m['phone'] ?? '',
     email: m['email'] ?? '',
     address: m['address'] ?? '',
-    totalOrders: m['total_orders'] ?? 0,
-    totalSpent: m['total_spent'] ?? 0,
+    totalOrders: _toInt(m['total_orders']),
+    totalSpent: _toInt(m['total_spent']),
     photoUrl: m['photo_url'],
-    ownerRating: (m['owner_rating'] ?? 0).toDouble(),
+    ownerRating: _toDouble(m['owner_rating']),
     ownerNote: m['owner_note'] ?? '',
   );
 
