@@ -129,10 +129,10 @@ class DashboardScreen extends StatelessWidget {
                         mainAxisSpacing: 12,
                         childAspectRatio: 1.45,
                         children: [
-                          StatCard(label: 'Total Revenue', value: 'Rs. ${NumberFormat('#,###').format(totalRevenue)}', icon: '💰', accentColor: AppColors.gold),
-                          StatCard(label: 'Stock Items', value: '${stock.length}', icon: '📦', accentColor: AppColors.accent),
-                          StatCard(label: 'Customers', value: '${customers.length}', icon: '👥', accentColor: AppColors.success),
-                          StatCard(label: 'Pending Orders', value: '$pendingOrders', icon: '🛍️', accentColor: pendingOrders > 0 ? AppColors.warning : AppColors.success),
+                          StatCard(label: 'Total Revenue', value: 'Rs. ${NumberFormat('#,###').format(totalRevenue)}', icon: Icons.wallet, accentColor: AppColors.gold),
+                          StatCard(label: 'Stock Items', value: '${stock.length}', icon: Icons.inventory_2, accentColor: AppColors.accent),
+                          StatCard(label: 'Customers', value: '${customers.length}', icon: Icons.group, accentColor: AppColors.success),
+                          StatCard(label: 'Pending Orders', value: '$pendingOrders', icon: Icons.shopping_bag, accentColor: pendingOrders > 0 ? AppColors.warning : AppColors.success),
                         ],
                       );
                     },

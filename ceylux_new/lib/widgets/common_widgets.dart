@@ -54,11 +54,11 @@ class GoldButton extends StatelessWidget {
 class StatCard extends StatelessWidget {
   final String label;
   final String value;
-  final String icon;
+  final IconData? icon;
   final Color? accentColor;
 
   const StatCard({super.key, required this.label, required this.value,
-    required this.icon, this.accentColor});
+    this.icon, this.accentColor});
 
   @override
   Widget build(BuildContext context) {
@@ -166,7 +166,6 @@ class StatCard extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: gradient,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: borderColor, width: 1.2),
         boxShadow: [
           BoxShadow(
             color: textColor.withOpacity(0.04),
@@ -187,12 +186,14 @@ class StatCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: iconBgColor,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.white.withOpacity(0.04), width: 0.8),
                 ),
-                child: Text(
-                  icon,
-                  style: const TextStyle(fontSize: 14),
-                ),
+                child: icon != null
+                  ? Icon(
+                      icon,
+                      size: 18,
+                      color: textColor,
+                    )
+                  : const SizedBox(width: 18, height: 18),
               ),
               Container(
                 width: 5,

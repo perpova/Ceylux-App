@@ -220,13 +220,15 @@ class _SplashGateState extends State<SplashGate> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Container(
-                    width: 80, height: 80,
+                    width: 260, height: 80,
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(colors: [AppColors.primary, Color(0xFF0D4A82)]),
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(16),
                       boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 8))],
                     ),
-                    child: const Center(child: Text('C', style: TextStyle(color: Colors.white, fontSize: 40, fontWeight: FontWeight.bold))),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: Image.asset('assets/images/ceylux_logo.png', fit: BoxFit.contain),
+                    ),
                   ),
                   const SizedBox(height: 16),
                   Text('CEYLUX', style: GoogleFonts.outfit(fontSize: 28, color: AppColors.primary, fontWeight: FontWeight.bold, letterSpacing: 3)),
@@ -479,25 +481,15 @@ class _HomeShellState extends State<HomeShell> {
         backgroundColor: AppColors.card,
         elevation: 0,
         shadowColor: AppColors.primary.withOpacity(0.1),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [AppColors.primary, Color(0xFF0D4A82)]),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Text('C', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
-            ),
-            const SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('CEYLUX', style: GoogleFonts.outfit(fontSize: 22, color: AppColors.primary, letterSpacing: 1, fontWeight: FontWeight.bold)),
-                Text('CLOTHING', style: GoogleFonts.plusJakartaSans(fontSize: 8, color: AppColors.muted, letterSpacing: 3, fontWeight: FontWeight.bold)),
-              ],
-            ),
-          ],
+        title: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: Image.asset('assets/images/ceylux_logo.png', width: 140, height: 44, fit: BoxFit.contain),
+          ),
         ),
         actions: [
           Stack(clipBehavior: Clip.none, children: [

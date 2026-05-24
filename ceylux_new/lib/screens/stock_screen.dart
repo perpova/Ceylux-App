@@ -17,7 +17,21 @@ class StockScreen extends StatefulWidget {
 class _StockScreenState extends State<StockScreen> {
   String _filter = 'All';
   String _search = '';
+  DateTime _selectedMonth = DateTime.now();
   final svc = ApiService();
+
+  DateTime get _currentMonthStart => DateTime(_selectedMonth.year, _selectedMonth.month, 1);
+  DateTime get _currentMonthEnd => DateTime(_selectedMonth.year, _selectedMonth.month + 1, 0, 23, 59, 59);
+  
+  DateTime get _lastMonthStart {
+    final m = _selectedMonth.month - 1 == 0 ? DateTime(_selectedMonth.year - 1, 12, 1) : DateTime(_selectedMonth.year, _selectedMonth.month - 1, 1);
+    return m;
+  }
+  
+  DateTime get _lastMonthEnd {
+    final m = _selectedMonth.month - 1 == 0 ? DateTime(_selectedMonth.year - 1, 12, 31, 23, 59, 59) : DateTime(_selectedMonth.year, _selectedMonth.month, 0, 23, 59, 59);
+    return m;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -49,23 +63,42 @@ class _StockScreenState extends State<StockScreen> {
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: ['All', 'Men', 'Women', 'Kids'].map((cat) => GestureDetector(
-                onTap: () => setState(() => _filter = cat),
-                child: Container(
-                  margin: const EdgeInsets.only(right: 8),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: _filter == cat ? AppColors.primary.withOpacity(0.1) : Colors.transparent,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: _filter == cat ? AppColors.primary : AppColors.border),
+          child: Row(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: ['All', 'Current Month', 'Last Month'].map((filter) => GestureDetector(
+                      onTap: () => setState(() => _filter = filter),
+                      child: Container(
+                        margin: const EdgeInsets.only(right: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: _filter == filter ? AppColors.primary.withOpacity(0.1) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: _filter == filter ? AppColors.primary : AppColors.border),
+                        ),
+                        child: Text(filter, style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: _filter == filter ? AppColors.primary : AppColors.muted)),
+                      ),
+                    )).toList(),
                   ),
-                  child: Text(cat, style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: _filter == cat ? AppColors.primary : AppColors.muted)),
                 ),
-              )).toList(),
-            ),
+              ),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: _showMonthPicker,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppColors.card,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Icon(Icons.calendar_today, color: AppColors.primary, size: 18),
+                ),
+              ),
+            ],
           ),
         ),
         Expanded(
@@ -74,9 +107,21 @@ class _StockScreenState extends State<StockScreen> {
             builder: (context, snap) {
               if (!snap.hasData) return Center(child: CircularProgressIndicator(color: AppColors.primary));
               final items = (snap.data ?? []).where((item) {
-                final matchCat = _filter == 'All' || item.category == _filter;
+                // Month filter based on _selectedMonth
+                bool matchMonth = true;
+                if (_filter == 'Current Month') {
+                  // Filter by current selected month
+                  matchMonth = item.createdAt.year == _selectedMonth.year &&
+                      item.createdAt.month == _selectedMonth.month;
+                } else if (_filter == 'Last Month') {
+                  // Filter by last month
+                  matchMonth = item.createdAt.year == _lastMonthStart.year &&
+                      item.createdAt.month == _lastMonthStart.month;
+                }
+                // If 'All', matchMonth stays true
+                
                 final matchSearch = item.name.toLowerCase().contains(_search.toLowerCase()) || item.sku.toLowerCase().contains(_search.toLowerCase());
-                return matchCat && matchSearch;
+                return matchMonth && matchSearch;
               }).toList();
 
               if (items.isEmpty) {
@@ -98,6 +143,21 @@ class _StockScreenState extends State<StockScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  void _showMonthPicker() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _MonthYearPicker(
+        initialMonth: _selectedMonth,
+        onChanged: (newMonth) => setState(() => _selectedMonth = newMonth),
+        onDone: () {
+          setState(() => _filter = 'Current Month');
+          Navigator.pop(context);
+        },
+      ),
     );
   }
 
@@ -187,6 +247,7 @@ class _StockFormSheetState extends State<_StockFormSheet> {
   Map<String, int> _sizes = {};
   File? _photo;
   String? _existingPhotoUrl;
+  DateTime _createdAt = DateTime.now();
   bool _saving = false;
   final svc = ApiService();
 
@@ -204,6 +265,7 @@ class _StockFormSheetState extends State<_StockFormSheet> {
       _minQty.text = it.minQty.toString();
       _category = it.category; _emoji = it.emoji;
       _sizes = Map.from(it.sizes); _existingPhotoUrl = it.photoUrl;
+      _createdAt = it.createdAt;
     } else {
       for (final s in allSizes) { _sizes[s] = 0; }
     }
@@ -260,6 +322,7 @@ class _StockFormSheetState extends State<_StockFormSheet> {
         price: int.tryParse(_price.text) ?? 0,
         cost: int.tryParse(_cost.text) ?? 0,
         emoji: _emoji, photoUrl: photoUrl, sizes: _sizes,
+        createdAt: _createdAt,
       );
 
       if (_isEdit) { await svc.updateStockItem(item); } else { await svc.addStockItem(item); }
@@ -343,6 +406,37 @@ class _StockFormSheetState extends State<_StockFormSheet> {
         GoldTextField(label: 'Item Name *', controller: _name, hint: 'e.g. Silk Kurta - Navy'),
         GoldTextField(label: 'SKU Code', controller: _sku, hint: 'e.g. MK-001'),
 
+        // Date Added (Read-only for edit)
+        if (_isEdit)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 12, bottom: 6),
+                child: Text('Date Added', style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.muted, letterSpacing: 1, fontWeight: FontWeight.bold)),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: AppColors.bg,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      DateFormat('MMM dd, yyyy').format(_createdAt),
+                      style: GoogleFonts.plusJakartaSans(fontSize: 14, color: AppColors.textColor, fontWeight: FontWeight.w600),
+                    ),
+                    Icon(Icons.calendar_today, color: AppColors.muted, size: 18),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+
         // Category
         Text('CATEGORY', style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.muted, letterSpacing: 1, fontWeight: FontWeight.bold)),
         const SizedBox(height: 6),
@@ -409,4 +503,157 @@ class _StockFormSheetState extends State<_StockFormSheet> {
 
   @override
   void dispose() { _name.dispose(); _sku.dispose(); _price.dispose(); _cost.dispose(); _minQty.dispose(); super.dispose(); }
+}
+
+class _MonthYearPicker extends StatefulWidget {
+  final DateTime initialMonth;
+  final Function(DateTime) onChanged;
+  final VoidCallback onDone;
+
+  const _MonthYearPicker({required this.initialMonth, required this.onChanged, required this.onDone});
+
+  @override
+  State<_MonthYearPicker> createState() => _MonthYearPickerState();
+}
+
+class _MonthYearPickerState extends State<_MonthYearPicker> {
+  late DateTime _selected;
+  final List<String> _months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = widget.initialMonth;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final currentYear = DateTime.now().year;
+    final years = List.generate(10, (i) => currentYear - 5 + i);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              children: [
+                Container(width: 36, height: 4, decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)), margin: const EdgeInsets.only(bottom: 16)),
+                Text('Select Month & Year', style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textColor)),
+                const SizedBox(height: 24),
+                
+                // Month and Year Selectors
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('MONTH', style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.muted, letterSpacing: 1, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 10),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: AppColors.bg,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppColors.border),
+                            ),
+                            child: DropdownButton<int>(
+                              value: _selected.month,
+                              isExpanded: true,
+                              underline: Container(),
+                              padding: const EdgeInsets.symmetric(horizontal: 14),
+                              items: List.generate(12, (i) => DropdownMenuItem(
+                                value: i + 1,
+                                child: Text(_months[i], style: GoogleFonts.plusJakartaSans(fontSize: 14, color: AppColors.textColor, fontWeight: FontWeight.bold)),
+                              )),
+                              onChanged: (month) {
+                                if (month != null) {
+                                  setState(() => _selected = DateTime(_selected.year, month));
+                                  widget.onChanged(_selected);
+                                }
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('YEAR', style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.muted, letterSpacing: 1, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 10),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: AppColors.bg,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppColors.border),
+                            ),
+                            child: DropdownButton<int>(
+                              value: _selected.year,
+                              isExpanded: true,
+                              underline: Container(),
+                              padding: const EdgeInsets.symmetric(horizontal: 14),
+                              items: years.map((year) => DropdownMenuItem(
+                                value: year,
+                                child: Text('$year', style: GoogleFonts.plusJakartaSans(fontSize: 14, color: AppColors.textColor, fontWeight: FontWeight.bold)),
+                              )).toList(),
+                              onChanged: (year) {
+                                if (year != null) {
+                                  setState(() => _selected = DateTime(year, _selected.month));
+                                  widget.onChanged(_selected);
+                                }
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
+                // Preview
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.calendar_today, color: AppColors.primary, size: 20),
+                      const SizedBox(width: 10),
+                      Text(
+                        DateFormat('MMMM yyyy').format(_selected),
+                        style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.primary),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Close Button
+                SizedBox(
+                  width: double.infinity,
+                  child: GoldButton(
+                    label: 'Done',
+                    onTap: widget.onDone,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
