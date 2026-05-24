@@ -80,13 +80,13 @@ class _OrdersScreenState extends State<OrdersScreen> {
             stream: svc.ordersStream(),
             builder: (context, snap) {
               if (snap.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator(color: AppColors.gold));
+                return Center(child: CircularProgressIndicator(color: AppColors.gold));
               }
               final orders = (snap.data ?? [])
                   .where((o) => _filter == 'All' || o.status == _filter)
                   .toList();
               if (orders.isEmpty) {
-                return const Center(child: Text('No orders', style: TextStyle(color: AppColors.muted)));
+                return Center(child: Text('No orders', style: TextStyle(color: AppColors.muted)));
               }
               return ListView.builder(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
@@ -104,9 +104,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
                             children: [
                               Text(o.customerName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                               const SizedBox(height: 2),
-                              Text('${o.id} • ${o.date}', style: const TextStyle(fontSize: 11, color: AppColors.muted)),
+                              Text('${o.id} • ${o.date}', style: TextStyle(fontSize: 11, color: AppColors.muted)),
                               const SizedBox(height: 4),
-                              Text('${o.items.length} item(s)', style: const TextStyle(fontSize: 11, color: AppColors.muted)),
+                              Text('${o.items.length} item(s)', style: TextStyle(fontSize: 11, color: AppColors.muted)),
                             ],
                           ),
                         ),
@@ -114,7 +114,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             Text('Rs. ${NumberFormat('#,###').format(o.total)}',
-                                style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.goldLight)),
+                                style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.goldLight)),
                             const SizedBox(height: 6),
                             StatusBadge(status: o.status),
                           ],
@@ -155,7 +155,7 @@ class _OrderDetailSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final svc = ApiService();
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.card,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -169,17 +169,17 @@ class _OrderDetailSheet extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(order.id, style: const TextStyle(fontFamily: 'PlayfairDisplay', fontSize: 18, color: AppColors.textColor)),
+              Text(order.id, style: TextStyle(fontFamily: 'PlayfairDisplay', fontSize: 18, color: AppColors.textColor)),
               StatusBadge(status: order.status),
             ],
           ),
           const SizedBox(height: 4),
           Row(children: [
-            Text(order.customerName, style: const TextStyle(color: AppColors.muted, fontSize: 13)),
+            Text(order.customerName, style: TextStyle(color: AppColors.muted, fontSize: 13)),
             const SizedBox(width: 8),
-            const Text('•', style: TextStyle(color: AppColors.border)),
+            Text('•', style: TextStyle(color: AppColors.border)),
             const SizedBox(width: 8),
-            Text(order.date, style: const TextStyle(color: AppColors.muted, fontSize: 13)),
+            Text(order.date, style: TextStyle(color: AppColors.muted, fontSize: 13)),
           ]),
           const SizedBox(height: 16),
           Container(
@@ -195,7 +195,7 @@ class _OrderDetailSheet extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(item.name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                          Text('Size: ${item.size} × ${item.qty}', style: const TextStyle(fontSize: 11, color: AppColors.muted)),
+                          Text('Size: ${item.size} × ${item.qty}', style: TextStyle(fontSize: 11, color: AppColors.muted)),
                         ],
                       ),
                     ),
@@ -212,7 +212,7 @@ class _OrderDetailSheet extends StatelessWidget {
             children: [
               const Text('TOTAL', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1, fontSize: 13)),
               Text('Rs. ${NumberFormat('#,###').format(order.total)}',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: AppColors.goldLight)),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: AppColors.goldLight)),
             ],
           ),
           const SizedBox(height: 16),
@@ -344,7 +344,7 @@ class _NewOrderSheetState extends State<_NewOrderSheet> {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.card,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -356,10 +356,10 @@ class _NewOrderSheetState extends State<_NewOrderSheet> {
             Container(width: 36, height: 4,
               decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)),
               margin: const EdgeInsets.only(bottom: 16)),
-            const Text('New Order', style: TextStyle(fontFamily: 'PlayfairDisplay', fontSize: 18, color: AppColors.textColor)),
+            Text('New Order', style: TextStyle(fontFamily: 'PlayfairDisplay', fontSize: 18, color: AppColors.textColor)),
             const SizedBox(height: 16),
 
-            const Text('SELECT CUSTOMER', style: TextStyle(fontSize: 10, color: AppColors.muted, letterSpacing: 1)),
+            Text('SELECT CUSTOMER', style: TextStyle(fontSize: 10, color: AppColors.muted, letterSpacing: 1)),
             const SizedBox(height: 8),
             StreamBuilder<List<Customer>>(
               stream: svc.customersStream(),
@@ -368,14 +368,14 @@ class _NewOrderSheetState extends State<_NewOrderSheet> {
                 return DropdownButtonFormField<String>(
                   value: _selCustId,
                   dropdownColor: AppColors.card,
-                  style: const TextStyle(color: AppColors.textColor, fontSize: 14),
+                  style: TextStyle(color: AppColors.textColor, fontSize: 14),
                   decoration: InputDecoration(
                     filled: true, fillColor: AppColors.bg,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
-                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
-                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.gold)),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: AppColors.border)),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: AppColors.border)),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: AppColors.gold)),
                   ),
-                  hint: const Text('Choose customer', style: TextStyle(color: AppColors.muted)),
+                  hint: Text('Choose customer', style: TextStyle(color: AppColors.muted)),
                   items: _customers.map((c) => DropdownMenuItem<String>(
                     value: c.id, child: Text(c.name),
                   )).toList(),
@@ -392,7 +392,7 @@ class _NewOrderSheetState extends State<_NewOrderSheet> {
             ),
             const SizedBox(height: 16),
 
-            const Text('ADD ITEMS', style: TextStyle(fontSize: 10, color: AppColors.muted, letterSpacing: 1)),
+            Text('ADD ITEMS', style: TextStyle(fontSize: 10, color: AppColors.muted, letterSpacing: 1)),
             const SizedBox(height: 8),
             StreamBuilder<List<StockItem>>(
               stream: svc.stockStream(),
@@ -414,11 +414,11 @@ class _NewOrderSheetState extends State<_NewOrderSheet> {
                     Expanded(child: Text('${item['name']} [${item['size']}] x${item['qty']}',
                         style: const TextStyle(fontSize: 12))),
                     Text('Rs. ${NumberFormat('#,###').format((item['qty'] as int) * (item['price'] as int))}',
-                        style: const TextStyle(fontSize: 12, color: AppColors.goldLight, fontWeight: FontWeight.w600)),
+                        style: TextStyle(fontSize: 12, color: AppColors.goldLight, fontWeight: FontWeight.w600)),
                     const SizedBox(width: 8),
                     GestureDetector(
                       onTap: () => setState(() => _items.remove(item)),
-                      child: const Icon(Icons.close, size: 16, color: AppColors.danger),
+                      child: Icon(Icons.close, size: 16, color: AppColors.danger),
                     ),
                   ],
                 ),
@@ -436,7 +436,7 @@ class _NewOrderSheetState extends State<_NewOrderSheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('DISCOUNT', style: TextStyle(fontSize: 10, color: AppColors.muted, letterSpacing: 1)),
+                    Text('DISCOUNT', style: TextStyle(fontSize: 10, color: AppColors.muted, letterSpacing: 1)),
                     const SizedBox(height: 10),
                     Row(
                       children: [
@@ -444,25 +444,25 @@ class _NewOrderSheetState extends State<_NewOrderSheet> {
                           child: TextFormField(
                             controller: _discountCtrl,
                             keyboardType: TextInputType.number,
-                            style: const TextStyle(color: AppColors.textColor, fontSize: 14),
+                            style: TextStyle(color: AppColors.textColor, fontSize: 14),
                             decoration: InputDecoration(
                               hintText: '0',
-                              hintStyle: const TextStyle(color: AppColors.muted),
+                              hintStyle: TextStyle(color: AppColors.muted),
                               filled: true,
                               fillColor: AppColors.card,
                               suffixText: '%',
-                              suffixStyle: const TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold),
+                              suffixStyle: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8),
-                                borderSide: const BorderSide(color: AppColors.border),
+                                borderSide: BorderSide(color: AppColors.border),
                               ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8),
-                                borderSide: const BorderSide(color: AppColors.border),
+                                borderSide: BorderSide(color: AppColors.border),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8),
-                                borderSide: const BorderSide(color: AppColors.gold),
+                                borderSide: BorderSide(color: AppColors.gold),
                               ),
                               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                             ),
@@ -514,9 +514,9 @@ class _NewOrderSheetState extends State<_NewOrderSheet> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text('🎁 $_manualDiscount% discount applied',
-                              style: const TextStyle(color: AppColors.gold, fontSize: 12, fontWeight: FontWeight.w600)),
+                              style: TextStyle(color: AppColors.gold, fontSize: 12, fontWeight: FontWeight.w600)),
                             Text('− Rs. ${NumberFormat('#,###').format(_discountAmt)}',
-                              style: const TextStyle(color: AppColors.gold, fontSize: 12, fontWeight: FontWeight.w600)),
+                              style: TextStyle(color: AppColors.gold, fontSize: 12, fontWeight: FontWeight.w600)),
                           ],
                         ),
                       ),
@@ -532,7 +532,7 @@ class _NewOrderSheetState extends State<_NewOrderSheet> {
                 children: [
                   const Text('TOTAL', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
                   Text('Rs. ${NumberFormat('#,###').format(_total)}',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppColors.goldLight)),
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppColors.goldLight)),
                 ],
               ),
               const SizedBox(height: 16),
@@ -577,14 +577,14 @@ class _ItemAdderState extends State<_ItemAdder> {
         DropdownButtonFormField<String>(
           value: _selId,
           dropdownColor: AppColors.card,
-          style: const TextStyle(color: AppColors.textColor, fontSize: 13),
+          style: TextStyle(color: AppColors.textColor, fontSize: 13),
           decoration: InputDecoration(
             filled: true, fillColor: AppColors.bg,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.gold)),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: AppColors.border)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: AppColors.border)),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: AppColors.gold)),
           ),
-          hint: const Text('Select item', style: TextStyle(color: AppColors.muted)),
+          hint: Text('Select item', style: TextStyle(color: AppColors.muted)),
           items: widget.stock.map((s) => DropdownMenuItem<String>(
             value: s.id,
             child: Text('${s.name} — Rs. ${s.price}'),
@@ -599,14 +599,14 @@ class _ItemAdderState extends State<_ItemAdder> {
                 child: DropdownButtonFormField<String>(
                   value: _size.isNotEmpty ? _size : null,
                   dropdownColor: AppColors.card,
-                  style: const TextStyle(color: AppColors.textColor, fontSize: 13),
+                  style: TextStyle(color: AppColors.textColor, fontSize: 13),
                   decoration: InputDecoration(
                     filled: true, fillColor: AppColors.bg,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
-                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
-                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.gold)),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: AppColors.border)),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: AppColors.border)),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: AppColors.gold)),
                   ),
-                  hint: const Text('Size', style: TextStyle(color: AppColors.muted)),
+                  hint: Text('Size', style: TextStyle(color: AppColors.muted)),
                   items: _sizes.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
                   onChanged: (s) => setState(() => _size = s ?? ''),
                 ),
@@ -615,12 +615,12 @@ class _ItemAdderState extends State<_ItemAdder> {
               Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.remove_circle_outline, color: AppColors.muted),
+                    icon: Icon(Icons.remove_circle_outline, color: AppColors.muted),
                     onPressed: () => setState(() => _qty = (_qty - 1).clamp(1, 99)),
                   ),
-                  Text('$_qty', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textColor)),
+                  Text('$_qty', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textColor)),
                   IconButton(
-                    icon: const Icon(Icons.add_circle_outline, color: AppColors.gold),
+                    icon: Icon(Icons.add_circle_outline, color: AppColors.gold),
                     onPressed: () => setState(() => _qty++),
                   ),
                 ],

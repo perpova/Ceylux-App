@@ -1,19 +1,37 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+// Global theme notifier for reactively switching between System, Light, and Dark modes
+final themeNotifier = ValueNotifier<ThemeMode>(ThemeMode.system);
+
 class AppColors {
+  // Dynamically resolve whether dark mode is currently active
+  static bool get isDark {
+    try {
+      final mode = themeNotifier.value;
+      if (mode == ThemeMode.dark) return true;
+      if (mode == ThemeMode.light) return false;
+      return WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // Dynamic color getters that resolve based on theme mode
+  static Color get bg => isDark ? const Color(0xFF0B1320) : const Color(0xFFF1F5F9);
+  static Color get card => isDark ? const Color(0xFF111C2D) : const Color(0xFFFFFFFF);
+  static Color get border => isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0);
+  static Color get textColor => isDark ? const Color(0xFFF3F4F6) : const Color(0xFF1A2E42);
+  static Color get muted => isDark ? const Color(0xFF94A3B8) : const Color(0xFF6B8BAA);
+
+  // App accent colors
   static const Color primary      = Color(0xFF125D9E);
   static const Color primaryLight = Color(0xFF77B9ED);
   static const Color gold         = Color(0xFFD4AF37);
   static const Color goldLight    = Color(0xFFE8C95A);
   static const Color goldDark     = Color(0xFFB8920A);
   static const Color steelBlue    = Color(0xFF87A9C2);
-  static const Color bg           = Color(0xFFF5F2EE);
-  static const Color card         = Color(0xFFFFFFFF);
   static const Color cardHover    = Color(0xFFEEF4FB);
-  static const Color border       = Color(0xFFD0E4F5);
-  static const Color textColor    = Color(0xFF1A2E42);
-  static const Color muted        = Color(0xFF6B8BAA);
   static const Color success      = Color(0xFF2E7D5E);
   static const Color danger       = Color(0xFFB03A2E);
   static const Color warning      = Color(0xFFB8860B);
@@ -21,37 +39,78 @@ class AppColors {
 }
 
 class AppTheme {
-  static ThemeData get dark => ThemeData(
+  // Compatibility getter
+  static ThemeData get dark => lightTheme;
+
+  static ThemeData get lightTheme => ThemeData(
     brightness: Brightness.light,
-    scaffoldBackgroundColor: AppColors.bg,
+    scaffoldBackgroundColor: const Color(0xFFF1F5F9),
+    cardColor: const Color(0xFFFFFFFF),
+    dividerColor: const Color(0xFFE2E8F0),
     colorScheme: const ColorScheme.light(
       primary: AppColors.primary,
-      surface: AppColors.card,
-      background: AppColors.bg,
+      surface: Color(0xFFFFFFFF),
+      background: Color(0xFFF1F5F9),
     ),
-    textTheme: GoogleFonts.montserratTextTheme(ThemeData.light().textTheme).copyWith(
-      displayLarge:   GoogleFonts.playfairDisplay(color: AppColors.primary),
-      displayMedium:  GoogleFonts.playfairDisplay(color: AppColors.primary),
-      displaySmall:   GoogleFonts.playfairDisplay(color: AppColors.primary),
-      headlineLarge:  GoogleFonts.playfairDisplay(color: AppColors.primary),
-      headlineMedium: GoogleFonts.playfairDisplay(color: AppColors.primary),
+    textTheme: GoogleFonts.plusJakartaSansTextTheme(ThemeData.light().textTheme).copyWith(
+      displayLarge:   GoogleFonts.outfit(color: AppColors.primary),
+      displayMedium:  GoogleFonts.outfit(color: AppColors.primary),
+      displaySmall:   GoogleFonts.outfit(color: AppColors.primary),
+      headlineLarge:  GoogleFonts.outfit(color: AppColors.primary),
+      headlineMedium: GoogleFonts.outfit(color: AppColors.primary),
     ),
     appBarTheme: const AppBarTheme(
-      backgroundColor: AppColors.card,
-      foregroundColor: AppColors.textColor,
+      backgroundColor: Color(0xFFFFFFFF),
+      foregroundColor: Color(0xFF1A2E42),
       elevation: 0,
       shadowColor: Color(0x1A125D9E),
       iconTheme: IconThemeData(color: AppColors.primary),
     ),
     cardTheme: const CardThemeData(
-      color: AppColors.card,
+      color: Color(0xFFFFFFFF),
       elevation: 1,
       shadowColor: Color(0x1A125D9E),
     ),
     bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-      backgroundColor: AppColors.card,
+      backgroundColor: Color(0xFFFFFFFF),
       selectedItemColor: AppColors.primary,
-      unselectedItemColor: AppColors.muted,
+      unselectedItemColor: Color(0xFF6B8BAA),
+    ),
+  );
+
+  static ThemeData get darkTheme => ThemeData(
+    brightness: Brightness.dark,
+    scaffoldBackgroundColor: const Color(0xFF0B1320),
+    cardColor: const Color(0xFF111C2D),
+    dividerColor: const Color(0xFF1E293B),
+    colorScheme: const ColorScheme.dark(
+      primary: AppColors.primary,
+      surface: Color(0xFF111C2D),
+      background: Color(0xFF0B1320),
+    ),
+    textTheme: GoogleFonts.plusJakartaSansTextTheme(ThemeData.dark().textTheme).copyWith(
+      displayLarge:   GoogleFonts.outfit(color: AppColors.primaryLight),
+      displayMedium:  GoogleFonts.outfit(color: AppColors.primaryLight),
+      displaySmall:   GoogleFonts.outfit(color: AppColors.primaryLight),
+      headlineLarge:  GoogleFonts.outfit(color: AppColors.primaryLight),
+      headlineMedium: GoogleFonts.outfit(color: AppColors.primaryLight),
+    ),
+    appBarTheme: const AppBarTheme(
+      backgroundColor: Color(0xFF1E293B),
+      foregroundColor: Color(0xFFF3F4F6),
+      elevation: 0,
+      shadowColor: Color(0x1A000000),
+      iconTheme: IconThemeData(color: AppColors.primaryLight),
+    ),
+    cardTheme: const CardThemeData(
+      color: Color(0xFF1E293B),
+      elevation: 1,
+      shadowColor: Color(0x1A000000),
+    ),
+    bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+      backgroundColor: Color(0xFF1E293B),
+      selectedItemColor: AppColors.primaryLight,
+      unselectedItemColor: Color(0xFF94A3B8),
     ),
   );
 }

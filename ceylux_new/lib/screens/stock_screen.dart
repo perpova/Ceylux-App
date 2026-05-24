@@ -32,11 +32,11 @@ class _StockScreenState extends State<StockScreen> {
                   decoration: BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)),
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
                   child: Row(children: [
-                    const Icon(Icons.search, color: AppColors.muted, size: 18),
+                    Icon(Icons.search, color: AppColors.muted, size: 18),
                     const SizedBox(width: 8),
                     Expanded(child: TextField(
-                      style: const TextStyle(color: AppColors.textColor, fontSize: 14),
-                      decoration: const InputDecoration(border: InputBorder.none, hintText: 'Search by name or SKU...', hintStyle: TextStyle(color: AppColors.muted)),
+                      style: GoogleFonts.plusJakartaSans(color: AppColors.textColor, fontSize: 14),
+                      decoration: InputDecoration(border: InputBorder.none, hintText: 'Search by name or SKU...', hintStyle: TextStyle(color: AppColors.muted)),
                       onChanged: (v) => setState(() => _search = v),
                     )),
                   ]),
@@ -62,7 +62,7 @@ class _StockScreenState extends State<StockScreen> {
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(color: _filter == cat ? AppColors.primary : AppColors.border),
                   ),
-                  child: Text(cat, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _filter == cat ? AppColors.primary : AppColors.muted)),
+                  child: Text(cat, style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: _filter == cat ? AppColors.primary : AppColors.muted)),
                 ),
               )).toList(),
             ),
@@ -72,7 +72,7 @@ class _StockScreenState extends State<StockScreen> {
           child: StreamBuilder<List<StockItem>>(
             stream: svc.stockStream(),
             builder: (context, snap) {
-              if (!snap.hasData) return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+              if (!snap.hasData) return Center(child: CircularProgressIndicator(color: AppColors.primary));
               final items = (snap.data ?? []).where((item) {
                 final matchCat = _filter == 'All' || item.category == _filter;
                 final matchSearch = item.name.toLowerCase().contains(_search.toLowerCase()) || item.sku.toLowerCase().contains(_search.toLowerCase());
@@ -83,7 +83,7 @@ class _StockScreenState extends State<StockScreen> {
                 return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                   const Text('📦', style: TextStyle(fontSize: 48)),
                   const SizedBox(height: 12),
-                  Text('No items found', style: GoogleFonts.playfairDisplay(fontSize: 18, color: AppColors.muted)),
+                  Text('No items found', style: GoogleFonts.outfit(fontSize: 18, color: AppColors.muted, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                   GoldButton(label: '+ Add Item', onTap: () => _showForm(context, null)),
                 ]));
@@ -126,7 +126,7 @@ class _StockCard extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border),
-          boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.05), blurRadius: 6, offset: const Offset(0, 2))]),
+          boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.05), blurRadius: 6, offset: Offset(0, 2))]),
         child: Row(
           children: [
             Container(width: 52, height: 52,
@@ -136,24 +136,24 @@ class _StockCard extends StatelessWidget {
                 : Center(child: Text(item.emoji, style: const TextStyle(fontSize: 28)))),
             const SizedBox(width: 12),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(item.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: AppColors.textColor)),
+              Text(item.name, style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.textColor)),
               const SizedBox(height: 2),
               Row(children: [
-                Text(item.sku, style: const TextStyle(fontSize: 11, color: AppColors.muted)),
+                Text(item.sku, style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.muted, fontWeight: FontWeight.w600)),
                 const SizedBox(width: 6),
                 _catTag(item.category),
               ]),
               const SizedBox(height: 3),
               Text(item.sizes.entries.where((e) => e.value > 0).map((e) => '${e.key}:${e.value}').join('  '),
-                style: const TextStyle(fontSize: 10, color: AppColors.muted), overflow: TextOverflow.ellipsis),
+                style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.muted, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis),
             ])),
             Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-              Text('Rs. ${NumberFormat('#,###').format(item.price)}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary, fontSize: 13)),
+              Text('Rs. ${NumberFormat('#,###').format(item.price)}', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, color: AppColors.primary, fontSize: 13)),
               const SizedBox(height: 6),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(color: sc.withOpacity(0.1), borderRadius: BorderRadius.circular(20), border: Border.all(color: sc.withOpacity(0.4))),
-                child: Text(sl, style: TextStyle(fontSize: 10, color: sc, fontWeight: FontWeight.w600)),
+                child: Text(sl, style: GoogleFonts.plusJakartaSans(fontSize: 10, color: sc, fontWeight: FontWeight.bold)),
               ),
             ]),
           ],
@@ -163,9 +163,9 @@ class _StockCard extends StatelessWidget {
   }
 
   Widget _catTag(String cat) {
-    final colors = {'Men': AppColors.primary, 'Women': const Color(0xFFE91E8C), 'Kids': const Color(0xFF2E7D5E)};
+    final colors = {'Men': AppColors.primary, 'Women': Color(0xFFE91E8C), 'Kids': Color(0xFF2E7D5E)};
     final c = colors[cat] ?? AppColors.muted;
-    return Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: c.withOpacity(0.1), borderRadius: BorderRadius.circular(10)), child: Text(cat, style: TextStyle(fontSize: 9, color: c, fontWeight: FontWeight.w600)));
+    return Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: c.withOpacity(0.1), borderRadius: BorderRadius.circular(10)), child: Text(cat, style: GoogleFonts.plusJakartaSans(fontSize: 9, color: c, fontWeight: FontWeight.bold)));
   }
 }
 
@@ -223,7 +223,7 @@ class _StockFormSheetState extends State<_StockFormSheet> {
       context: context, backgroundColor: AppColors.card,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => Padding(padding: const EdgeInsets.all(20), child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Container(width: 36, height: 4, decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)), margin: const EdgeInsets.only(bottom: 16)),
+        Container(width: 36, height: 4, decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)), margin: EdgeInsets.only(bottom: 16)),
         Row(children: [
           Expanded(child: _srcBtn('📷', 'Camera', ImageSource.camera)),
           const SizedBox(width: 12),
@@ -240,7 +240,7 @@ class _StockFormSheetState extends State<_StockFormSheet> {
     onTap: () => Navigator.pop(context, src),
     child: Container(padding: const EdgeInsets.symmetric(vertical: 14),
       decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)),
-      child: Column(children: [Text(icon, style: const TextStyle(fontSize: 28)), const SizedBox(height: 4), Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textColor))])),
+      child: Column(children: [Text(icon, style: TextStyle(fontSize: 28)), SizedBox(height: 4), Text(label, style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textColor))])),
   );
 
   Future<void> _save() async {
@@ -280,11 +280,12 @@ class _StockFormSheetState extends State<_StockFormSheet> {
   Future<void> _delete() async {
     final ok = await showDialog<bool>(context: context, builder: (_) => AlertDialog(
       backgroundColor: AppColors.card,
-      title: const Text('Delete Item?', style: TextStyle(color: AppColors.textColor)),
-      content: Text('${widget.item!.name} delete කරන්නද?', style: const TextStyle(color: AppColors.muted)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: Text('Delete Item?', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: AppColors.textColor)),
+      content: Text('${widget.item!.name} delete කරන්නද?', style: GoogleFonts.plusJakartaSans(color: AppColors.muted)),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel', style: TextStyle(color: AppColors.muted))),
-        TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete', style: TextStyle(color: AppColors.danger))),
+        TextButton(onPressed: () => Navigator.pop(context, false), child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: AppColors.muted, fontWeight: FontWeight.bold))),
+        TextButton(onPressed: () => Navigator.pop(context, true), child: Text('Delete', style: GoogleFonts.plusJakartaSans(color: AppColors.danger, fontWeight: FontWeight.bold))),
       ],
     ));
     if (ok != true) return;
@@ -295,17 +296,17 @@ class _StockFormSheetState extends State<_StockFormSheet> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      decoration: BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 20),
       child: SingleChildScrollView(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Center(child: Container(width: 36, height: 4, decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)), margin: const EdgeInsets.only(bottom: 16))),
+        Center(child: Container(width: 36, height: 4, decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)), margin: EdgeInsets.only(bottom: 16))),
 
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text(_isEdit ? 'Edit Item' : 'Add New Item', style: GoogleFonts.playfairDisplay(fontSize: 20, color: AppColors.primary)),
+          Text(_isEdit ? 'Edit Item' : 'Add New Item', style: GoogleFonts.outfit(fontSize: 20, color: AppColors.primary, fontWeight: FontWeight.bold)),
           if (_isEdit) GestureDetector(onTap: _delete, child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(color: AppColors.danger.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-            child: const Text('Delete', style: TextStyle(color: AppColors.danger, fontSize: 12, fontWeight: FontWeight.w600)))),
+            child: Text('Delete', style: GoogleFonts.plusJakartaSans(color: AppColors.danger, fontSize: 12, fontWeight: FontWeight.bold)))),
         ]),
         const SizedBox(height: 20),
 
@@ -318,13 +319,13 @@ class _StockFormSheetState extends State<_StockFormSheet> {
               ? ClipRRect(borderRadius: BorderRadius.circular(11), child: Image.file(_photo!, fit: BoxFit.cover))
               : _existingPhotoUrl != null
                 ? ClipRRect(borderRadius: BorderRadius.circular(11), child: Image.network(_existingPhotoUrl!, fit: BoxFit.cover))
-                : const Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                : Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                     Icon(Icons.camera_alt_outlined, color: AppColors.primary, size: 24),
-                    Text('Photo', style: TextStyle(fontSize: 10, color: AppColors.muted))]),
+                    Text('Photo', style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.muted, fontWeight: FontWeight.bold))]),
           )),
           const SizedBox(width: 16),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('EMOJI', style: TextStyle(fontSize: 10, color: AppColors.muted, letterSpacing: 1)),
+            Text('EMOJI', style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.muted, letterSpacing: 1, fontWeight: FontWeight.bold)),
             const SizedBox(height: 6),
             Wrap(spacing: 6, runSpacing: 6, children: _emojis.map((e) => GestureDetector(
               onTap: () => setState(() => _emoji = e),
@@ -343,7 +344,7 @@ class _StockFormSheetState extends State<_StockFormSheet> {
         GoldTextField(label: 'SKU Code', controller: _sku, hint: 'e.g. MK-001'),
 
         // Category
-        const Text('CATEGORY', style: TextStyle(fontSize: 10, color: AppColors.muted, letterSpacing: 1)),
+        Text('CATEGORY', style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.muted, letterSpacing: 1, fontWeight: FontWeight.bold)),
         const SizedBox(height: 6),
         Row(children: ['Men', 'Women', 'Kids'].map((cat) => Expanded(child: GestureDetector(
           onTap: () => _onCategoryChange(cat),
@@ -354,7 +355,7 @@ class _StockFormSheetState extends State<_StockFormSheet> {
               color: _category == cat ? AppColors.primary.withOpacity(0.1) : AppColors.bg,
               borderRadius: BorderRadius.circular(10),
               border: Border.all(color: _category == cat ? AppColors.primary : AppColors.border)),
-            child: Text(cat, textAlign: TextAlign.center, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _category == cat ? AppColors.primary : AppColors.muted))),
+            child: Text(cat, textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: _category == cat ? AppColors.primary : AppColors.muted))),
         ))).toList()),
         const SizedBox(height: 16),
 
@@ -367,9 +368,9 @@ class _StockFormSheetState extends State<_StockFormSheet> {
 
         // Sizes
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          const Text('SIZE INVENTORY', style: TextStyle(fontSize: 10, color: AppColors.muted, letterSpacing: 1)),
+          Text('SIZE INVENTORY', style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.muted, letterSpacing: 1, fontWeight: FontWeight.bold)),
           Text('Total: ${_sizes.values.fold(0, (a, b) => a + b)}',
-            style: const TextStyle(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.w600)),
+            style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.bold)),
         ]),
         const SizedBox(height: 10),
 
@@ -385,13 +386,13 @@ class _StockFormSheetState extends State<_StockFormSheet> {
                 border: Border.all(color: qty > 0 ? AppColors.primary.withOpacity(0.3) : AppColors.border)),
               child: Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
                 GestureDetector(onTap: () => setState(() => _sizes[sz] = (qty - 1).clamp(0, 999)),
-                  child: const Icon(Icons.remove, size: 14, color: AppColors.muted)),
+                  child: Icon(Icons.remove, size: 14, color: AppColors.muted)),
                 Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Text(sz, style: const TextStyle(fontSize: 9, color: AppColors.muted, fontWeight: FontWeight.w600)),
-                  Text('$qty', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: qty > 0 ? AppColors.primary : AppColors.muted)),
+                  Text(sz, style: GoogleFonts.plusJakartaSans(fontSize: 9, color: AppColors.muted, fontWeight: FontWeight.bold)),
+                  Text('$qty', style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold, color: qty > 0 ? AppColors.primary : AppColors.muted)),
                 ]),
                 GestureDetector(onTap: () => setState(() => _sizes[sz] = qty + 1),
-                  child: const Icon(Icons.add, size: 14, color: AppColors.primary)),
+                  child: Icon(Icons.add, size: 14, color: AppColors.primary)),
               ]),
             );
           }).toList(),
@@ -399,7 +400,7 @@ class _StockFormSheetState extends State<_StockFormSheet> {
         const SizedBox(height: 20),
 
         _saving
-          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+          ? Center(child: CircularProgressIndicator(color: AppColors.primary))
           : SizedBox(width: double.infinity, child: GoldButton(label: _isEdit ? 'Save Changes' : 'Add Item', onTap: _save)),
         const SizedBox(height: 8),
       ])),

@@ -24,10 +24,10 @@ class GoldButton extends StatelessWidget {
           gradient: isOutlined ? null : const LinearGradient(
             colors: [AppColors.primary, Color(0xFF0D4A82)],
           ),
-          border: isOutlined ? Border.all(color: AppColors.primary) : null,
-          borderRadius: BorderRadius.circular(10),
+          border: isOutlined ? Border.all(color: AppColors.primary, width: 1.2) : null,
+          borderRadius: BorderRadius.circular(12),
           boxShadow: isOutlined ? null : [
-            BoxShadow(color: AppColors.primary.withOpacity(0.25), blurRadius: 8, offset: const Offset(0, 3)),
+            BoxShadow(color: AppColors.primary.withOpacity(0.2), blurRadius: 8, offset: const Offset(0, 3)),
           ],
         ),
         child: Row(
@@ -39,8 +39,9 @@ class GoldButton extends StatelessWidget {
             ],
             Text(label, style: TextStyle(
               fontSize: isSmall ? 11 : 13,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.bold,
               color: isOutlined ? AppColors.primary : Colors.white,
+              letterSpacing: 0.3,
             )),
           ],
         ),
@@ -61,30 +62,181 @@ class StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = accentColor ?? AppColors.primary;
+    final Color color = accentColor ?? AppColors.primary;
+    final bool isDark = AppColors.isDark;
+    
+    late LinearGradient gradient;
+    late Color borderColor;
+    late Color textColor;
+    late Color labelColor;
+    late Color iconBgColor;
+
+    if (isDark) {
+      // Dark Mode Gradient Card Styles (Matching Dark Mode Screenshot)
+      if (color == AppColors.primary || color == AppColors.accent) {
+        // Blue Gradient
+        gradient = const LinearGradient(
+          colors: [Color(0xFF132035), Color(0xFF0B1422)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+        borderColor = const Color(0xFF3B82F6).withOpacity(0.18);
+        textColor = const Color(0xFF3B82F6);
+        iconBgColor = const Color(0xFF3B82F6).withOpacity(0.1);
+      } else if (color == AppColors.success) {
+        // Green Gradient
+        gradient = const LinearGradient(
+          colors: [Color(0xFF11261C), Color(0xFF0A1811)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+        borderColor = const Color(0xFF10B981).withOpacity(0.18);
+        textColor = const Color(0xFF10B981);
+        iconBgColor = const Color(0xFF10B981).withOpacity(0.1);
+      } else if (color == AppColors.warning) {
+        // Orange Gradient
+        gradient = const LinearGradient(
+          colors: [Color(0xFF2C1E15), Color(0xFF1B120C)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+        borderColor = const Color(0xFFF97316).withOpacity(0.18);
+        textColor = const Color(0xFFF97316);
+        iconBgColor = const Color(0xFFF97316).withOpacity(0.1);
+      } else {
+        // Gold/Yellow Gradient
+        gradient = const LinearGradient(
+          colors: [Color(0xFF2A2315), Color(0xFF1A150C)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+        borderColor = const Color(0xFFF59E0B).withOpacity(0.18);
+        textColor = const Color(0xFFF59E0B);
+        iconBgColor = const Color(0xFFF59E0B).withOpacity(0.1);
+      }
+      labelColor = textColor.withOpacity(0.5);
+    } else {
+      // Light Mode Pastel Card Styles (Matching Light Mode Screenshot)
+      if (color == AppColors.primary || color == AppColors.accent) {
+        // Light Blue Pastel Gradient
+        gradient = const LinearGradient(
+          colors: [Color(0xFFE2EAF3), Color(0xFFEEF3F8)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+        borderColor = const Color(0xFF3B82F6).withOpacity(0.15);
+        textColor = const Color(0xFF2563EB);
+        iconBgColor = const Color(0xFF3B82F6).withOpacity(0.08);
+      } else if (color == AppColors.success) {
+        // Light Green Pastel Gradient
+        gradient = const LinearGradient(
+          colors: [Color(0xFFE6F4EA), Color(0xFFF4FBF7)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+        borderColor = const Color(0xFF10B981).withOpacity(0.15);
+        textColor = const Color(0xFF059669);
+        iconBgColor = const Color(0xFF10B981).withOpacity(0.08);
+      } else if (color == AppColors.warning) {
+        // Light Orange Pastel Gradient
+        gradient = const LinearGradient(
+          colors: [Color(0xFFFFEDD5), Color(0xFFFFF8F1)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+        borderColor = const Color(0xFFF97316).withOpacity(0.15);
+        textColor = const Color(0xFFEA580C);
+        iconBgColor = const Color(0xFFF97316).withOpacity(0.08);
+      } else {
+        // Light Gold/Yellow Pastel Gradient
+        gradient = const LinearGradient(
+          colors: [Color(0xFFFEF3C7), Color(0xFFFFFBEB)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+        borderColor = const Color(0xFFF59E0B).withOpacity(0.15);
+        textColor = const Color(0xFFD97706);
+        iconBgColor = const Color(0xFFF59E0B).withOpacity(0.08);
+      }
+      labelColor = textColor.withOpacity(0.6);
+    }
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
-        boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.06), blurRadius: 8, offset: const Offset(0, 2))],
+        gradient: gradient,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: borderColor, width: 1.2),
+        boxShadow: [
+          BoxShadow(
+            color: textColor.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-      child: Stack(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Container(height: 3, decoration: BoxDecoration(
-                gradient: LinearGradient(colors: [color, AppColors.primaryLight]),
-                borderRadius: BorderRadius.circular(2),
-              ), margin: const EdgeInsets.only(bottom: 10)),
-              Text(value, style: GoogleFonts.playfairDisplay(fontSize: 26, fontWeight: FontWeight.bold, color: color)),
-              const SizedBox(height: 2),
-              Text(label, style: const TextStyle(fontSize: 10, color: AppColors.muted, letterSpacing: 0.8, fontWeight: FontWeight.w500)),
+              Container(
+                padding: const EdgeInsets.all(7),
+                decoration: BoxDecoration(
+                  color: iconBgColor,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.white.withOpacity(0.04), width: 0.8),
+                ),
+                child: Text(
+                  icon,
+                  style: const TextStyle(fontSize: 14),
+                ),
+              ),
+              Container(
+                width: 5,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: textColor.withOpacity(0.7),
+                  shape: BoxShape.circle,
+                ),
+              ),
             ],
           ),
-          Positioned(right: 0, top: 8, child: Text(icon, style: const TextStyle(fontSize: 22, color: Color(0x33125D9E)))),
+          const SizedBox(height: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    value,
+                    style: GoogleFonts.outfit(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: textColor,
+                      letterSpacing: -0.2,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  label,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 11,
+                    color: labelColor,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.1,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -168,7 +320,7 @@ class UserAvatar extends StatelessWidget {
   Widget _initial() => Center(child: Text(
     name.isNotEmpty ? name[0].toUpperCase() : '?',
     style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold,
-      fontSize: size * 0.38, fontFamily: 'PlayfairDisplay'),
+      fontSize: size * 0.38, fontFamily: 'Outfit'),
   ));
 }
 
@@ -181,11 +333,11 @@ class SectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 12, top: 16),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(text, style: GoogleFonts.playfairDisplay(fontSize: 22, color: AppColors.primary)),
+          Text(text, style: GoogleFonts.outfit(fontSize: 20, color: AppColors.primary, fontWeight: FontWeight.bold, letterSpacing: -0.1)),
           if (trailing != null) trailing!,
         ],
       ),
@@ -206,13 +358,19 @@ class CeyluxCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: padding ?? const EdgeInsets.all(14),
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: padding ?? const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: AppColors.card,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.border),
-          boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.05), blurRadius: 6, offset: const Offset(0, 2))],
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.border.withOpacity(0.5), width: 1.0),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withOpacity(0.04),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: child,
       ),
@@ -236,22 +394,22 @@ class GoldTextField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label.toUpperCase(), style: const TextStyle(fontSize: 10, color: AppColors.muted, letterSpacing: 1, fontWeight: FontWeight.w600)),
+        Text(label.toUpperCase(), style: TextStyle(fontSize: 10, color: AppColors.muted, letterSpacing: 1, fontWeight: FontWeight.w600)),
         const SizedBox(height: 6),
         TextField(
           controller: controller,
           keyboardType: keyboardType,
           maxLines: maxLines,
-          style: const TextStyle(color: AppColors.textColor, fontSize: 14),
+          style: TextStyle(color: AppColors.textColor, fontSize: 14),
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: const TextStyle(color: AppColors.muted),
+            hintStyle: TextStyle(color: AppColors.muted),
             filled: true,
             fillColor: AppColors.bg,
             contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: AppColors.border)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: AppColors.border)),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: AppColors.primary, width: 1.5)),
           ),
         ),
         const SizedBox(height: 14),

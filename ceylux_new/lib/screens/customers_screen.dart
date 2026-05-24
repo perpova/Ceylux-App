@@ -16,7 +16,7 @@ class _RatingInfo {
   const _RatingInfo(this.label, this.emoji, this.color);
 }
 
-const _ratings = [
+final _ratings = [
   _RatingInfo('Unrated',       '—',  AppColors.muted),
   _RatingInfo('Poor',          '😞', AppColors.danger),
   _RatingInfo('Below Average', '😐', Color(0xFFE07020)),
@@ -52,11 +52,11 @@ class _CustomersScreenState extends State<CustomersScreen> {
                 decoration: BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)),
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
                 child: Row(children: [
-                  const Icon(Icons.search, color: AppColors.muted, size: 18),
+                  Icon(Icons.search, color: AppColors.muted, size: 18),
                   const SizedBox(width: 8),
                   Expanded(child: TextField(
-                    style: const TextStyle(color: AppColors.textColor, fontSize: 14),
-                    decoration: const InputDecoration(border: InputBorder.none, hintText: 'Search customers...', hintStyle: TextStyle(color: AppColors.muted)),
+                    style: GoogleFonts.plusJakartaSans(color: AppColors.textColor, fontSize: 14),
+                    decoration: InputDecoration(border: InputBorder.none, hintText: 'Search customers...', hintStyle: TextStyle(color: AppColors.muted)),
                     onChanged: (v) => setState(() => _search = v),
                   )),
                 ]),
@@ -71,7 +71,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('TIER', style: GoogleFonts.montserrat(fontSize: 9, color: AppColors.muted, letterSpacing: 1, fontWeight: FontWeight.w600)),
+            Text('TIER', style: GoogleFonts.plusJakartaSans(fontSize: 9, color: AppColors.muted, letterSpacing: 1, fontWeight: FontWeight.bold)),
             const SizedBox(height: 6),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -87,13 +87,13 @@ class _CustomersScreenState extends State<CustomersScreen> {
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(color: active ? AppColors.primary : AppColors.border),
                     ),
-                    child: Text(t, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: active ? AppColors.primary : AppColors.muted)),
+                    child: Text(t, style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: active ? AppColors.primary : AppColors.muted)),
                   ),
                 );
               }).toList()),
             ),
             const SizedBox(height: 8),
-            Text('OWNER RATING', style: GoogleFonts.montserrat(fontSize: 9, color: AppColors.muted, letterSpacing: 1, fontWeight: FontWeight.w600)),
+            Text('OWNER RATING', style: GoogleFonts.plusJakartaSans(fontSize: 9, color: AppColors.muted, letterSpacing: 1, fontWeight: FontWeight.bold)),
             const SizedBox(height: 6),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -109,7 +109,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(color: active ? AppColors.primary : AppColors.border),
                     ),
-                    child: Text(r, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: active ? AppColors.primary : AppColors.muted)),
+                    child: Text(r, style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: active ? AppColors.primary : AppColors.muted)),
                   ),
                 );
               }).toList()),
@@ -124,7 +124,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
           child: StreamBuilder<List<Customer>>(
             stream: svc.customersStream(),
             builder: (context, snap) {
-              if (!snap.hasData) return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+              if (!snap.hasData) return Center(child: CircularProgressIndicator(color: AppColors.primary));
 
               var customers = snap.data ?? [];
 
@@ -153,7 +153,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
                 return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                   const Text('👥', style: TextStyle(fontSize: 48)),
                   const SizedBox(height: 12),
-                  Text('No customers found', style: GoogleFonts.playfairDisplay(fontSize: 18, color: AppColors.muted)),
+                  Text('No customers found', style: GoogleFonts.outfit(fontSize: 18, color: AppColors.muted, fontWeight: FontWeight.bold)),
                 ]));
               }
 
@@ -177,9 +177,9 @@ class _CustomersScreenState extends State<CustomersScreen> {
                       ]),
                       const SizedBox(width: 12),
                       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(c.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: AppColors.textColor)),
+                        Text(c.name, style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.textColor)),
                         const SizedBox(height: 2),
-                        Text(c.phone, style: const TextStyle(fontSize: 11, color: AppColors.muted)),
+                        Text(c.phone, style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.muted, fontWeight: FontWeight.w600)),
                         const SizedBox(height: 5),
                         // Mini rating bar
                         _MiniRatingBar(rating: c.ownerRating),
@@ -189,7 +189,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
                         TierBadge(totalSpent: c.totalSpent),
                         const SizedBox(height: 4),
                         Text('Rs. ${NumberFormat('#,###').format(c.totalSpent)}',
-                          style: const TextStyle(fontSize: 11, color: AppColors.muted)),
+                          style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.muted, fontWeight: FontWeight.w600)),
                       ]),
                     ]),
                   );
@@ -224,7 +224,7 @@ class _MiniRatingBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (rating <= 0) return Text('Not rated', style: GoogleFonts.montserrat(fontSize: 9, color: AppColors.muted));
+    if (rating <= 0) return Text('Not rated', style: GoogleFonts.plusJakartaSans(fontSize: 9, color: AppColors.muted, fontWeight: FontWeight.w600));
     final ri = _ratingInfo(rating);
     return Row(children: [
       ...List.generate(5, (i) => Container(
@@ -236,7 +236,7 @@ class _MiniRatingBar extends StatelessWidget {
         ),
       )),
       const SizedBox(width: 6),
-      Text('${ri.emoji} ${ri.label}', style: GoogleFonts.montserrat(fontSize: 9, color: ri.color, fontWeight: FontWeight.w600)),
+      Text('${ri.emoji} ${ri.label}', style: GoogleFonts.plusJakartaSans(fontSize: 9, color: ri.color, fontWeight: FontWeight.bold)),
     ]);
   }
 }
@@ -267,7 +267,7 @@ class _CustomerDetailSheetState extends State<_CustomerDetailSheet> {
     await svc.updateCustomer(widget.customer.copyWith(ownerRating: _ownerRating, ownerNote: _noteCtrl.text));
     if (mounted) {
       setState(() => _editingNote = false);
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Saved ✓'), backgroundColor: AppColors.success, duration: Duration(seconds: 1)));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Saved ✓'), backgroundColor: AppColors.success, duration: Duration(seconds: 1)));
     }
   }
 
@@ -275,7 +275,7 @@ class _CustomerDetailSheetState extends State<_CustomerDetailSheet> {
     setState(() => _ownerRating = r);
     await svc.updateCustomer(widget.customer.copyWith(ownerRating: r, ownerNote: _noteCtrl.text));
     if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Rating saved: ${_ratingInfo(r).emoji} ${_ratingInfo(r).label}'), backgroundColor: AppColors.success, duration: const Duration(seconds: 1)));
+      SnackBar(content: Text('Rating saved: ${_ratingInfo(r).emoji} ${_ratingInfo(r).label}'), backgroundColor: AppColors.success, duration: Duration(seconds: 1)));
   }
 
   Future<void> _changePhoto() async {
@@ -287,7 +287,7 @@ class _CustomerDetailSheetState extends State<_CustomerDetailSheet> {
     try {
       final url = await svc.uploadPhoto(File(picked.path), 'customers');
       await svc.updateCustomer(widget.customer.copyWith(photoUrl: url));
-      if (mounted) { Navigator.pop(context); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Photo updated ✓'), backgroundColor: AppColors.success)); }
+      if (mounted) { Navigator.pop(context); ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Photo updated ✓'), backgroundColor: AppColors.success)); }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e'), backgroundColor: AppColors.danger));
     } finally { if (mounted) setState(() => _uploading = false); }
@@ -297,7 +297,7 @@ class _CustomerDetailSheetState extends State<_CustomerDetailSheet> {
     context: context, backgroundColor: AppColors.card,
     shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
     builder: (_) => Padding(padding: const EdgeInsets.all(20), child: Column(mainAxisSize: MainAxisSize.min, children: [
-      Container(width: 36, height: 4, decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)), margin: const EdgeInsets.only(bottom: 16)),
+      Container(width: 36, height: 4, decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)), margin: EdgeInsets.only(bottom: 16)),
       Row(children: [
         Expanded(child: _srcBtn('📷', 'Camera', ImageSource.camera)),
         const SizedBox(width: 12),
@@ -310,7 +310,7 @@ class _CustomerDetailSheetState extends State<_CustomerDetailSheet> {
     onTap: () => Navigator.pop(context, src),
     child: Container(padding: const EdgeInsets.symmetric(vertical: 14),
       decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)),
-      child: Column(children: [Text(icon, style: const TextStyle(fontSize: 28)), const SizedBox(height: 4), Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textColor))])),
+      child: Column(children: [Text(icon, style: TextStyle(fontSize: 28)), SizedBox(height: 4), Text(label, style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textColor))])),
   );
 
   @override
@@ -320,20 +320,20 @@ class _CustomerDetailSheetState extends State<_CustomerDetailSheet> {
     final ri = _ratingInfo(_ownerRating);
 
     return Container(
-      decoration: const BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      decoration: BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 20),
       child: SingleChildScrollView(child: Column(children: [
-        Center(child: Container(width: 36, height: 4, decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)), margin: const EdgeInsets.only(bottom: 16))),
+        Center(child: Container(width: 36, height: 4, decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)), margin: EdgeInsets.only(bottom: 16))),
 
         // Photo + name
         Stack(alignment: Alignment.center, children: [
           UserAvatar(name: c.name, photoUrl: c.photoUrl, size: 80, borderColor: tier.color),
-          if (_uploading) Container(width: 80, height: 80, decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.black.withOpacity(0.6)), child: const Center(child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2))),
+          if (_uploading) Container(width: 80, height: 80, decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.black.withOpacity(0.6)), child: Center(child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2))),
           Positioned(bottom: 0, right: 0, child: GestureDetector(onTap: _uploading ? null : _changePhoto,
-            child: Container(width: 26, height: 26, decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle), child: const Icon(Icons.camera_alt, size: 14, color: Colors.white)))),
+            child: Container(width: 26, height: 26, decoration: BoxDecoration(color: AppColors.primary, shape: BoxShape.circle), child: Icon(Icons.camera_alt, size: 14, color: Colors.white)))),
         ]),
         const SizedBox(height: 8),
-        Text(c.name, style: GoogleFonts.playfairDisplay(fontSize: 20, color: AppColors.primary)),
+        Text(c.name, style: GoogleFonts.outfit(fontSize: 20, color: AppColors.primary, fontWeight: FontWeight.bold)),
         const SizedBox(height: 4),
         Row(mainAxisAlignment: MainAxisAlignment.center, children: [
           TierBadge(totalSpent: c.totalSpent),
@@ -341,7 +341,7 @@ class _CustomerDetailSheetState extends State<_CustomerDetailSheet> {
           if (_ownerRating > 0) Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(color: ri.color.withOpacity(0.12), borderRadius: BorderRadius.circular(20), border: Border.all(color: ri.color.withOpacity(0.4))),
-            child: Text('${ri.emoji} ${ri.label}', style: TextStyle(fontSize: 10, color: ri.color, fontWeight: FontWeight.w600))),
+            child: Text('${ri.emoji} ${ri.label}', style: GoogleFonts.plusJakartaSans(fontSize: 10, color: ri.color, fontWeight: FontWeight.bold))),
         ]),
         const SizedBox(height: 16),
 
@@ -355,14 +355,14 @@ class _CustomerDetailSheetState extends State<_CustomerDetailSheet> {
           ),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
-              const Icon(Icons.lock_outline, size: 13, color: AppColors.primary),
+              Icon(Icons.lock_outline, size: 13, color: AppColors.primary),
               const SizedBox(width: 6),
-              Text('Owner Rating', style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.primary)),
+              Text('Owner Rating', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary)),
               const SizedBox(width: 6),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
-                child: Text('Private', style: GoogleFonts.montserrat(fontSize: 9, color: AppColors.primary, fontWeight: FontWeight.w600))),
+                child: Text('Private', style: GoogleFonts.plusJakartaSans(fontSize: 9, color: AppColors.primary, fontWeight: FontWeight.bold))),
             ]),
             const SizedBox(height: 14),
 
@@ -384,7 +384,7 @@ class _CustomerDetailSheetState extends State<_CustomerDetailSheet> {
                     boxShadow: active ? [BoxShadow(color: info.color.withOpacity(0.2), blurRadius: 6, offset: const Offset(0, 2))] : null,
                   ),
                   child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    Text('${i + 1}', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: active ? info.color : AppColors.muted)),
+                    Text('${i + 1}', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: active ? info.color : AppColors.muted)),
                     const SizedBox(height: 2),
                     Text(info.emoji, style: const TextStyle(fontSize: 14)),
                   ]),
@@ -402,7 +402,7 @@ class _CustomerDetailSheetState extends State<_CustomerDetailSheet> {
                 decoration: BoxDecoration(color: ri.color.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
                 child: Text(
                   _ownerRating <= 0 ? '— Tap a number to rate —' : '${ri.emoji}  ${ri.label} Customer',
-                  style: GoogleFonts.montserrat(fontSize: 12, color: _ownerRating <= 0 ? AppColors.muted : ri.color, fontWeight: FontWeight.w600),
+                  style: GoogleFonts.plusJakartaSans(fontSize: 12, color: _ownerRating <= 0 ? AppColors.muted : ri.color, fontWeight: FontWeight.bold),
                 ),
               ),
             )),
@@ -425,24 +425,24 @@ class _CustomerDetailSheetState extends State<_CustomerDetailSheet> {
 
             // Private note
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              Text('Private Note', style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textColor)),
+              Text('Private Note', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textColor)),
               GestureDetector(
                 onTap: () => setState(() => _editingNote = !_editingNote),
-                child: Text(_editingNote ? 'Cancel' : '✏️ Edit', style: GoogleFonts.montserrat(fontSize: 11, color: AppColors.primary))),
+                child: Text(_editingNote ? 'Cancel' : '✏️ Edit', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.bold))),
             ]),
             const SizedBox(height: 8),
             if (_editingNote) ...[
               TextField(
                 controller: _noteCtrl,
                 maxLines: 3,
-                style: const TextStyle(color: AppColors.textColor, fontSize: 13),
+                style: GoogleFonts.plusJakartaSans(color: AppColors.textColor, fontSize: 13),
                 decoration: InputDecoration(
                   hintText: 'e.g. Always pays on time, prefers silk...',
-                  hintStyle: const TextStyle(color: AppColors.muted, fontSize: 12),
+                  hintStyle: GoogleFonts.plusJakartaSans(color: AppColors.muted, fontSize: 12),
                   filled: true, fillColor: AppColors.card,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.border)),
-                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.primary)),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: AppColors.border)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: AppColors.border)),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: AppColors.primary)),
                 ),
               ),
               const SizedBox(height: 8),
@@ -453,7 +453,7 @@ class _CustomerDetailSheetState extends State<_CustomerDetailSheet> {
               decoration: BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.circular(10), border: Border.all(color: AppColors.border)),
               child: Text(
                 _noteCtrl.text.isEmpty ? 'No notes yet. Tap Edit to add.' : _noteCtrl.text,
-                style: TextStyle(fontSize: 12, color: _noteCtrl.text.isEmpty ? AppColors.muted : AppColors.textColor, fontStyle: _noteCtrl.text.isEmpty ? FontStyle.italic : FontStyle.normal),
+                style: GoogleFonts.plusJakartaSans(fontSize: 12, color: _noteCtrl.text.isEmpty ? AppColors.muted : AppColors.textColor, fontStyle: _noteCtrl.text.isEmpty ? FontStyle.italic : FontStyle.normal, fontWeight: FontWeight.w500),
               ),
             ),
           ]),
@@ -465,7 +465,7 @@ class _CustomerDetailSheetState extends State<_CustomerDetailSheet> {
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Loyalty Tier', style: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textColor)),
+            Text('Loyalty Tier', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textColor)),
             const SizedBox(height: 12),
             _TierProgressBar(totalSpent: c.totalSpent),
           ]),
@@ -478,8 +478,8 @@ class _CustomerDetailSheetState extends State<_CustomerDetailSheet> {
           decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.circular(12)),
           child: Column(children: [
             _infoRow('📞', c.phone),
-            if (c.email.isNotEmpty) ...[const Divider(color: AppColors.border, height: 16), _infoRow('📧', c.email)],
-            if (c.address.isNotEmpty) ...[const Divider(color: AppColors.border, height: 16), _infoRow('📍', c.address)],
+            if (c.email.isNotEmpty) ...[Divider(color: AppColors.border, height: 16), _infoRow('📧', c.email)],
+            if (c.address.isNotEmpty) ...[Divider(color: AppColors.border, height: 16), _infoRow('📍', c.address)],
           ]),
         ),
         const SizedBox(height: 14),
@@ -500,16 +500,16 @@ class _CustomerDetailSheetState extends State<_CustomerDetailSheet> {
   Widget _infoRow(String icon, String text) => Row(children: [
     Text(icon, style: const TextStyle(fontSize: 16)),
     const SizedBox(width: 10),
-    Expanded(child: Text(text, style: const TextStyle(fontSize: 13, color: AppColors.textColor))),
+    Expanded(child: Text(text, style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textColor, fontWeight: FontWeight.w600))),
   ]);
 
   Widget _statBox(String label, String value) => Container(
     padding: const EdgeInsets.symmetric(vertical: 10),
     decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.circular(10)),
     child: Column(children: [
-      Text(value, style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary, fontSize: 12), textAlign: TextAlign.center),
+      Text(value, style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, color: AppColors.primary, fontSize: 12), textAlign: TextAlign.center),
       const SizedBox(height: 2),
-      Text(label, style: const TextStyle(fontSize: 10, color: AppColors.muted)),
+      Text(label, style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.muted, fontWeight: FontWeight.w600)),
     ]),
   );
 
@@ -542,7 +542,7 @@ class _TierProgressBar extends StatelessWidget {
               decoration: BoxDecoration(color: isPast ? t.color : AppColors.border, borderRadius: BorderRadius.circular(5))),
             const SizedBox(height: 6),
             Text(t.badge, style: const TextStyle(fontSize: 16)),
-            Text(t.label, style: TextStyle(fontSize: 9, fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal, color: isCurrent ? t.color : AppColors.muted)),
+            Text(t.label, style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal, color: isCurrent ? t.color : AppColors.muted)),
             if (isCurrent) Container(width: 4, height: 4, decoration: BoxDecoration(color: t.color, shape: BoxShape.circle), margin: const EdgeInsets.only(top: 3)),
           ]),
         ));
@@ -557,14 +557,14 @@ class _TierProgressBar extends StatelessWidget {
           decoration: BoxDecoration(color: next.color.withOpacity(0.08), borderRadius: BorderRadius.circular(8), border: Border.all(color: next.color.withOpacity(0.2))),
           child: Text('Rs. ${NumberFormat('#,###').format(needed)} more → ${next.label} ${next.badge} (${next.discount}% discount)',
             textAlign: TextAlign.center,
-            style: GoogleFonts.montserrat(fontSize: 11, color: next.color, fontWeight: FontWeight.w600)),
+            style: GoogleFonts.plusJakartaSans(fontSize: 11, color: next.color, fontWeight: FontWeight.bold)),
         );
       }) else Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(color: AppColors.gold.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
         child: Text('🏆 Top tier reached! 15% discount on all orders', textAlign: TextAlign.center,
-          style: GoogleFonts.montserrat(fontSize: 11, color: AppColors.gold, fontWeight: FontWeight.w600)),
+          style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.gold, fontWeight: FontWeight.bold)),
       ),
     ]);
   }
@@ -614,11 +614,11 @@ class _AddCustomerSheetState extends State<_AddCustomerSheet> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      decoration: BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 20),
       child: SingleChildScrollView(child: Column(children: [
-        Container(width: 36, height: 4, decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)), margin: const EdgeInsets.only(bottom: 16)),
-        Text('Add Customer', style: GoogleFonts.playfairDisplay(fontSize: 18, color: AppColors.primary)),
+        Container(width: 36, height: 4, decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)), margin: EdgeInsets.only(bottom: 16)),
+        Text('Add Customer', style: GoogleFonts.outfit(fontSize: 18, color: AppColors.primary, fontWeight: FontWeight.bold)),
         const SizedBox(height: 20),
         GestureDetector(
           onTap: _pickPhoto,
@@ -626,16 +626,16 @@ class _AddCustomerSheetState extends State<_AddCustomerSheet> {
             decoration: BoxDecoration(shape: BoxShape.circle, color: AppColors.bg, border: Border.all(color: AppColors.primary, width: 2)),
             child: _photo != null
               ? ClipOval(child: Image.file(_photo!, fit: BoxFit.cover))
-              : const Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+              : Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                   Icon(Icons.camera_alt_outlined, color: AppColors.primary, size: 24),
-                  Text('Photo', style: TextStyle(fontSize: 10, color: AppColors.muted))])),
+                  Text('Photo', style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.muted, fontWeight: FontWeight.bold))])),
         ),
         const SizedBox(height: 20),
         GoldTextField(label: 'Name *', controller: _name, hint: 'Full name'),
         GoldTextField(label: 'Phone *', controller: _phone, keyboardType: TextInputType.phone, hint: '07X XXX XXXX'),
         GoldTextField(label: 'Email', controller: _email, keyboardType: TextInputType.emailAddress, hint: 'email@example.com'),
         GoldTextField(label: 'Address', controller: _address, maxLines: 2, hint: 'Street, City'),
-        _saving ? const CircularProgressIndicator(color: AppColors.primary) : GoldButton(label: 'Add Customer', onTap: _save),
+        _saving ? CircularProgressIndicator(color: AppColors.primary) : GoldButton(label: 'Add Customer', onTap: _save),
       ])),
     );
   }

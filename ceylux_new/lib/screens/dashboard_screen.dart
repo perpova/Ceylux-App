@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../services/api_service.dart';
 import '../models/stock_item.dart';
 import '../models/customer.dart';
@@ -12,24 +13,28 @@ class DashboardScreen extends StatelessWidget {
 
   Widget _itemEmoji(String emoji) => Container(
     width: 48, height: 48,
-    decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.circular(8)),
-    child: Center(child: Text(emoji, style: const TextStyle(fontSize: 26))),
+    decoration: BoxDecoration(
+      color: AppColors.bg,
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: AppColors.border.withOpacity(0.5)),
+    ),
+    child: Center(child: Text(emoji, style: const TextStyle(fontSize: 24))),
   );
 
- Widget _itemThumb(StockItem item) {
-  if (item.photoUrl != null && item.photoUrl!.isNotEmpty) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
-      child: Image.network(
-        item.photoUrl!,          
-        width: 48, height: 48,
-        fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => _itemEmoji(item.emoji),
-      ),
-    );
+  Widget _itemThumb(StockItem item) {
+    if (item.photoUrl != null && item.photoUrl!.isNotEmpty) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: Image.network(
+          item.photoUrl!,          
+          width: 48, height: 48,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _itemEmoji(item.emoji),
+        ),
+      );
+    }
+    return _itemEmoji(item.emoji);
   }
-  return _itemEmoji(item.emoji);
-}
 
   @override
   Widget build(BuildContext context) {
@@ -39,6 +44,67 @@ class DashboardScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Elegant Welcome Header
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Dashboard Overview',
+                    style: GoogleFonts.outfit(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textColor,
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Real-time Ceylux store insights',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 12,
+                      color: AppColors.muted,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.success.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.success.withOpacity(0.2)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: const BoxDecoration(
+                        color: AppColors.success,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Live Sync',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: AppColors.success,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+
           // Stats Grid
           StreamBuilder<List<StockItem>>(
             stream: svc.stockStream(),
@@ -53,18 +119,17 @@ class DashboardScreen extends StatelessWidget {
                       final orders = orderSnap.data ?? [];
                       final customers = custSnap.data ?? [];
                       final totalRevenue = orders.fold<int>(0, (a, b) => a + b.total);
-                      final lowStock = stock.where((s) => s.isLowStock || s.isOutOfStock).length;
                       final pendingOrders = orders.where((o) => o.status == 'Processing' || o.status == 'Pending').length;
 
                       return GridView.count(
                         crossAxisCount: 2,
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
-                        crossAxisSpacing: 10,
-                        mainAxisSpacing: 10,
-                        childAspectRatio: 1.4,
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
+                        childAspectRatio: 1.45,
                         children: [
-                          StatCard(label: 'Total Revenue', value: 'Rs. ${NumberFormat('#,###').format(totalRevenue)}', icon: '💰'),
+                          StatCard(label: 'Total Revenue', value: 'Rs. ${NumberFormat('#,###').format(totalRevenue)}', icon: '💰', accentColor: AppColors.gold),
                           StatCard(label: 'Stock Items', value: '${stock.length}', icon: '📦', accentColor: AppColors.accent),
                           StatCard(label: 'Customers', value: '${customers.length}', icon: '👥', accentColor: AppColors.success),
                           StatCard(label: 'Pending Orders', value: '$pendingOrders', icon: '🛍️', accentColor: pendingOrders > 0 ? AppColors.warning : AppColors.success),
@@ -76,7 +141,7 @@ class DashboardScreen extends StatelessWidget {
               );
             },
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
 
           // Low Stock Alerts
           StreamBuilder<List<StockItem>>(
@@ -92,42 +157,62 @@ class DashboardScreen extends StatelessWidget {
                     trailing: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: AppColors.danger.withOpacity(0.2),
+                        color: AppColors.danger.withOpacity(0.12),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text('${lowItems.length}', style: const TextStyle(color: AppColors.danger, fontSize: 12, fontWeight: FontWeight.bold)),
                     ),
                   ),
+                  const SizedBox(height: 4),
                   ...lowItems.take(3).map((item) => CeyluxCard(
                     child: Row(
                       children: [
-                        _itemThumb(item), // ← image or emoji
+                        _itemThumb(item),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(item.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                              Text(item.sku, style: const TextStyle(fontSize: 11, color: AppColors.muted)),
+                              Text(
+                                item.name,
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                  color: AppColors.textColor,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                item.sku,
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 11,
+                                  color: AppColors.muted,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                             ],
                           ),
                         ),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            color: item.isOutOfStock ? AppColors.danger.withOpacity(0.15) : AppColors.warning.withOpacity(0.15),
+                            color: item.isOutOfStock ? AppColors.danger.withOpacity(0.12) : AppColors.warning.withOpacity(0.12),
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: (item.isOutOfStock ? AppColors.danger : AppColors.warning).withOpacity(0.4)),
+                            border: Border.all(color: (item.isOutOfStock ? AppColors.danger : AppColors.warning).withOpacity(0.3)),
                           ),
                           child: Text(
                             item.isOutOfStock ? '⚠ Out' : '${item.totalQty} left',
-                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: item.isOutOfStock ? AppColors.danger : AppColors.warning),
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: item.isOutOfStock ? AppColors.danger : AppColors.warning,
+                            ),
                           ),
                         ),
                       ],
                     ),
                   )),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
                 ],
               );
             },
@@ -139,7 +224,17 @@ class DashboardScreen extends StatelessWidget {
             stream: svc.ordersStream(),
             builder: (context, snap) {
               final orders = (snap.data ?? []).take(3).toList();
-              if (orders.isEmpty) return const Center(child: Text('No orders yet', style: TextStyle(color: AppColors.muted)));
+              if (orders.isEmpty) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Text(
+                      'No orders yet',
+                      style: GoogleFonts.plusJakartaSans(color: AppColors.muted, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                );
+              }
               return Column(
                 children: orders.map((o) => CeyluxCard(
                   child: Row(
@@ -149,15 +244,37 @@ class DashboardScreen extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(o.customerName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                            Text('${o.id} • ${o.date}', style: const TextStyle(fontSize: 11, color: AppColors.muted)),
+                            Text(
+                              o.customerName,
+                              style: GoogleFonts.plusJakartaSans(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                                color: AppColors.textColor,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${o.id} • ${o.date}',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 11,
+                                color: AppColors.muted,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                           ],
                         ),
                       ),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          Text('Rs. ${NumberFormat('#,###').format(o.total)}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.goldLight)),
+                          Text(
+                            'Rs. ${NumberFormat('#,###').format(o.total)}',
+                            style: GoogleFonts.outfit(
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.goldDark,
+                              fontSize: 14,
+                            ),
+                          ),
                           const SizedBox(height: 4),
                           StatusBadge(status: o.status),
                         ],
@@ -168,6 +285,7 @@ class DashboardScreen extends StatelessWidget {
               );
             },
           ),
+          const SizedBox(height: 12),
 
           // Top Customers
           const SectionTitle(text: 'Top Customers'),
@@ -176,6 +294,17 @@ class DashboardScreen extends StatelessWidget {
             builder: (context, snap) {
               final customers = [...(snap.data ?? [])]
                 ..sort((a, b) => b.totalSpent.compareTo(a.totalSpent));
+              if (customers.isEmpty) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Text(
+                      'No clients yet',
+                      style: GoogleFonts.plusJakartaSans(color: AppColors.muted, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                );
+              }
               return Column(
                 children: customers.take(3).map((c) {
                   final tier = Tiers.getTier(c.totalSpent);
@@ -188,8 +317,23 @@ class DashboardScreen extends StatelessWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(c.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                              Text('${c.totalOrders} orders', style: const TextStyle(fontSize: 11, color: AppColors.muted)),
+                              Text(
+                                c.name,
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                  color: AppColors.textColor,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '${c.totalOrders} orders',
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 11,
+                                  color: AppColors.muted,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -198,7 +342,14 @@ class DashboardScreen extends StatelessWidget {
                           children: [
                             TierBadge(totalSpent: c.totalSpent),
                             const SizedBox(height: 4),
-                            Text('Rs. ${NumberFormat('#,###').format(c.totalSpent)}', style: const TextStyle(fontSize: 11, color: AppColors.muted)),
+                            Text(
+                              'Rs. ${NumberFormat('#,###').format(c.totalSpent)}',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 11,
+                                color: AppColors.muted,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
                           ],
                         ),
                       ],

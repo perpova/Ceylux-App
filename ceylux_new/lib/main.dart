@@ -13,11 +13,27 @@ import 'screens/stock_screen.dart';
 import 'screens/orders_screen.dart';
 import 'screens/customers_screen.dart';
 import 'screens/notifications_screen.dart';
+import 'screens/settings_screen.dart';
 import 'services/api_service.dart';
+
+// Global theme notifier for reactively switching between System, Light, and Dark modes
+final themeNotifier = ValueNotifier<ThemeMode>(ThemeMode.system);
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await ApiService().seedInitialData();
+
+  // Load saved theme preference
+  final prefs = await SharedPreferences.getInstance();
+  final savedTheme = prefs.getString('theme_mode') ?? 'system';
+  if (savedTheme == 'dark') {
+    themeNotifier.value = ThemeMode.dark;
+  } else if (savedTheme == 'light') {
+    themeNotifier.value = ThemeMode.light;
+  } else {
+    themeNotifier.value = ThemeMode.system;
+  }
+
   runApp(const CeyluxApp());
 }
 
@@ -25,12 +41,19 @@ class CeyluxApp extends StatelessWidget {
   const CeyluxApp({super.key});
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Ceylux CLOTHING',
-      theme: AppTheme.dark,
-      debugShowCheckedModeBanner: false,
-      home: const SplashGate(),
-      routes: {'/home': (_) => const HomeShell()},
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: themeNotifier,
+      builder: (context, currentMode, _) {
+        return MaterialApp(
+          title: 'Ceylux CLOTHING',
+          theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
+          themeMode: currentMode,
+          debugShowCheckedModeBanner: false,
+          home: const SplashGate(),
+          routes: {'/home': (_) => const HomeShell()},
+        );
+      },
     );
   }
 }
@@ -66,10 +89,8 @@ class _SplashGateState extends State<SplashGate> {
   }
 
   Future<void> _check() async {
-    // 1. Brief pause for branding animation feel
     await Future.delayed(const Duration(milliseconds: 800));
 
-    // 2. Perform updater checks on Android devices
     if (Platform.isAndroid) {
       setState(() {
         _statusMessage = 'Checking for updates...';
@@ -78,10 +99,8 @@ class _SplashGateState extends State<SplashGate> {
       final updateInfo = await UpdateService().checkForUpdate();
 
       if (updateInfo.hasUpdate && updateInfo.downloadUrl != null) {
-        // Check if we should skip this update (already attempted or installed)
         final shouldSkip = await UpdateService().shouldSkipUpdate(updateInfo.latestVersion);
         if (shouldSkip) {
-          // Skip to app if this update was already tried
           _proceedToApp();
           return;
         }
@@ -94,11 +113,10 @@ class _SplashGateState extends State<SplashGate> {
           _downloadUrl = updateInfo.downloadUrl;
           _changelog = updateInfo.changelog ?? 'No release notes provided.';
         });
-        return; // Pause the splash flow and show the interactive update view
+        return;
       }
     }
 
-    // 3. Fall through to normal app entry if no updates or not Android
     _proceedToApp();
   }
 
@@ -122,7 +140,6 @@ class _SplashGateState extends State<SplashGate> {
       _statusMessage = 'Downloading update...';
     });
 
-    // Mark this version as pending
     UpdateService().markUpdateStarted(_latestVersion);
     UpdateService().incrementUpdateAttemptCount();
 
@@ -168,10 +185,6 @@ class _SplashGateState extends State<SplashGate> {
         _showError('Update failed: $err');
       },
       onDone: () async {
-        // onDone fires when the APK download is complete and the install
-        // intent has been sent to Android's system installer.
-        // We proceed to the app so the user isn't stuck — the installer
-        // dialog will appear on top of the app automatically.
         if (!mounted) return;
         _proceedToApp();
       },
@@ -185,7 +198,7 @@ class _SplashGateState extends State<SplashGate> {
     });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message, style: const TextStyle(fontWeight: FontWeight.w500)),
+        content: Text(message, style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600, color: Colors.white)),
         backgroundColor: AppColors.danger,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -199,7 +212,6 @@ class _SplashGateState extends State<SplashGate> {
       backgroundColor: AppColors.bg,
       body: Stack(
         children: [
-          // Background/Splash Brand Content
           Center(
             child: AnimatedOpacity(
               duration: const Duration(milliseconds: 400),
@@ -217,14 +229,14 @@ class _SplashGateState extends State<SplashGate> {
                     child: const Center(child: Text('C', style: TextStyle(color: Colors.white, fontSize: 40, fontWeight: FontWeight.bold))),
                   ),
                   const SizedBox(height: 16),
-                  Text('CEYLUX', style: GoogleFonts.playfairDisplay(fontSize: 28, color: AppColors.primary, fontWeight: FontWeight.bold, letterSpacing: 3)),
+                  Text('CEYLUX', style: GoogleFonts.outfit(fontSize: 28, color: AppColors.primary, fontWeight: FontWeight.bold, letterSpacing: 3)),
                   const SizedBox(height: 32),
                   if (!_updateAvailable && _checkingUpdate) ...[
                     const CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2),
                     const SizedBox(height: 16),
                     Text(
                       _statusMessage,
-                      style: GoogleFonts.montserrat(fontSize: 12, color: AppColors.muted, fontWeight: FontWeight.w500),
+                      style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.muted, fontWeight: FontWeight.w600),
                     ),
                   ],
                 ],
@@ -232,7 +244,6 @@ class _SplashGateState extends State<SplashGate> {
             ),
           ),
 
-          // Custom Glassmorphic Premium Update Card Overlay
           if (_updateAvailable)
             Center(
               child: Container(
@@ -253,7 +264,6 @@ class _SplashGateState extends State<SplashGate> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Header Section
                     Row(
                       children: [
                         Container(
@@ -275,7 +285,7 @@ class _SplashGateState extends State<SplashGate> {
                             children: [
                               Text(
                                 'Update Available',
-                                style: GoogleFonts.playfairDisplay(
+                                style: GoogleFonts.outfit(
                                   fontSize: 22,
                                   fontWeight: FontWeight.bold,
                                   color: AppColors.textColor,
@@ -284,10 +294,10 @@ class _SplashGateState extends State<SplashGate> {
                               const SizedBox(height: 2),
                               Text(
                                 'Version $_latestVersion is ready to install',
-                                style: GoogleFonts.montserrat(
+                                style: GoogleFonts.plusJakartaSans(
                                   fontSize: 12,
                                   color: AppColors.muted,
-                                  fontWeight: FontWeight.w600,
+                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
                             ],
@@ -296,15 +306,14 @@ class _SplashGateState extends State<SplashGate> {
                       ],
                     ),
                     const SizedBox(height: 20),
-                    const Divider(color: AppColors.border, height: 1),
+                    Divider(color: AppColors.border, height: 1),
                     const SizedBox(height: 16),
 
-                    // Changelog Section
                     Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
                         "What's New:",
-                        style: GoogleFonts.montserrat(
+                        style: GoogleFonts.outfit(
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
                           color: AppColors.textColor,
@@ -324,7 +333,7 @@ class _SplashGateState extends State<SplashGate> {
                       child: SingleChildScrollView(
                         child: Text(
                           _changelog,
-                          style: GoogleFonts.montserrat(
+                          style: GoogleFonts.plusJakartaSans(
                             fontSize: 12,
                             color: AppColors.textColor.withOpacity(0.8),
                             height: 1.5,
@@ -334,7 +343,6 @@ class _SplashGateState extends State<SplashGate> {
                     ),
                     const SizedBox(height: 24),
 
-                    // Progress Section vs Action Buttons
                     if (_isDownloading) ...[
                       Column(
                         children: [
@@ -343,7 +351,7 @@ class _SplashGateState extends State<SplashGate> {
                             children: [
                               Text(
                                 _statusMessage,
-                                style: GoogleFonts.montserrat(
+                                style: GoogleFonts.plusJakartaSans(
                                   fontSize: 12,
                                   color: AppColors.primary,
                                   fontWeight: FontWeight.bold,
@@ -351,7 +359,7 @@ class _SplashGateState extends State<SplashGate> {
                               ),
                               Text(
                                 '${(_downloadProgress * 100).toInt()}%',
-                                style: GoogleFonts.montserrat(
+                                style: GoogleFonts.plusJakartaSans(
                                   fontSize: 12,
                                   color: AppColors.primary,
                                   fontWeight: FontWeight.bold,
@@ -380,7 +388,7 @@ class _SplashGateState extends State<SplashGate> {
                                 _proceedToApp();
                               },
                               style: OutlinedButton.styleFrom(
-                                side: const BorderSide(color: AppColors.border),
+                                side: BorderSide(color: AppColors.border),
                                 padding: const EdgeInsets.symmetric(vertical: 14),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
@@ -388,9 +396,9 @@ class _SplashGateState extends State<SplashGate> {
                               ),
                               child: Text(
                                 'Skip Now',
-                                style: GoogleFonts.montserrat(
+                                style: GoogleFonts.plusJakartaSans(
                                   fontSize: 14,
-                                  fontWeight: FontWeight.w600,
+                                  fontWeight: FontWeight.bold,
                                   color: AppColors.muted,
                                 ),
                               ),
@@ -411,7 +419,7 @@ class _SplashGateState extends State<SplashGate> {
                               ),
                               child: Text(
                                 'Update Now',
-                                style: GoogleFonts.montserrat(
+                                style: GoogleFonts.plusJakartaSans(
                                   fontSize: 14,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -442,17 +450,14 @@ class _HomeShellState extends State<HomeShell> {
   int _tab = 0;
   String _userName = '';
 
-  final _pages = const [
-    DashboardScreen(), StockScreen(), OrdersScreen(),
-    CustomersScreen(), NotificationsScreen(),
-  ];
+
 
   final _navItems = const [
     {'icon': Icons.home_rounded,         'label': 'Home'},
     {'icon': Icons.inventory_2_rounded,  'label': 'Stock'},
     {'icon': Icons.shopping_bag_rounded, 'label': 'Orders'},
     {'icon': Icons.people_rounded,       'label': 'Clients'},
-    {'icon': Icons.notifications_rounded,'label': 'Alerts'},
+    {'icon': Icons.settings_rounded,     'label': 'Settings'},
   ];
 
   @override
@@ -464,25 +469,6 @@ class _HomeShellState extends State<HomeShell> {
   Future<void> _loadUser() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() => _userName = prefs.getString('userName') ?? 'User');
-  }
-
-  Future<void> _logout() async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: AppColors.card,
-        title: const Text('Logout?', style: TextStyle(color: AppColors.textColor)),
-        content: const Text('Sign out of your account?', style: TextStyle(color: AppColors.muted)),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel', style: TextStyle(color: AppColors.muted))),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Logout', style: TextStyle(color: AppColors.danger))),
-        ],
-      ),
-    );
-    if (ok != true) return;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
-    if (mounted) Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const AuthScreen()), (_) => false);
   }
 
   @override
@@ -507,8 +493,8 @@ class _HomeShellState extends State<HomeShell> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('CEYLUX', style: GoogleFonts.playfairDisplay(fontSize: 22, color: AppColors.primary, letterSpacing: 1, fontWeight: FontWeight.bold)),
-                Text('CLOTHING', style: GoogleFonts.montserrat(fontSize: 8, color: AppColors.muted, letterSpacing: 3, fontWeight: FontWeight.w500)),
+                Text('CEYLUX', style: GoogleFonts.outfit(fontSize: 22, color: AppColors.primary, letterSpacing: 1, fontWeight: FontWeight.bold)),
+                Text('CLOTHING', style: GoogleFonts.plusJakartaSans(fontSize: 8, color: AppColors.muted, letterSpacing: 3, fontWeight: FontWeight.bold)),
               ],
             ),
           ],
@@ -517,7 +503,12 @@ class _HomeShellState extends State<HomeShell> {
           Stack(clipBehavior: Clip.none, children: [
             IconButton(
               icon: const Icon(Icons.notifications_outlined, color: AppColors.primary),
-              onPressed: () => setState(() => _tab = 4),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+                );
+              },
             ),
             StreamBuilder<List<StockItem>>(
               stream: ApiService().stockStream(),
@@ -532,33 +523,29 @@ class _HomeShellState extends State<HomeShell> {
               },
             ),
           ]),
-          // User avatar + logout
-          GestureDetector(
-            onTap: _logout,
-            child: Container(
-              margin: const EdgeInsets.only(right: 12),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: AppColors.border),
-              ),
-              child: Row(children: [
-                Container(
-                  width: 22, height: 22,
-                  decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
-                  child: Center(child: Text(
-                    _userName.isNotEmpty ? _userName[0].toUpperCase() : 'U',
-                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                  )),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  _userName.split(' ')[0],
-                  style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primary),
-                ),
-              ]),
+          Container(
+            margin: const EdgeInsets.only(right: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: AppColors.border),
             ),
+            child: Row(children: [
+              Container(
+                width: 22, height: 22,
+                decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
+                child: Center(child: Text(
+                  _userName.isNotEmpty ? _userName[0].toUpperCase() : 'U',
+                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                )),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                _userName.split(' ')[0],
+                style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary),
+              ),
+            ]),
           ),
         ],
         bottom: PreferredSize(
@@ -566,11 +553,20 @@ class _HomeShellState extends State<HomeShell> {
           child: Container(height: 1, color: AppColors.border),
         ),
       ),
-      body: IndexedStack(index: _tab, children: _pages),
+      body: IndexedStack(
+        index: _tab,
+        children: [
+          DashboardScreen(),
+          StockScreen(),
+          OrdersScreen(),
+          CustomersScreen(),
+          SettingsScreen(),
+        ],
+      ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: AppColors.card,
-          border: const Border(top: BorderSide(color: AppColors.border)),
+          border: Border(top: BorderSide(color: AppColors.border)),
           boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, -3))],
         ),
         child: SafeArea(child: Padding(
@@ -593,7 +589,7 @@ class _HomeShellState extends State<HomeShell> {
                       color: isActive ? AppColors.primary : AppColors.muted, size: 22),
                     const SizedBox(height: 3),
                     Text(_navItems[i]['label'] as String,
-                      style: GoogleFonts.montserrat(fontSize: 9, fontWeight: FontWeight.w600,
+                      style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.bold,
                         color: isActive ? AppColors.primary : AppColors.muted)),
                     const SizedBox(height: 3),
                     AnimatedContainer(

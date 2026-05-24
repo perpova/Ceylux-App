@@ -122,8 +122,8 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
                 child: const Center(child: Text('C', style: TextStyle(color: Colors.white, fontSize: 40, fontWeight: FontWeight.bold))),
               ),
               const SizedBox(height: 16),
-              Text('CEYLUX', style: GoogleFonts.playfairDisplay(fontSize: 28, color: AppColors.primary, fontWeight: FontWeight.bold, letterSpacing: 3)),
-              Text('CLOTHING', style: GoogleFonts.montserrat(fontSize: 11, color: AppColors.muted, letterSpacing: 4, fontWeight: FontWeight.w500)),
+              Text('CEYLUX', style: GoogleFonts.outfit(fontSize: 28, color: AppColors.primary, fontWeight: FontWeight.bold, letterSpacing: 3)),
+              Text('CLOTHING', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.muted, letterSpacing: 4, fontWeight: FontWeight.bold)),
               const SizedBox(height: 40),
 
               // Tab bar
@@ -139,8 +139,8 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
                   indicatorSize: TabBarIndicatorSize.tab,
                   labelColor: Colors.white,
                   unselectedLabelColor: AppColors.muted,
-                  labelStyle: GoogleFonts.montserrat(fontWeight: FontWeight.w600, fontSize: 14),
-                  unselectedLabelStyle: GoogleFonts.montserrat(fontWeight: FontWeight.w500, fontSize: 14),
+                  labelStyle: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 14),
+                  unselectedLabelStyle: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600, fontSize: 14),
                   dividerColor: Colors.transparent,
                   tabs: const [Tab(text: 'Sign In'), Tab(text: 'Sign Up')],
                 ),
@@ -161,7 +161,7 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
                   child: Row(children: [
                     const Icon(Icons.error_outline, color: AppColors.danger, size: 16),
                     const SizedBox(width: 8),
-                    Expanded(child: Text(_error!, style: const TextStyle(color: AppColors.danger, fontSize: 13))),
+                    Expanded(child: Text(_error!, style: GoogleFonts.plusJakartaSans(color: AppColors.danger, fontSize: 13, fontWeight: FontWeight.w600))),
                   ]),
                 ),
 
@@ -234,8 +234,8 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
               ),
 
               const SizedBox(height: 24),
-              Text('© 2025 Ceylux Fashion Boutique',
-                style: GoogleFonts.montserrat(fontSize: 11, color: AppColors.muted)),
+              Text('© 2026 Ceylux Fashion Boutique',
+                style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.muted, fontWeight: FontWeight.w600)),
               const SizedBox(height: 24),
             ],
           ),
@@ -257,19 +257,19 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label.toUpperCase(),
-          style: GoogleFonts.montserrat(
+          style: GoogleFonts.plusJakartaSans(
             fontSize: 10, color: AppColors.muted,
-            letterSpacing: 1, fontWeight: FontWeight.w600,
+            letterSpacing: 1, fontWeight: FontWeight.bold,
           )),
         const SizedBox(height: 6),
         TextField(
           controller: controller,
           obscureText: obscure,
           keyboardType: keyboardType,
-          style: const TextStyle(color: AppColors.textColor, fontSize: 14),
+          style: TextStyle(color: AppColors.textColor, fontSize: 14),
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: const TextStyle(color: AppColors.muted),
+            hintStyle: TextStyle(color: AppColors.muted),
             prefixIcon: Icon(icon, color: AppColors.muted, size: 20),
             suffixIcon: toggle != null
               ? GestureDetector(
@@ -284,13 +284,13 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: AppColors.border)),
+              borderSide: BorderSide(color: AppColors.border)),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: AppColors.border)),
+              borderSide: BorderSide(color: AppColors.border)),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
+              borderSide: BorderSide(color: AppColors.primary, width: 1.5)),
           ),
         ),
       ],
@@ -315,9 +315,9 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
                   blurRadius: 12, offset: const Offset(0, 4))],
               ),
               child: Center(child: Text(label,
-                style: GoogleFonts.montserrat(
+                style: GoogleFonts.plusJakartaSans(
                   color: Colors.white, fontSize: 15,
-                  fontWeight: FontWeight.w600))),
+                  fontWeight: FontWeight.bold))),
             ),
           ),
     );
