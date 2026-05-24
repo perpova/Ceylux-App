@@ -63,7 +63,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
               ),
             ),
             const SizedBox(width: 10),
-            GoldButton(label: '+ Add', onTap: () => _showAddSheet(context), isSmall: true, icon: Icons.person_add),
+            GoldButton(label: 'Add', onTap: () => _showAddSheet(context), isSmall: true, icon: Icons.person_add),
           ]),
         ),
 

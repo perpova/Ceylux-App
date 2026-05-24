@@ -153,7 +153,7 @@ class DashboardScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   SectionTitle(
-                    text: '⚠️ Low Stock Alerts',
+                    text: 'Low Stock Alerts',
                     trailing: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(

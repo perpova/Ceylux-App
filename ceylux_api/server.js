@@ -326,11 +326,12 @@ app.post('/orders', async (req, res) => {
 
 app.put('/orders/:id/status', async (req, res) => {
   try {
+    const now = new Date().toISOString().replace('T', ' ').substring(0, 19); // YYYY-MM-DD HH:MM:SS
     await pool.query(
-      'UPDATE orders SET status = ? WHERE id = ?',
-      [req.body.status, req.params.id]
+      'UPDATE orders SET status = ?, date = ? WHERE id = ? OR order_ref = ?',
+      [req.body.status, now, req.params.id, req.params.id]
     );
-    const [rows] = await pool.query('SELECT * FROM orders WHERE id = ?', [req.params.id]);
+    const [rows] = await pool.query('SELECT * FROM orders WHERE id = ? OR order_ref = ?', [req.params.id, req.params.id]);
     res.json(rows[0]);
   } catch (e) {
     res.status(500).json({ error: e.message });

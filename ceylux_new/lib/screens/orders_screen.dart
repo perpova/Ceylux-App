@@ -21,6 +21,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = AppColors.isDark;
+    final btnColor = isDark ? AppColors.primaryLight : const Color(0xFF1A3A6B);
+
     return Column(
       children: [
         Padding(
@@ -56,17 +59,17 @@ class _OrdersScreenState extends State<OrdersScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1A3A6B).withOpacity(0.08),
+                    color: btnColor.withOpacity(isDark ? 0.12 : 0.08),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFF1A3A6B).withOpacity(0.5)),
+                    border: Border.all(color: btnColor.withOpacity(0.5)),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.add, size: 16, color: Color(0xFF1A3A6B)),
-                      SizedBox(width: 6),
+                      Icon(Icons.add, size: 16, color: btnColor),
+                      const SizedBox(width: 6),
                       Text('New Order', style: TextStyle(
-                        fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1A3A6B),
+                        fontSize: 13, fontWeight: FontWeight.w600, color: btnColor,
                       )),
                     ],
                   ),
@@ -154,10 +157,13 @@ class _OrderDetailSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final svc = ApiService();
+    final isDark = AppColors.isDark;
+    final btnColor = isDark ? AppColors.primaryLight : const Color(0xFF1A3A6B);
+
     return Container(
       decoration: BoxDecoration(
         color: AppColors.card,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(context).padding.bottom + 20),
       child: Column(
@@ -220,7 +226,7 @@ class _OrderDetailSheet extends StatelessWidget {
             children: ['Pending', 'Processing', 'Delivered'].map((s) => Expanded(
               child: GestureDetector(
                 onTap: () async {
-                  await svc.updateOrderStatus(order.id, s);
+                  await svc.updateOrderStatus(order.dbId, s);
                   if (context.mounted) Navigator.pop(context);
                 },
                 child: Container(
@@ -239,32 +245,58 @@ class _OrderDetailSheet extends StatelessWidget {
             )).toList(),
           ),
           const SizedBox(height: 12),
-          GestureDetector(
-            onTap: () {
-              final msg = Uri.encodeComponent(
-                '🛍️ CEYLUX Fashion Boutique\n\nOrder: ${order.id}\n'
-                '${order.items.map((i) => '• ${i.name} [${i.size}] x${i.qty} — Rs. ${NumberFormat('#,###').format(i.subtotal)}').join('\n')}'
-                '\n\n💰 Total: Rs. ${NumberFormat('#,###').format(order.total)}\n\nThank you! 🙏'
+          StreamBuilder<List<Customer>>(
+            stream: svc.customersStream(),
+            builder: (context, snap) {
+              final customers = snap.data ?? [];
+              final customer = customers.firstWhere(
+                (c) => c.id == order.customerId,
+                orElse: () => Customer(id: '', name: '', phone: '', email: '', address: '', totalOrders: 0, totalSpent: 0),
               );
-              launchUrl(Uri.parse('https://wa.me/?text=$msg'));
+              final phone = customer.phone.trim();
+
+              return GestureDetector(
+                onTap: () {
+                  String formattedPhone = phone;
+                  if (formattedPhone.isNotEmpty) {
+                    formattedPhone = formattedPhone.replaceAll(RegExp(r'\D'), '');
+                    if (formattedPhone.startsWith('0') && formattedPhone.length == 10) {
+                      formattedPhone = '94${formattedPhone.substring(1)}';
+                    } else if (!formattedPhone.startsWith('94') && formattedPhone.length == 9) {
+                      formattedPhone = '94$formattedPhone';
+                    }
+                  }
+
+                  final msg = Uri.encodeComponent(
+                    '🛍️ CEYLUX Fashion Boutique\n\nOrder: ${order.id}\n'
+                    '${order.items.map((i) => '• ${i.name} [${i.size}] x${i.qty} — Rs. ${NumberFormat('#,###').format(i.subtotal)}').join('\n')}'
+                    '\n\n💰 Total: Rs. ${NumberFormat('#,###').format(order.total)}\n\nThank you! 🙏'
+                  );
+
+                  final url = formattedPhone.isNotEmpty
+                      ? 'https://wa.me/$formattedPhone?text=$msg'
+                      : 'https://wa.me/?text=$msg';
+                  launchUrl(Uri.parse(url));
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF25D366).withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFF25D366).withOpacity(0.4)),
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text('💬', style: TextStyle(fontSize: 18)),
+                      SizedBox(width: 8),
+                      Text('Share via WhatsApp', style: TextStyle(
+                        color: Color(0xFF25D366), fontWeight: FontWeight.w600, fontSize: 13)),
+                    ],
+                  ),
+                ),
+              );
             },
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              decoration: BoxDecoration(
-                color: const Color(0xFF25D366).withOpacity(0.15),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFF25D366).withOpacity(0.4)),
-              ),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text('💬', style: TextStyle(fontSize: 18)),
-                  SizedBox(width: 8),
-                  Text('Share via WhatsApp', style: TextStyle(
-                    color: Color(0xFF25D366), fontWeight: FontWeight.w600, fontSize: 13)),
-                ],
-              ),
-            ),
           ),
           const SizedBox(height: 10),
           GestureDetector(
@@ -272,17 +304,17 @@ class _OrderDetailSheet extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 12),
               decoration: BoxDecoration(
-                color: const Color(0xFF1A3A6B).withOpacity(0.1),
+                color: btnColor.withOpacity(isDark ? 0.15 : 0.1),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFF1A3A6B).withOpacity(0.5)),
+                border: Border.all(color: btnColor.withOpacity(0.5)),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.picture_as_pdf_outlined, color: Color(0xFF1A3A6B), size: 18),
-                  SizedBox(width: 8),
+                  Icon(Icons.picture_as_pdf_outlined, color: btnColor, size: 18),
+                  const SizedBox(width: 8),
                   Text('Download Invoice PDF', style: TextStyle(
-                    color: Color(0xFF1A3A6B), fontWeight: FontWeight.w600, fontSize: 13)),
+                    color: btnColor, fontWeight: FontWeight.w600, fontSize: 13)),
                 ],
               ),
             ),
@@ -324,6 +356,7 @@ class _NewOrderSheetState extends State<_NewOrderSheet> {
     final now = DateTime.now();
     final orderId = 'ORD-${now.millisecondsSinceEpoch.toString().substring(7)}';
     final o = AppOrder(
+      dbId: '',
       id: orderId,
       customerId: _selCustId!,
       customerName: _selCustName ?? '',

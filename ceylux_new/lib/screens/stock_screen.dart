@@ -43,7 +43,7 @@ class _StockScreenState extends State<StockScreen> {
                 ),
               ),
               const SizedBox(width: 10),
-              GoldButton(label: '+ Add', onTap: () => _showForm(context, null), isSmall: true, icon: Icons.add),
+              GoldButton(label: 'Add', onTap: () => _showForm(context, null), isSmall: true, icon: Icons.add),
             ],
           ),
         ),

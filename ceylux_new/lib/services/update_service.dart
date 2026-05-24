@@ -166,17 +166,25 @@ class UpdateService {
     await prefs.setInt(_updateAttemptCountKey, 0);
   }
 
-  /// Check if we should skip this update.
-  /// Only skips if the user explicitly pressed "Skip Now" for this version.
+  /// Check if we should skip this update (already tried or installed).
   Future<bool> shouldSkipUpdate(String remoteVersion) async {
-    final prefs = await SharedPreferences.getInstance();
-    final skippedVersion = prefs.getString('skipped_update_version') ?? '';
-    return skippedVersion == remoteVersion;
-  }
-
-  /// Mark a version as explicitly skipped by the user pressing "Skip Now".
-  Future<void> skipVersion(String version) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('skipped_update_version', version);
+    final lastInstalled = await getLastInstalledVersion();
+    final pending = await getPendingUpdateVersion();
+    
+    // Skip if this exact version was already installed
+    if (lastInstalled == remoteVersion) {
+      return true;
+    }
+    
+    // Skip if this version is still pending (installation in progress or failed)
+    if (pending == remoteVersion) {
+      final attemptCount = (await SharedPreferences.getInstance()).getInt(_updateAttemptCountKey) ?? 0;
+      // Allow up to 2 attempts per version, then skip
+      if (attemptCount >= 2) {
+        return true;
+      }
+    }
+    
+    return false;
   }
 }
