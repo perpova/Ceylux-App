@@ -17,7 +17,56 @@ class OrdersScreen extends StatefulWidget {
 
 class _OrdersScreenState extends State<OrdersScreen> {
   String _filter = 'All';
+  String _sortBy = 'Recent';
+  String _searchQuery = '';
+  final _searchCtrl = TextEditingController();
   final svc = ApiService();
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  List<AppOrder> _applySearchAndSort(List<AppOrder> orders) {
+    // Apply status filter
+    var filtered = _filter == 'All' 
+        ? orders 
+        : orders.where((o) => o.status == _filter).toList();
+
+    // Apply search filter
+    if (_searchQuery.isNotEmpty) {
+      final query = _searchQuery.toLowerCase();
+      filtered = filtered.where((o) =>
+          o.customerName.toLowerCase().contains(query) ||
+          o.id.toLowerCase().contains(query) ||
+          o.date.contains(query)).toList();
+    }
+
+    // Apply sorting
+    switch (_sortBy) {
+      case 'Recent':
+        filtered.sort((a, b) => b.date.compareTo(a.date));
+        break;
+      case 'Oldest':
+        filtered.sort((a, b) => a.date.compareTo(b.date));
+        break;
+      case 'High to Low':
+        filtered.sort((a, b) => b.total.compareTo(a.total));
+        break;
+      case 'Low to High':
+        filtered.sort((a, b) => a.total.compareTo(b.total));
+        break;
+      case 'Customer (A-Z)':
+        filtered.sort((a, b) => a.customerName.compareTo(b.customerName));
+        break;
+      case 'Customer (Z-A)':
+        filtered.sort((a, b) => b.customerName.compareTo(a.customerName));
+        break;
+    }
+
+    return filtered;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,28 +80,110 @@ class _OrdersScreenState extends State<OrdersScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: ['All', 'Pending', 'Processing', 'Delivered'].map((s) => GestureDetector(
-                    onTap: () => setState(() => _filter = s),
-                    child: Container(
-                      margin: const EdgeInsets.only(right: 8),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                      decoration: BoxDecoration(
-                        color: _filter == s ? AppColors.gold.withOpacity(0.15) : Colors.transparent,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: _filter == s ? AppColors.gold : AppColors.border),
-                      ),
-                      child: Text(s, style: TextStyle(
-                        fontSize: 12, fontWeight: FontWeight.w600,
-                        color: _filter == s ? AppColors.gold : AppColors.muted,
-                      )),
-                    ),
-                  )).toList(),
+              // ── Search Bar ──────────────────────────────────────────────
+              TextFormField(
+                controller: _searchCtrl,
+                onChanged: (v) => setState(() => _searchQuery = v),
+                style: TextStyle(color: AppColors.textColor, fontSize: 13),
+                decoration: InputDecoration(
+                  hintText: 'Search by customer name, order ID, or date...',
+                  hintStyle: TextStyle(color: AppColors.muted, fontSize: 12),
+                  prefixIcon: Icon(Icons.search, color: AppColors.muted, size: 20),
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? GestureDetector(
+                          onTap: () {
+                            _searchCtrl.clear();
+                            setState(() => _searchQuery = '');
+                          },
+                          child: Icon(Icons.close_rounded, color: AppColors.muted, size: 18),
+                        )
+                      : null,
+                  filled: true,
+                  fillColor: AppColors.bg,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: AppColors.border),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: AppColors.border),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: AppColors.gold, width: 1.5),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                 ),
               ),
               const SizedBox(height: 10),
+
+              // ── Status Filter & Sort ─────────────────────────────────────
+              Row(
+                children: [
+                  Expanded(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: ['All', 'Pending', 'Processing', 'Delivered'].map((s) => GestureDetector(
+                          onTap: () => setState(() => _filter = s),
+                          child: Container(
+                            margin: const EdgeInsets.only(right: 8),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                            decoration: BoxDecoration(
+                              color: _filter == s ? AppColors.gold.withOpacity(0.15) : Colors.transparent,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: _filter == s ? AppColors.gold : AppColors.border),
+                            ),
+                            child: Text(s, style: TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.w600,
+                              color: _filter == s ? AppColors.gold : AppColors.muted,
+                            )),
+                          ),
+                        )).toList(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  PopupMenuButton<String>(
+                    onSelected: (v) => setState(() => _sortBy = v),
+                    color: AppColors.card,
+                    position: PopupMenuPosition.over,
+                    itemBuilder: (BuildContext context) {
+                      return ['Recent', 'Oldest', 'High to Low', 'Low to High', 'Customer (A-Z)', 'Customer (Z-A)']
+                          .map((s) => PopupMenuItem<String>(
+                            value: s,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (_sortBy == s)
+                                  Icon(Icons.check, size: 16, color: AppColors.gold)
+                                else
+                                  const SizedBox(width: 16),
+                                const SizedBox(width: 8),
+                                Text(s, style: TextStyle(
+                                  color: _sortBy == s ? AppColors.gold : AppColors.textColor,
+                                  fontWeight: _sortBy == s ? FontWeight.bold : FontWeight.normal,
+                                )),
+                              ],
+                            ),
+                          ))
+                          .toList();
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppColors.bg,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Icon(Icons.sort, color: AppColors.muted, size: 20),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+
+              // ── New Order Button ────────────────────────────────────────
               GestureDetector(
                 onTap: () => _showNewOrderSheet(context),
                 child: Container(
@@ -85,11 +216,12 @@ class _OrdersScreenState extends State<OrdersScreen> {
               if (snap.connectionState == ConnectionState.waiting) {
                 return Center(child: CircularProgressIndicator(color: AppColors.gold));
               }
-              final orders = (snap.data ?? [])
-                  .where((o) => _filter == 'All' || o.status == _filter)
-                  .toList();
+              final orders = _applySearchAndSort(snap.data ?? []);
               if (orders.isEmpty) {
-                return Center(child: Text('No orders', style: TextStyle(color: AppColors.muted)));
+                return Center(child: Text(
+                  _searchQuery.isNotEmpty ? 'No orders found' : 'No orders',
+                  style: TextStyle(color: AppColors.muted),
+                ));
               }
               return ListView.builder(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
@@ -255,70 +387,229 @@ class _OrderDetailSheet extends StatelessWidget {
               );
               final phone = customer.phone.trim();
 
-              return GestureDetector(
-                onTap: () {
-                  String formattedPhone = phone;
-                  if (formattedPhone.isNotEmpty) {
-                    formattedPhone = formattedPhone.replaceAll(RegExp(r'\D'), '');
-                    if (formattedPhone.startsWith('0') && formattedPhone.length == 10) {
-                      formattedPhone = '94${formattedPhone.substring(1)}';
-                    } else if (!formattedPhone.startsWith('94') && formattedPhone.length == 9) {
-                      formattedPhone = '94$formattedPhone';
-                    }
-                  }
+              return Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () async {
+                        // Show preparing dialog
+                        showDialog(
+                          context: context,
+                          barrierDismissible: false,
+                          builder: (_) => AlertDialog(
+                            backgroundColor: AppColors.card,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            content: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                CircularProgressIndicator(color: const Color(0xFF25D366)),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'Preparing Invoice...',
+                                  style: TextStyle(
+                                    color: AppColors.textColor,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  'Creating PDF and preparing for WhatsApp',
+                                  style: TextStyle(
+                                    color: AppColors.muted,
+                                    fontSize: 11,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
 
-                  final msg = Uri.encodeComponent(
-                    '🛍️ CEYLUX Fashion Boutique\n\nOrder: ${order.id}\n'
-                    '${order.items.map((i) => '• ${i.name} [${i.size}] x${i.qty} — Rs. ${NumberFormat('#,###').format(i.subtotal)}').join('\n')}'
-                    '\n\n💰 Total: Rs. ${NumberFormat('#,###').format(order.total)}\n\nThank you! 🙏'
-                  );
+                        try {
+                          // Get customer phone and format it
+                          String formattedPhone = phone;
+                          if (formattedPhone.isNotEmpty) {
+                            formattedPhone = formattedPhone.replaceAll(RegExp(r'\D'), '');
+                            if (formattedPhone.startsWith('0') && formattedPhone.length == 10) {
+                              formattedPhone = '94${formattedPhone.substring(1)}';
+                            } else if (!formattedPhone.startsWith('94') && formattedPhone.length == 9) {
+                              formattedPhone = '94$formattedPhone';
+                            }
+                          }
 
-                  final url = formattedPhone.isNotEmpty
-                      ? 'https://wa.me/$formattedPhone?text=$msg'
-                      : 'https://wa.me/?text=$msg';
-                  launchUrl(Uri.parse(url));
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF25D366).withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFF25D366).withOpacity(0.4)),
+                          await InvoiceService.shareInvoice(order, phone: formattedPhone);
+                          
+                          if (context.mounted) {
+                            Navigator.pop(context); // Close dialog
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            Navigator.pop(context); // Close dialog
+                            
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Row(
+                                  children: [
+                                    Icon(Icons.error, color: Colors.white, size: 20),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text('Error: $e',
+                                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 11),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                backgroundColor: AppColors.danger,
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                            );
+                          }
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF25D366).withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFF25D366).withOpacity(0.4)),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.chat, color: const Color(0xFF25D366), size: 16),
+                            const SizedBox(width: 6),
+                            Text('WhatsApp', style: TextStyle(
+                              color: const Color(0xFF25D366), fontWeight: FontWeight.w600, fontSize: 11)),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
-                  child: const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text('💬', style: TextStyle(fontSize: 18)),
-                      SizedBox(width: 8),
-                      Text('Share via WhatsApp', style: TextStyle(
-                        color: Color(0xFF25D366), fontWeight: FontWeight.w600, fontSize: 13)),
-                    ],
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () async {
+                        // Show downloading dialog
+                        showDialog(
+                          context: context,
+                          barrierDismissible: false,
+                          builder: (_) => AlertDialog(
+                            backgroundColor: AppColors.card,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            content: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                CircularProgressIndicator(color: AppColors.gold),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'Generating Receipt...',
+                                  style: TextStyle(
+                                    color: AppColors.textColor,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  'Creating PDF and saving to downloads',
+                                  style: TextStyle(
+                                    color: AppColors.muted,
+                                    fontSize: 11,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+
+                        try {
+                          await InvoiceService.downloadInvoice(order);
+                          
+                          if (context.mounted) {
+                            Navigator.pop(context); // Close dialog
+                            
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Row(
+                                  children: [
+                                    Icon(Icons.download_done, color: Colors.white, size: 20),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text('PDF downloaded!',
+                                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 11),
+                                          ),
+                                          Text('Check Downloads folder',
+                                            style: TextStyle(fontSize: 9, color: Colors.white70),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                backgroundColor: AppColors.success,
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                duration: const Duration(seconds: 3),
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            Navigator.pop(context); // Close dialog
+                            
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Row(
+                                  children: [
+                                    Icon(Icons.error, color: Colors.white, size: 20),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text('Failed: $e',
+                                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 10),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                backgroundColor: AppColors.danger,
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                duration: const Duration(seconds: 3),
+                              ),
+                            );
+                          }
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          color: AppColors.gold.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: AppColors.gold.withOpacity(0.4)),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.picture_as_pdf, color: AppColors.gold, size: 16),
+                            const SizedBox(width: 6),
+                            Text('PDF', style: TextStyle(
+                              color: AppColors.gold, fontWeight: FontWeight.w600, fontSize: 11)),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
-                ),
+                ],
               );
             },
           ),
           const SizedBox(height: 10),
-          GestureDetector(
-            onTap: () => InvoiceService.shareInvoice(order),
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              decoration: BoxDecoration(
-                color: btnColor.withOpacity(isDark ? 0.15 : 0.1),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: btnColor.withOpacity(0.5)),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.picture_as_pdf_outlined, color: btnColor, size: 18),
-                  const SizedBox(width: 8),
-                  Text('Download Invoice PDF', style: TextStyle(
-                    color: btnColor, fontWeight: FontWeight.w600, fontSize: 13)),
-                ],
-              ),
-            ),
-          ),
         ],
       ),
     );

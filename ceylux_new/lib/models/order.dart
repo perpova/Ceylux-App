@@ -21,13 +21,15 @@ class AppOrder {
   final String id;
   final String customerId;
   final String customerName;
+  final String? customerAddress;
+  final String? customerPhone;
   final List<OrderItem> items;
   final int total;
   final String status;
   final String date;
 
   AppOrder({required this.dbId, required this.id, required this.customerId, required this.customerName,
-    required this.items, required this.total, required this.status, required this.date});
+    this.customerAddress, this.customerPhone, required this.items, required this.total, required this.status, required this.date});
 
   static int _toInt(dynamic v) {
     if (v == null) return 0;
@@ -60,6 +62,8 @@ class AppOrder {
       id: displayId,
       customerId: m['customer_id']?.toString() ?? '',
       customerName: m['customer_name'] ?? '',
+      customerAddress: m['customer_address']?.toString(),
+      customerPhone: m['customer_phone']?.toString(),
       items: parsedItems,
       total: _toInt(m['total']),
       status: m['status'] ?? 'Pending',
@@ -72,6 +76,8 @@ class AppOrder {
   Map<String, dynamic> toMap() => {
     'id': dbId, 'order_ref': id, 'customer_id': customerId,
     'customer_name': customerName,
+    'customer_address': customerAddress,
+    'customer_phone': customerPhone,
     'items': items.map((e) => e.toMap()).toList(),
     'total': total, 'status': status, 'date': date,
   };
