@@ -15,6 +15,7 @@ import 'screens/customers_screen.dart';
 import 'screens/notifications_screen.dart';
 import 'screens/settings_screen.dart';
 import 'services/api_service.dart';
+import 'widgets/profile_dialog.dart';
 
 // Global theme notifier for reactively switching between System, Light, and Dark modes
 final themeNotifier = ValueNotifier<ThemeMode>(ThemeMode.system);
@@ -451,8 +452,7 @@ class HomeShell extends StatefulWidget {
 class _HomeShellState extends State<HomeShell> {
   int _tab = 0;
   String _userName = '';
-
-
+  String? _profileImagePath;
 
   final _navItems = const [
     {'icon': Icons.home_rounded,         'label': 'Home'},
@@ -470,7 +470,23 @@ class _HomeShellState extends State<HomeShell> {
 
   Future<void> _loadUser() async {
     final prefs = await SharedPreferences.getInstance();
-    setState(() => _userName = prefs.getString('userName') ?? 'User');
+    setState(() {
+      _userName = prefs.getString('userName') ?? 'User';
+      _profileImagePath = prefs.getString('profileImagePath');
+    });
+  }
+
+  void _showProfileDialog() {
+    showDialog(
+      context: context,
+      builder: (_) => ProfileDialog(
+        userName: _userName,
+        onProfileUpdated: () {
+          _loadUser();
+          Navigator.pop(context);
+        },
+      ),
+    );
   }
 
   @override
@@ -523,21 +539,40 @@ class _HomeShellState extends State<HomeShell> {
               borderRadius: BorderRadius.circular(20),
               border: Border.all(color: AppColors.border),
             ),
-            child: Row(children: [
-              Container(
-                width: 22, height: 22,
-                decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
-                child: Center(child: Text(
-                  _userName.isNotEmpty ? _userName[0].toUpperCase() : 'U',
-                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                )),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                _userName.split(' ')[0],
-                style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary),
-              ),
-            ]),
+            child: GestureDetector(
+              onTap: _showProfileDialog,
+              child: Row(children: [
+                Container(
+                  width: 22, height: 22,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    shape: BoxShape.circle,
+                    image: _profileImagePath != null && File(_profileImagePath!).existsSync()
+                        ? DecorationImage(
+                            image: FileImage(File(_profileImagePath!)),
+                            fit: BoxFit.cover,
+                          )
+                        : null,
+                  ),
+                  child: _profileImagePath == null || !File(_profileImagePath!).existsSync()
+                      ? Center(
+                          child: Text(
+                            _userName.isNotEmpty ? _userName[0].toUpperCase() : 'U',
+                            style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                          ),
+                        )
+                      : null,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    _userName.split(' ')[0],
+                    style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ]),
+            ),
           ),
         ],
         bottom: PreferredSize(

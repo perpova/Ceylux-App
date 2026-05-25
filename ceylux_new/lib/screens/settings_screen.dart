@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import '../utils/theme.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/html_preview_widget.dart';
+import '../widgets/profile_dialog.dart';
 import '../services/update_service.dart';
 import '../services/invoice_service.dart';
 import '../models/order.dart';
@@ -24,6 +25,7 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   String _userName = 'User';
   String _userRole = 'Store Manager';
+  String? _profileImagePath;
   bool _checkingUpdate = false;
   late ThemeMode _currentThemeMode;
 
@@ -38,8 +40,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _userName = prefs.getString('userName') ?? 'Ceylux Associate';
-      _userRole = _userName.toLowerCase().contains('admin') ? 'Administrator' : 'Store Associate';
+      _profileImagePath = prefs.getString('profileImagePath');
+      _userRole = _userName.toLowerCase().contains('admin') ? 'Administrator' : 'Administrator';
     });
+  }
+
+  void _showProfileDialog() {
+    showDialog(
+      context: context,
+      builder: (_) => ProfileDialog(
+        userName: _userName,
+        onProfileUpdated: () {
+          _loadUser();
+          Navigator.pop(context);
+        },
+      ),
+    );
   }
 
   Future<void> _changeTheme(ThemeMode mode) async {
@@ -544,23 +560,25 @@ Save as HTML file and upload in settings to use custom template.
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Gorgeous Profile Card
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [AppColors.primary, Color(0xFF093961)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.primary.withOpacity(0.25),
-                  blurRadius: 15,
-                  offset: const Offset(0, 6),
+          GestureDetector(
+            onTap: _showProfileDialog,
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [AppColors.primary, Color(0xFF093961)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-              ],
-            ),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primary.withOpacity(0.25),
+                    blurRadius: 15,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
             child: Row(
               children: [
                 Container(
@@ -570,17 +588,25 @@ Save as HTML file and upload in settings to use custom template.
                     color: Colors.white.withOpacity(0.18),
                     shape: BoxShape.circle,
                     border: Border.all(color: Colors.white.withOpacity(0.4), width: 1.5),
+                    image: _profileImagePath != null && File(_profileImagePath!).existsSync()
+                        ? DecorationImage(
+                            image: FileImage(File(_profileImagePath!)),
+                            fit: BoxFit.cover,
+                          )
+                        : null,
                   ),
-                  child: Center(
-                    child: Text(
-                      _userName.isNotEmpty ? _userName[0].toUpperCase() : 'U',
-                      style: GoogleFonts.outfit(
-                        color: Colors.white,
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
+                  child: _profileImagePath == null || !File(_profileImagePath!).existsSync()
+                      ? Center(
+                          child: Text(
+                            _userName.isNotEmpty ? _userName[0].toUpperCase() : 'U',
+                            style: GoogleFonts.outfit(
+                              color: Colors.white,
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        )
+                      : null,
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -616,6 +642,7 @@ Save as HTML file and upload in settings to use custom template.
                   ),
                 ),
               ],
+            ),
             ),
           ),
           const SizedBox(height: 24),

@@ -96,6 +96,36 @@ class ApiService {
     return jsonDecode(body)['url'];
   }
 
+  // User Profile Methods
+  Future<Map<String, dynamic>> getUserProfile(String userId) async {
+    try {
+      final r = await _client.get(Uri.parse('$baseUrl/user/$userId'));
+      if (r.statusCode == 200) {
+        return jsonDecode(r.body) as Map<String, dynamic>;
+      }
+    } catch (_) {}
+    return {};
+  }
+
+  Future<void> updateUserProfile(String userId, Map<String, dynamic> profileData) async {
+    try {
+      await _client.put(
+        Uri.parse('$baseUrl/user/$userId'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(profileData),
+      );
+    } catch (_) {}
+  }
+
+  Future<void> uploadProfileImage(File file, String userId) async {
+    try {
+      final url = await uploadPhoto(file, 'profiles');
+      await updateUserProfile(userId, {
+        'profileImageUrl': url,
+      });
+    } catch (_) {}
+  }
+
   Future<void> seedInitialData() async {
     try { await _client.post(Uri.parse('$baseUrl/seed')); } catch (_) {}
   }

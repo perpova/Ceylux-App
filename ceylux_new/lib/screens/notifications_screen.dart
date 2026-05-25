@@ -22,7 +22,6 @@ class NotificationsScreen extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Text('✅', style: TextStyle(fontSize: 56)),
                 const SizedBox(height: 16),
                 Text(
                   'All stock levels are good!',
@@ -50,13 +49,13 @@ class NotificationsScreen extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
           children: [
             if (outItems.isNotEmpty) ...[
-              _AlertHeader(title: '🚫 Out of Stock', count: outItems.length, color: AppColors.danger),
+              _AlertHeader(title: 'Out of Stock', count: outItems.length, color: AppColors.danger),
               const SizedBox(height: 10),
               ...outItems.map((item) => _AlertCard(item: item, isOut: true)),
               const SizedBox(height: 20),
             ],
             if (lowItems.isNotEmpty) ...[
-              _AlertHeader(title: '⚠️ Low Stock', count: lowItems.length, color: AppColors.warning),
+              _AlertHeader(title: 'Low Stock', count: lowItems.length, color: AppColors.warning),
               const SizedBox(height: 10),
               ...lowItems.map((item) => _AlertCard(item: item, isOut: false)),
             ],

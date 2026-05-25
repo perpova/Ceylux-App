@@ -49,10 +49,13 @@ async function initDB() {
         name VARCHAR(255) NOT NULL,
         email VARCHAR(255) UNIQUE NOT NULL,
         password VARCHAR(255) NOT NULL,
+        phone VARCHAR(50),
+        profileImageUrl TEXT,
         role VARCHAR(50) DEFAULT 'staff',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       )
-    `);
+    `)
 
     // 2. stock table
     await pool.query(`
@@ -102,6 +105,8 @@ async function initDB() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
+
 
     console.log('✅ MySQL Database initialized and tables verified!');
   } catch (err) {
@@ -333,6 +338,45 @@ app.put('/orders/:id/status', async (req, res) => {
     );
     const [rows] = await pool.query('SELECT * FROM orders WHERE id = ? OR order_ref = ?', [req.params.id, req.params.id]);
     res.json(rows[0]);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── USER PROFILES ──────────────────────────────────────────────────────────
+app.get('/user/:userId', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT id, name, email, phone, profileImageUrl FROM users WHERE id = ? OR email = ?', [req.params.userId, req.params.userId]);
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    res.json(rows[0]);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.put('/user/:userId', async (req, res) => {
+  try {
+    const { name, email, phone, profileImageUrl } = req.body;
+    
+    // Check if user exists
+    const [rows] = await pool.query('SELECT id FROM users WHERE id = ? OR email = ?', [req.params.userId, req.params.userId]);
+    
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const userId = rows[0].id;
+    
+    // Update user profile
+    await pool.query(
+      'UPDATE users SET name = ?, email = ?, phone = ?, profileImageUrl = ? WHERE id = ?',
+      [name, email, phone, profileImageUrl, userId]
+    );
+    
+    const [updatedRows] = await pool.query('SELECT id, name, email, phone, profileImageUrl FROM users WHERE id = ?', [userId]);
+    res.json({ message: 'Profile updated successfully', user: updatedRows[0] });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
