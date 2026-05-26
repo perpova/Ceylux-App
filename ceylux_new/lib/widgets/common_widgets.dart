@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shimmer/shimmer.dart';
 import '../utils/theme.dart';
 
 // ── Primary Button ─────────────────────────────────────────────────────────
@@ -72,93 +73,113 @@ class StatCard extends StatelessWidget {
     late Color iconBgColor;
 
     if (isDark) {
-      // Dark Mode Gradient Card Styles (Matching Dark Mode Screenshot)
+      // Dark Mode VIBRANT Gradient Card Styles
       if (color == AppColors.primary || color == AppColors.accent) {
-        // Blue Gradient
+        // Vibrant Blue Gradient
         gradient = const LinearGradient(
-          colors: [Color(0xFF132035), Color(0xFF0B1422)],
+          colors: [Color(0xFF1E3A8A), Color(0xFF0F172A)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         );
-        borderColor = const Color(0xFF3B82F6).withOpacity(0.18);
-        textColor = const Color(0xFF3B82F6);
-        iconBgColor = const Color(0xFF3B82F6).withOpacity(0.1);
+        borderColor = const Color(0xFF60A5FA).withOpacity(0.25);
+        textColor = const Color(0xFF60A5FA);
+        iconBgColor = const Color(0xFF60A5FA).withOpacity(0.15);
       } else if (color == AppColors.success) {
-        // Green Gradient
+        // Vibrant Green Gradient
         gradient = const LinearGradient(
-          colors: [Color(0xFF11261C), Color(0xFF0A1811)],
+          colors: [Color(0xFF065F46), Color(0xFF0F2F1F)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         );
-        borderColor = const Color(0xFF10B981).withOpacity(0.18);
-        textColor = const Color(0xFF10B981);
-        iconBgColor = const Color(0xFF10B981).withOpacity(0.1);
+        borderColor = const Color(0xFF34D399).withOpacity(0.25);
+        textColor = const Color(0xFF34D399);
+        iconBgColor = const Color(0xFF34D399).withOpacity(0.15);
       } else if (color == AppColors.warning) {
-        // Orange Gradient
+        // Vibrant Orange Gradient
         gradient = const LinearGradient(
-          colors: [Color(0xFF2C1E15), Color(0xFF1B120C)],
+          colors: [Color(0xFF7C2D12), Color(0xFF3F1F0B)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         );
-        borderColor = const Color(0xFFF97316).withOpacity(0.18);
-        textColor = const Color(0xFFF97316);
-        iconBgColor = const Color(0xFFF97316).withOpacity(0.1);
+        borderColor = const Color(0xFFFB923C).withOpacity(0.25);
+        textColor = const Color(0xFFFB923C);
+        iconBgColor = const Color(0xFFFB923C).withOpacity(0.15);
+      } else if (color == AppColors.gold) {
+        // Vibrant Gold/Yellow Gradient
+        gradient = const LinearGradient(
+          colors: [Color(0xFF78350F), Color(0xFF3C1D0F)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+        borderColor = const Color(0xFFFCD34D).withOpacity(0.25);
+        textColor = const Color(0xFFFCD34D);
+        iconBgColor = const Color(0xFFFCD34D).withOpacity(0.15);
       } else {
-        // Gold/Yellow Gradient
+        // Fallback Purple/Indigo Gradient
         gradient = const LinearGradient(
-          colors: [Color(0xFF2A2315), Color(0xFF1A150C)],
+          colors: [Color(0xFF4C1D95), Color(0xFF2E1065)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         );
-        borderColor = const Color(0xFFF59E0B).withOpacity(0.18);
-        textColor = const Color(0xFFF59E0B);
-        iconBgColor = const Color(0xFFF59E0B).withOpacity(0.1);
-      }
-      labelColor = textColor.withOpacity(0.5);
-    } else {
-      // Light Mode Pastel Card Styles (Matching Light Mode Screenshot)
-      if (color == AppColors.primary || color == AppColors.accent) {
-        // Light Blue Pastel Gradient
-        gradient = const LinearGradient(
-          colors: [Color(0xFFE2EAF3), Color(0xFFEEF3F8)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        );
-        borderColor = const Color(0xFF3B82F6).withOpacity(0.15);
-        textColor = const Color(0xFF2563EB);
-        iconBgColor = const Color(0xFF3B82F6).withOpacity(0.08);
-      } else if (color == AppColors.success) {
-        // Light Green Pastel Gradient
-        gradient = const LinearGradient(
-          colors: [Color(0xFFE6F4EA), Color(0xFFF4FBF7)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        );
-        borderColor = const Color(0xFF10B981).withOpacity(0.15);
-        textColor = const Color(0xFF059669);
-        iconBgColor = const Color(0xFF10B981).withOpacity(0.08);
-      } else if (color == AppColors.warning) {
-        // Light Orange Pastel Gradient
-        gradient = const LinearGradient(
-          colors: [Color(0xFFFFEDD5), Color(0xFFFFF8F1)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        );
-        borderColor = const Color(0xFFF97316).withOpacity(0.15);
-        textColor = const Color(0xFFEA580C);
-        iconBgColor = const Color(0xFFF97316).withOpacity(0.08);
-      } else {
-        // Light Gold/Yellow Pastel Gradient
-        gradient = const LinearGradient(
-          colors: [Color(0xFFFEF3C7), Color(0xFFFFFBEB)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        );
-        borderColor = const Color(0xFFF59E0B).withOpacity(0.15);
-        textColor = const Color(0xFFD97706);
-        iconBgColor = const Color(0xFFF59E0B).withOpacity(0.08);
+        borderColor = const Color(0xFFC084FC).withOpacity(0.25);
+        textColor = const Color(0xFFC084FC);
+        iconBgColor = const Color(0xFFC084FC).withOpacity(0.15);
       }
       labelColor = textColor.withOpacity(0.6);
+    } else {
+      // Light Mode VIBRANT Gradient Card Styles
+      if (color == AppColors.primary || color == AppColors.accent) {
+        // Vibrant Blue Gradient
+        gradient = const LinearGradient(
+          colors: [Color(0xFFDEEAFF), Color(0xFFF0F5FF)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+        borderColor = const Color(0xFF3B82F6).withOpacity(0.2);
+        textColor = const Color(0xFF1E40AF);
+        iconBgColor = const Color(0xFF3B82F6).withOpacity(0.12);
+      } else if (color == AppColors.success) {
+        // Vibrant Green Gradient
+        gradient = const LinearGradient(
+          colors: [Color(0xFFD1FAE5), Color(0xFFF0FDF4)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+        borderColor = const Color(0xFF10B981).withOpacity(0.2);
+        textColor = const Color(0xFF065F46);
+        iconBgColor = const Color(0xFF10B981).withOpacity(0.12);
+      } else if (color == AppColors.warning) {
+        // Vibrant Orange Gradient
+        gradient = const LinearGradient(
+          colors: [Color(0xFFFEDDD5), Color(0xFFFEF2F0)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+        borderColor = const Color(0xFFF97316).withOpacity(0.2);
+        textColor = const Color(0xFF7C2D12);
+        iconBgColor = const Color(0xFFF97316).withOpacity(0.12);
+      } else if (color == AppColors.gold) {
+        // Vibrant Gold/Yellow Gradient
+        gradient = const LinearGradient(
+          colors: [Color(0xFFFEF08A), Color(0xFFFEF3C7)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+        borderColor = const Color(0xFFFBBF24).withOpacity(0.3);
+        textColor = const Color(0xFFB45309);
+        iconBgColor = const Color(0xFFFBBF24).withOpacity(0.15);
+      } else {
+        // Fallback Purple/Indigo Gradient
+        gradient = const LinearGradient(
+          colors: [Color(0xFFEDE9FE), Color(0xFFF5F3FF)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+        borderColor = const Color(0xFFA78BFA).withOpacity(0.3);
+        textColor = const Color(0xFF6D28D9);
+        iconBgColor = const Color(0xFFA78BFA).withOpacity(0.15);
+      }
+      labelColor = textColor.withOpacity(0.65);
     }
 
     return Container(
@@ -351,8 +372,9 @@ class CeyluxCard extends StatelessWidget {
   final Widget child;
   final VoidCallback? onTap;
   final EdgeInsets? padding;
+  final LinearGradient? gradient;
 
-  const CeyluxCard({super.key, required this.child, this.onTap, this.padding});
+  const CeyluxCard({super.key, required this.child, this.onTap, this.padding, this.gradient});
 
   @override
   Widget build(BuildContext context) {
@@ -362,14 +384,15 @@ class CeyluxCard extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 12),
         padding: padding ?? const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: AppColors.card,
+          gradient: gradient,
+          color: gradient == null ? AppColors.card : null,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: AppColors.border.withOpacity(0.5), width: 1.0),
           boxShadow: [
             BoxShadow(
-              color: AppColors.primary.withOpacity(0.04),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
+              color: AppColors.primary.withOpacity(0.06),
+              blurRadius: 14,
+              offset: const Offset(0, 6),
             ),
           ],
         ),
@@ -415,6 +438,316 @@ class GoldTextField extends StatelessWidget {
         ),
         const SizedBox(height: 14),
       ],
+    );
+  }
+}
+
+// ── Action Button with Loading Animation ──────────────────────────────────
+class ActionButton extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+  final bool isLoading;
+  final Color? buttonColor;
+  final Color? textColor;
+  final IconData? icon;
+  final double? width;
+  final bool isOutlined;
+  final double fontSize;
+  final double padding;
+  // Backward compatibility
+  final Color? color;
+
+  const ActionButton({
+    super.key,
+    required this.label,
+    required this.onTap,
+    this.isLoading = false,
+    this.buttonColor,
+    this.textColor,
+    this.icon,
+    this.width,
+    this.isOutlined = false,
+    this.fontSize = 12,
+    this.padding = 11,
+    this.color, // deprecated, use buttonColor instead
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final bgColor = buttonColor ?? color ?? AppColors.gold;
+    
+    return GestureDetector(
+      onTap: isLoading ? null : onTap,
+      child: Container(
+        width: width,
+        padding: EdgeInsets.symmetric(vertical: padding, horizontal: 16),
+        decoration: BoxDecoration(
+          color: isOutlined 
+              ? Colors.transparent 
+              : bgColor.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(9),
+          border: Border.all(
+            color: isOutlined 
+                ? bgColor.withOpacity(0.5) 
+                : bgColor.withOpacity(0.3),
+            width: isOutlined ? 1.5 : 1,
+          ),
+        ),
+        child: isLoading
+            ? SizedBox(
+                height: 18,
+                width: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.2,
+                  valueColor: AlwaysStoppedAnimation<Color>(bgColor),
+                ),
+              )
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (icon != null) ...[
+                    Icon(icon, color: bgColor, size: 16),
+                    const SizedBox(width: 6),
+                  ],
+                  Text(
+                    label,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: fontSize,
+                      fontWeight: FontWeight.w600,
+                      color: bgColor,
+                    ),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+}
+
+// ── Reusable Shimmer Loading Screen ────────────────────────────────────────
+class ShimmerLoadingScreen extends StatelessWidget {
+  final String? message;
+  final Duration duration;
+
+  const ShimmerLoadingScreen({
+    super.key,
+    this.message = 'Loading...',
+    this.duration = const Duration(milliseconds: 2000),
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.bg,
+      body: Center(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Logo with Shimmer Effect
+              Shimmer.fromColors(
+                baseColor: AppColors.gold.withOpacity(0.3),
+                highlightColor: AppColors.gold.withOpacity(0.8),
+                period: duration,
+                child: Container(
+                  width: 280, height: 90,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.gold.withOpacity(0.4),
+                        blurRadius: 40,
+                        offset: const Offset(0, 0),
+                        spreadRadius: 10,
+                      ),
+                      BoxShadow(
+                        color: AppColors.primary.withOpacity(0.2),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Image.asset('assets/images/ceylux_logo.png', fit: BoxFit.contain),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              
+              // CEYLUX Premium Text with Shimmer
+              Shimmer.fromColors(
+                baseColor: AppColors.gold.withOpacity(0.4),
+                highlightColor: AppColors.gold.withOpacity(0.9),
+                period: duration,
+                child: Column(
+                  children: [
+                    Text(
+                      'CEYLUX',
+                      style: GoogleFonts.outfit(
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.gold,
+                        letterSpacing: 3,
+                        shadows: [
+                          Shadow(
+                            color: AppColors.gold.withOpacity(0.3),
+                            blurRadius: 15,
+                            offset: const Offset(0, 0),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'PREMIUM',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.gold.withOpacity(0.7),
+                        letterSpacing: 2,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 48),
+              
+              // Loading Indicator
+              if (message != null) ...[
+                const SizedBox(height: 20),
+                Text(
+                  message!,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primary,
+                    letterSpacing: 1.5,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+// ── Customer Rating Bar ────────────────────────────────────────────────────
+class CustomerRatingBar extends StatelessWidget {
+  final String label;
+  final double percentage; // 0.0 to 100.0
+  final String unit;
+  final Color barColor;
+  final VoidCallback? onTap;
+
+  const CustomerRatingBar({
+    super.key,
+    required this.label,
+    required this.percentage,
+    required this.unit,
+    required this.barColor,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  label,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textColor,
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: barColor.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: barColor.withOpacity(0.3), width: 0.8),
+                  ),
+                  child: Text(
+                    '${percentage.toStringAsFixed(1)}%',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: barColor,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            // Progress Bar with gradient
+            Container(
+              height: 24,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                color: AppColors.bg,
+                border: Border.all(color: barColor.withOpacity(0.2)),
+              ),
+              child: Stack(
+                children: [
+                  // Background
+                  Container(
+                    height: 24,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      color: AppColors.bg,
+                    ),
+                  ),
+                  // Progress fill
+                  FractionallySizedBox(
+                    widthFactor: percentage / 100,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        gradient: LinearGradient(
+                          colors: [
+                            barColor,
+                            barColor.withOpacity(0.7),
+                          ],
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                        ),
+                      ),
+                    ),
+                  ),
+                  // Text overlay
+                  Center(
+                    child: Text(
+                      unit,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: percentage > 50 ? Colors.white : AppColors.textColor,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

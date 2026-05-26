@@ -212,6 +212,7 @@ class InvoiceService {
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.5px;
+            white-space: nowrap;
         }
         
         .items-table th.text-center {
@@ -227,11 +228,13 @@ class InvoiceService {
             border-bottom: 1px solid #f0f4f8;
             font-size: 12px;
             color: #1A1A2E;
+            white-space: nowrap;
         }
         
         .items-table .item-name {
             font-weight: 600;
             color: #0C4A6E;
+            white-space: normal;
         }
         
         .items-table .text-center {
@@ -427,10 +430,11 @@ class InvoiceService {
         <table class="items-table">
             <thead>
                 <tr>
-                    <th style="width: 40%;">Item Description</th>
-                    <th style="width: 12%;" class="text-center">Qty</th>
-                    <th style="width: 20%;" class="text-right">Price</th>
-                    <th style="width: 28%;" class="text-right">Total</th>
+                    <th style="width: 28%;">Item Description</th>
+                    <th style="width: 11%;" class="text-center">Qty</th>
+                    <th style="width: 19%;" class="text-right">Price</th>
+                    <th style="width: 19%;" class="text-right">Discount</th>
+                    <th style="width: 23%;" class="text-right">Total</th>
                 </tr>
             </thead>
             <tbody>
@@ -447,12 +451,18 @@ class InvoiceService {
                     <span class="label">Subtotal:</span>
                     <span class="value">Rs. {{SUBTOTAL}}</span>
                 </div>
-                {{#DISCOUNT}}
+                {{#ITEM_DISCOUNTS}}
                 <div class="summary-row discount">
-                    <span class="label">Discount ({{DISCOUNT_PERCENT}}%):</span>
-                    <span class="value">− Rs. {{DISCOUNT}}</span>
+                    <span class="label">Item Discounts:</span>
+                    <span class="value">- Rs. {{ITEM_DISCOUNTS}}</span>
                 </div>
-                {{/DISCOUNT}}
+                {{/ITEM_DISCOUNTS}}
+                {{#BILL_DISCOUNT}}
+                <div class="summary-row discount">
+                    <span class="label">Discount ({{BILL_DISCOUNT_PERCENT}}%):</span>
+                    <span class="value">- Rs. {{BILL_DISCOUNT}}</span>
+                </div>
+                {{/BILL_DISCOUNT}}
                 <div class="summary-row total">
                     <span class="label">TOTAL</span>
                     <span class="value">Rs. {{TOTAL}}</span>
@@ -489,12 +499,6 @@ class InvoiceService {
 </body>
 </html>
 ''';
-
-  static int _getDiscountAmount(AppOrder order) {
-    int subtotal = order.items.fold<int>(0, (sum, item) => sum + item.subtotal);
-    int discount = subtotal - order.total;
-    return discount > 0 ? discount : 0;
-  }
 
   static Future<String?> _getHeader() async {
     final prefs = await SharedPreferences.getInstance();
@@ -548,8 +552,10 @@ class InvoiceService {
     final contact = await _getContactInfo();
     
     int subtotal = order.items.fold<int>(0, (sum, item) => sum + item.subtotal);
-    int discount = _getDiscountAmount(order);
-    int discountPercent = discount > 0 ? ((discount * 100) ~/ subtotal) : 0;
+    int itemDiscounts = order.items.fold<int>(0, (sum, item) => sum + item.discountAmount);
+    int billDiscountAmount = ((subtotal - itemDiscounts) * order.discountPercentage) ~/ 100;
+    int totalDiscount = itemDiscounts + billDiscountAmount;
+    int calculatedTotal = subtotal - totalDiscount;
     
     // Generate items HTML rows with size info included
     String itemsHtml = order.items.map((item) => '''
@@ -557,7 +563,8 @@ class InvoiceService {
           <td class="item-name">${item.name}${item.size.isNotEmpty ? ' [${item.size}]' : ''}</td>
           <td class="text-center">${item.qty}</td>
           <td class="text-right">Rs. ${NumberFormat('#,###').format(item.price)}</td>
-          <td class="text-right">Rs. ${NumberFormat('#,###').format(item.subtotal)}</td>
+          <td class="text-right discount-cell">${item.discountAmount > 0 ? 'Rs. ${NumberFormat('#,###').format(item.discountAmount)}' : '-'}</td>
+          <td class="text-right">Rs. ${NumberFormat('#,###').format(item.total)}</td>
         </tr>
     ''').join('');
     
@@ -574,16 +581,27 @@ class InvoiceService {
     html = html.replaceAll('{{STATUS}}', order.status);
     html = html.replaceAll('{{ITEMS}}', itemsHtml);
     html = html.replaceAll('{{SUBTOTAL}}', NumberFormat('#,###').format(subtotal));
-    if (discount > 0) {
-      html = html.replaceAll('{{#DISCOUNT}}', '');
-      html = html.replaceAll('{{/DISCOUNT}}', '');
-      html = html.replaceAll('{{DISCOUNT}}', NumberFormat('#,###').format(discount));
-      html = html.replaceAll('{{DISCOUNT_PERCENT}}', discountPercent.toString());
+    
+    // Handle item discounts conditional block
+    if (itemDiscounts > 0) {
+      html = html.replaceAll('{{#ITEM_DISCOUNTS}}', '');
+      html = html.replaceAll('{{/ITEM_DISCOUNTS}}', '');
+      html = html.replaceAll('{{ITEM_DISCOUNTS}}', NumberFormat('#,###').format(itemDiscounts));
     } else {
-      // Remove discount section if no discount
-      html = html.replaceAll(RegExp(r'\{\{#DISCOUNT\}\}.*?\{\{/DISCOUNT\}\}', dotAll: true), '');
+      html = html.replaceAll(RegExp(r'\{\{#ITEM_DISCOUNTS\}\}.*?\{\{/ITEM_DISCOUNTS\}\}', dotAll: true), '');
     }
-    html = html.replaceAll('{{TOTAL}}', NumberFormat('#,###').format(order.total));
+    
+    // Handle bill discount conditional block
+    if (billDiscountAmount > 0) {
+      html = html.replaceAll('{{#BILL_DISCOUNT}}', '');
+      html = html.replaceAll('{{/BILL_DISCOUNT}}', '');
+      html = html.replaceAll('{{BILL_DISCOUNT}}', NumberFormat('#,###').format(billDiscountAmount));
+      html = html.replaceAll('{{BILL_DISCOUNT_PERCENT}}', '${order.discountPercentage}');
+    } else {
+      html = html.replaceAll(RegExp(r'\{\{#BILL_DISCOUNT\}\}.*?\{\{/BILL_DISCOUNT\}\}', dotAll: true), '');
+    }
+    
+    html = html.replaceAll('{{TOTAL}}', NumberFormat('#,###').format(calculatedTotal));
     html = html.replaceAll('{{FOOTER}}', footer ?? '');
     
     return html;
@@ -608,7 +626,10 @@ class InvoiceService {
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.all(30),
         build: (pw.Context context) {
-          return rootWidget;
+          return pw.SizedBox(
+            width: double.infinity,
+            child: rootWidget,
+          );
         },
       ),
     );

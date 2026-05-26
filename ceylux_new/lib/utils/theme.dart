@@ -142,5 +142,98 @@ class Tiers {
   }
 }
 
+// Loyalty Tier Helper - Calculates discount based on 3 metrics
+class LoyaltyTierHelper {
+  static int calculateDiscount({
+    required int totalOrders,
+    required int totalSpent,
+    required double ownerRating,
+    required int tierOneOrders,
+    required int tierOneSpent,
+    required double tierOneRating,
+    required int tierOneDiscount,
+    required int tierTwoOrders,
+    required int tierTwoSpent,
+    required double tierTwoRating,
+    required int tierTwoDiscount,
+    required int tierThreeOrders,
+    required int tierThreeSpent,
+    required double tierThreeRating,
+    required int tierThreeDiscount,
+  }) {
+    // Check Tier 3 (Highest)
+    if (totalOrders >= tierThreeOrders &&
+        totalSpent >= tierThreeSpent &&
+        ownerRating >= tierThreeRating) {
+      return tierThreeDiscount;
+    }
+
+    // Check Tier 2
+    if (totalOrders >= tierTwoOrders &&
+        totalSpent >= tierTwoSpent &&
+        ownerRating >= tierTwoRating) {
+      return tierTwoDiscount;
+    }
+
+    // Check Tier 1
+    if (totalOrders >= tierOneOrders &&
+        totalSpent >= tierOneSpent &&
+        ownerRating >= tierOneRating) {
+      return tierOneDiscount;
+    }
+
+    // No tier
+    return 0;
+  }
+
+  // Get tier name
+  static String getTierName({
+    required int totalOrders,
+    required int totalSpent,
+    required double ownerRating,
+    required int tierOneOrders,
+    required int tierOneSpent,
+    required double tierOneRating,
+    required int tierOneDiscount,
+    required int tierTwoOrders,
+    required int tierTwoSpent,
+    required double tierTwoRating,
+    required int tierTwoDiscount,
+    required int tierThreeOrders,
+    required int tierThreeSpent,
+    required double tierThreeRating,
+    required int tierThreeDiscount,
+  }) {
+    int discount = calculateDiscount(
+      totalOrders: totalOrders,
+      totalSpent: totalSpent,
+      ownerRating: ownerRating,
+      tierOneOrders: tierOneOrders,
+      tierOneSpent: tierOneSpent,
+      tierOneRating: tierOneRating,
+      tierOneDiscount: tierOneDiscount,
+      tierTwoOrders: tierTwoOrders,
+      tierTwoSpent: tierTwoSpent,
+      tierTwoRating: tierTwoRating,
+      tierTwoDiscount: tierTwoDiscount,
+      tierThreeOrders: tierThreeOrders,
+      tierThreeSpent: tierThreeSpent,
+      tierThreeRating: tierThreeRating,
+      tierThreeDiscount: tierThreeDiscount,
+    );
+
+    switch (discount) {
+      case int d when d >= tierThreeDiscount:
+        return '💎 Platinum';
+      case int d when d >= tierTwoDiscount:
+        return '🥇 Gold';
+      case int d when d >= tierOneDiscount:
+        return '🥈 Silver';
+      default:
+        return '🥉 Bronze';
+    }
+  }
+}
+
 const List<String> allSizes  = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
 const List<String> kidsSizes = ['2Y', '4Y', '6Y', '8Y', '10Y', '12Y'];

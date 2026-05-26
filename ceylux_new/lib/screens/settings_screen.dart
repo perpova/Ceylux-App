@@ -4,6 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:intl/intl.dart';
+import 'package:intl/intl.dart' as intl;
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import '../utils/theme.dart';
@@ -12,7 +14,9 @@ import '../widgets/html_preview_widget.dart';
 import '../widgets/profile_dialog.dart';
 import '../services/update_service.dart';
 import '../services/invoice_service.dart';
+import '../services/api_service.dart';
 import '../models/order.dart';
+import '../models/tier.dart';
 import 'auth_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -28,12 +32,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String? _profileImagePath;
   bool _checkingUpdate = false;
   late ThemeMode _currentThemeMode;
+  bool _isInvoiceExpanded = false;
+  bool _isTierExpanded = false;
+  
+  final svc = ApiService();
+  List<Tier> _tiers = [];
+  bool _loadingTiers = false;
 
   @override
   void initState() {
     super.initState();
     _loadUser();
     _currentThemeMode = themeNotifier.value;
+    _loadTiers();
+  }
+
+  Future<void> _loadTiers() async {
+    setState(() => _loadingTiers = true);
+    try {
+      final tiers = await svc.getTiers();
+      if (mounted) {
+        setState(() {
+          _tiers = tiers;
+          _loadingTiers = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _loadingTiers = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading tiers: $e'), backgroundColor: AppColors.danger),
+        );
+      }
+    }
   }
 
   Future<void> _loadUser() async {
@@ -43,6 +74,406 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _profileImagePath = prefs.getString('profileImagePath');
       _userRole = _userName.toLowerCase().contains('admin') ? 'Administrator' : 'Administrator';
     });
+  }
+
+  void _showAddTierDialog() {
+    String name = '';
+    String emoji = '';
+    int minOrders = 5;
+    int minSpent = 15000;
+    double minRating = 2.0;
+    int discount = 5;
+    int priority = (_tiers.isEmpty ? 1 : _tiers.map((t) => t.priority).reduce((a, b) => a > b ? a : b) + 1);
+
+    showDialog(
+      context: context,
+      builder: (_) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          backgroundColor: AppColors.card,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              Text('✨ ', style: const TextStyle(fontSize: 24)),
+              Text('Add New Tier', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 20, color: AppColors.primary)),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 350),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Preview Box
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: AppColors.bg,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        Text(emoji.isEmpty ? '🎯' : emoji, style: const TextStyle(fontSize: 32)),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(name.isEmpty ? 'Tier Name' : name, 
+                                style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.primary)),
+                              Text('${discount}% OFF', 
+                                style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.gold, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Name & Emoji Fields
+                  TextField(
+                    style: GoogleFonts.plusJakartaSans(color: AppColors.textColor, fontWeight: FontWeight.w600),
+                    decoration: InputDecoration(
+                      labelText: 'Tier Name',
+                      hintText: 'e.g., Silver, Gold',
+                      prefixIcon: const Icon(Icons.label),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      filled: true,
+                      fillColor: AppColors.bg,
+                    ),
+                    onChanged: (v) => setState(() => name = v),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    style: GoogleFonts.plusJakartaSans(color: AppColors.textColor, fontWeight: FontWeight.w600),
+                    decoration: InputDecoration(
+                      labelText: 'Emoji',
+                      hintText: '🥈 🥇 👑',
+                      prefixIcon: const Icon(Icons.emoji_emotions),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      filled: true,
+                      fillColor: AppColors.bg,
+                    ),
+                    onChanged: (v) => setState(() => emoji = v),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Sliders in Cards
+                  _buildSliderCard(
+                    icon: '🛍️',
+                    label: 'Minimum Orders',
+                    value: minOrders,
+                    maxValue: 100,
+                    divisions: 100,
+                    onChanged: (v) => setState(() => minOrders = v.toInt()),
+                  ),
+                  const SizedBox(height: 12),
+
+                  _buildSliderCard(
+                    icon: '💰',
+                    label: 'Minimum Spent',
+                    value: minSpent,
+                    maxValue: 500000,
+                    divisions: 100,
+                    onChanged: (v) => setState(() => minSpent = v.toInt()),
+                    isCurrency: true,
+                  ),
+                  const SizedBox(height: 12),
+
+                  _buildSliderCard(
+                    icon: '⭐',
+                    label: 'Minimum Rating',
+                    value: minRating,
+                    maxValue: 5,
+                    divisions: 50,
+                    onChanged: (v) => setState(() => minRating = double.parse(v.toStringAsFixed(1))),
+                    isRating: true,
+                  ),
+                  const SizedBox(height: 12),
+
+                  _buildSliderCard(
+                    icon: '🎁',
+                    label: 'Discount Percentage',
+                    value: discount,
+                    maxValue: 50,
+                    divisions: 50,
+                    onChanged: (v) => setState(() => discount = v.toInt()),
+                    showPercent: true,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: AppColors.muted, fontWeight: FontWeight.w600)),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (name.isEmpty || emoji.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: const Text('Please enter tier name and emoji'), backgroundColor: AppColors.danger, duration: const Duration(seconds: 2)),
+                  );
+                  return;
+                }
+                try {
+                  final newTier = Tier(
+                    id: '',
+                    name: name,
+                    emoji: emoji,
+                    minOrders: minOrders,
+                    minSpent: minSpent,
+                    minRating: minRating,
+                    discountPercentage: discount,
+                    priority: priority,
+                  );
+                  await svc.addTier(newTier);
+                  if (mounted) {
+                    Navigator.pop(context);
+                    _loadTiers();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('✓ Tier "${name}" added successfully!'), backgroundColor: AppColors.success, duration: const Duration(seconds: 2)),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.danger, duration: const Duration(seconds: 3)),
+                    );
+                  }
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              child: Text('Add Tier', style: GoogleFonts.plusJakartaSans(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showEditTierDialog(Tier tier) {
+    String name = tier.name;
+    String emoji = tier.emoji;
+    int minOrders = tier.minOrders;
+    int minSpent = tier.minSpent;
+    double minRating = tier.minRating;
+    int discount = tier.discountPercentage;
+
+    showDialog(
+      context: context,
+      builder: (_) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          backgroundColor: AppColors.card,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              Text('${tier.emoji} ', style: const TextStyle(fontSize: 24)),
+              Text('Edit Tier', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 20, color: AppColors.primary)),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 350),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Preview Box
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: AppColors.bg,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        Text(emoji, style: const TextStyle(fontSize: 32)),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(name, 
+                                style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.primary)),
+                              Text('${discount}% OFF', 
+                                style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.gold, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Name & Emoji Fields
+                  TextField(
+                    style: GoogleFonts.plusJakartaSans(color: AppColors.textColor, fontWeight: FontWeight.w600),
+                    controller: TextEditingController(text: name),
+                    decoration: InputDecoration(
+                      labelText: 'Tier Name',
+                      prefixIcon: const Icon(Icons.label),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      filled: true,
+                      fillColor: AppColors.bg,
+                    ),
+                    onChanged: (v) => setState(() => name = v),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    style: GoogleFonts.plusJakartaSans(color: AppColors.textColor, fontWeight: FontWeight.w600),
+                    controller: TextEditingController(text: emoji),
+                    decoration: InputDecoration(
+                      labelText: 'Emoji',
+                      prefixIcon: const Icon(Icons.emoji_emotions),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      filled: true,
+                      fillColor: AppColors.bg,
+                    ),
+                    onChanged: (v) => setState(() => emoji = v),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Sliders in Cards
+                  _buildSliderCard(
+                    icon: '🛍️',
+                    label: 'Minimum Orders',
+                    value: minOrders,
+                    maxValue: 100,
+                    divisions: 100,
+                    onChanged: (v) => setState(() => minOrders = v.toInt()),
+                  ),
+                  const SizedBox(height: 12),
+
+                  _buildSliderCard(
+                    icon: '💰',
+                    label: 'Minimum Spent',
+                    value: minSpent,
+                    maxValue: 500000,
+                    divisions: 100,
+                    onChanged: (v) => setState(() => minSpent = v.toInt()),
+                    isCurrency: true,
+                  ),
+                  const SizedBox(height: 12),
+
+                  _buildSliderCard(
+                    icon: '⭐',
+                    label: 'Minimum Rating',
+                    value: minRating,
+                    maxValue: 5,
+                    divisions: 50,
+                    onChanged: (v) => setState(() => minRating = double.parse(v.toStringAsFixed(1))),
+                    isRating: true,
+                  ),
+                  const SizedBox(height: 12),
+
+                  _buildSliderCard(
+                    icon: '🎁',
+                    label: 'Discount Percentage',
+                    value: discount,
+                    maxValue: 50,
+                    divisions: 50,
+                    onChanged: (v) => setState(() => discount = v.toInt()),
+                    showPercent: true,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: AppColors.muted, fontWeight: FontWeight.w600)),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (name.isEmpty || emoji.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: const Text('Please enter tier name and emoji'), backgroundColor: AppColors.danger, duration: const Duration(seconds: 2)),
+                  );
+                  return;
+                }
+                try {
+                  final updatedTier = tier.copyWith(
+                    name: name,
+                    emoji: emoji,
+                    minOrders: minOrders,
+                    minSpent: minSpent,
+                    minRating: minRating,
+                    discountPercentage: discount,
+                  );
+                  await svc.updateTier(tier.id, updatedTier);
+                  if (mounted) {
+                    Navigator.pop(context);
+                    _loadTiers();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('✓ Tier "${name}" updated successfully!'), backgroundColor: AppColors.success, duration: const Duration(seconds: 2)),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.danger, duration: const Duration(seconds: 3)),
+                    );
+                  }
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              child: Text('Save Changes', style: GoogleFonts.plusJakartaSans(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showDeleteTierDialog(Tier tier) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: AppColors.card,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('Delete Tier?', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: AppColors.danger)),
+        content: Text('Are you sure you want to delete ${tier.emoji} ${tier.name}?', 
+          style: GoogleFonts.plusJakartaSans(color: AppColors.textColor)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: AppColors.muted)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              try {
+                await svc.deleteTier(tier.id);
+                if (mounted) {
+                  Navigator.pop(context);
+                  _loadTiers();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Tier deleted! ✓'), backgroundColor: AppColors.success),
+                  );
+                }
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.danger),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
+            child: Text('Delete', style: GoogleFonts.plusJakartaSans(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showProfileDialog() {
@@ -684,9 +1115,9 @@ Save as HTML file and upload in settings to use custom template.
           ),
           const SizedBox(height: 24),
 
-          // Invoice Settings
+          // Loyalty Tier Thresholds - Expandable
           Text(
-            'INVOICE & RECEIPTS',
+            'LOYALTY TIER CONFIGURATION',
             style: GoogleFonts.plusJakartaSans(
               fontSize: 11,
               fontWeight: FontWeight.bold,
@@ -695,9 +1126,205 @@ Save as HTML file and upload in settings to use custom template.
             ),
           ),
           const SizedBox(height: 10),
-          CeyluxCard(
-            padding: const EdgeInsets.all(16),
-            child: Column(
+          _buildExpandableSection(
+            title: 'MANAGE TIERS (Database)',
+            isExpanded: _isTierExpanded,
+            onToggle: () => setState(() => _isTierExpanded = !_isTierExpanded),
+            child: CeyluxCard(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Manage your loyalty tiers',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 12,
+                                color: AppColors.muted,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Tiers are saved to database',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 10,
+                                color: AppColors.success,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      ElevatedButton.icon(
+                        onPressed: _showAddTierDialog,
+                        icon: const Icon(Icons.add, size: 16, color: Colors.white),
+                        label: Text('Add Tier', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  
+                  if (_loadingTiers)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 20),
+                      child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+                    )
+                  else if (_tiers.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 20),
+                      child: Center(
+                        child: Text(
+                          'No tiers yet. Create your first tier!',
+                          style: GoogleFonts.plusJakartaSans(color: AppColors.muted, fontSize: 12),
+                        ),
+                      ),
+                    )
+                  else
+                    ListView.separated(
+                      shrinkWrap: true,
+                      physics: NeverScrollableScrollPhysics(),
+                      itemCount: _tiers.length,
+                      separatorBuilder: (_, __) => Divider(color: AppColors.border, height: 12),
+                      itemBuilder: (_, i) {
+                        final tier = _tiers[i];
+                        return GestureDetector(
+                          onTap: () => _showEditTierDialog(tier),
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: AppColors.bg,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: AppColors.border),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(
+                                      child: Row(
+                                        children: [
+                                          Text(tier.emoji, style: TextStyle(fontSize: 20)),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  tier.name,
+                                                  style: GoogleFonts.plusJakartaSans(
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: AppColors.textColor,
+                                                  ),
+                                                ),
+                                                Row(
+                                                  children: [
+                                                    Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                                      decoration: BoxDecoration(
+                                                        color: AppColors.gold.withOpacity(0.15),
+                                                        borderRadius: BorderRadius.circular(6),
+                                                      ),
+                                                      child: Text(
+                                                        '${tier.discountPercentage}% OFF',
+                                                        style: GoogleFonts.plusJakartaSans(
+                                                          fontSize: 10,
+                                                          fontWeight: FontWeight.bold,
+                                                          color: AppColors.gold,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    PopupMenuButton(
+                                      itemBuilder: (_) => [
+                                        PopupMenuItem(
+                                          child: Row(
+                                            children: [
+                                              Icon(Icons.edit, size: 16, color: AppColors.primary),
+                                              const SizedBox(width: 8),
+                                              Text('Edit'),
+                                            ],
+                                          ),
+                                          onTap: () => Future.delayed(Duration(milliseconds: 100), () => _showEditTierDialog(tier)),
+                                        ),
+                                        PopupMenuItem(
+                                          child: Row(
+                                            children: [
+                                              Icon(Icons.delete, size: 16, color: AppColors.danger),
+                                              const SizedBox(width: 8),
+                                              Text('Delete'),
+                                            ],
+                                          ),
+                                          onTap: () => Future.delayed(Duration(milliseconds: 100), () => _showDeleteTierDialog(tier)),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        '📦 ${tier.minOrders} orders',
+                                        style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.muted),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: Text(
+                                        '💰 Rs.${NumberFormat('#,###').format(tier.minSpent)}',
+                                        style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.muted, fontWeight: FontWeight.w600),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: Text(
+                                        '⭐ ${tier.minRating}/5',
+                                        style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.muted),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Invoice Settings - Expandable
+          _buildExpandableSection(
+            title: 'INVOICE & RECEIPTS',
+            isExpanded: _isInvoiceExpanded,
+            onToggle: () => setState(() => _isInvoiceExpanded = !_isInvoiceExpanded),
+            child: CeyluxCard(
+              padding: const EdgeInsets.all(16),
+              child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Logo Upload
@@ -1075,9 +1702,10 @@ Save as HTML file and upload in settings to use custom template.
               ],
             ),
           ),
+        ),
           const SizedBox(height: 24),
 
-          // System Section
+          // System Section - Regular (non-expandable)
           Text(
             'SYSTEM & DATABASE',
             style: GoogleFonts.plusJakartaSans(
@@ -1156,7 +1784,7 @@ Save as HTML file and upload in settings to use custom template.
           ),
           const SizedBox(height: 24),
 
-          // Account Actions
+          // Account Actions - Regular (non-expandable)
           Text(
             'ACCOUNT ACTIONS',
             style: GoogleFonts.plusJakartaSans(
@@ -1299,6 +1927,335 @@ Save as HTML file and upload in settings to use custom template.
             if (trailing != null) trailing,
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildTierThresholdEditor({
+    required String tierName,
+    required int ordersValue,
+    required int spentValue,
+    required double ratingValue,
+    required int discountValue,
+    required ValueChanged<int> onOrdersChanged,
+    required ValueChanged<int> onSpentChanged,
+    required ValueChanged<double> onRatingChanged,
+    required ValueChanged<int> onDiscountChanged,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                tierName,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textColor,
+                ),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppColors.gold.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.gold.withOpacity(0.3)),
+              ),
+              child: Text(
+                '$discountValue% OFF',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.gold,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        
+        // Orders threshold
+        _buildThresholdInput(
+          label: 'Minimum Orders',
+          value: ordersValue.toString(),
+          icon: Icons.shopping_cart_rounded,
+          onChanged: (v) => onOrdersChanged(int.tryParse(v) ?? ordersValue),
+        ),
+        const SizedBox(height: 12),
+
+        // Amount spent threshold
+        _buildThresholdInput(
+          label: 'Minimum Amount Spent (Rs.)',
+          value: spentValue.toString(),
+          icon: Icons.currency_rupee_rounded,
+          onChanged: (v) => onSpentChanged(int.tryParse(v) ?? spentValue),
+        ),
+        const SizedBox(height: 12),
+
+        // Rating threshold
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Minimum Owner Rating',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textColor,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: AppColors.bg,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.star_rounded, color: AppColors.gold, size: 18),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Slider(
+                            value: ratingValue,
+                            min: 0.0,
+                            max: 5.0,
+                            divisions: 10,
+                            activeColor: AppColors.gold,
+                            inactiveColor: AppColors.border,
+                            onChanged: onRatingChanged,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                  ),
+                  child: Text(
+                    '${ratingValue.toStringAsFixed(1)}/5.0',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        // Discount percentage
+        _buildThresholdInput(
+          label: 'Discount Percentage (%)',
+          value: discountValue.toString(),
+          icon: Icons.local_offer_rounded,
+          onChanged: (v) => onDiscountChanged(int.tryParse(v) ?? discountValue),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildThresholdInput({
+    required String label,
+    required String value,
+    required IconData icon,
+    required ValueChanged<String> onChanged,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textColor,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: AppColors.bg,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, color: AppColors.primary, size: 18),
+              const SizedBox(width: 10),
+              Expanded(
+                child: TextField(
+                  style: GoogleFonts.plusJakartaSans(
+                    color: AppColors.textColor,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  keyboardType: TextInputType.number,
+                  controller: TextEditingController(text: value),
+                  onChanged: onChanged,
+                  decoration: InputDecoration(
+                    border: InputBorder.none,
+                    hintStyle: GoogleFonts.plusJakartaSans(color: AppColors.muted),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildExpandableSection({
+    required String title,
+    required bool isExpanded,
+    required VoidCallback onToggle,
+    required Widget child,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        GestureDetector(
+          onTap: onToggle,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: AppColors.card,
+              border: Border.all(color: AppColors.border),
+              borderRadius: isExpanded
+                  ? const BorderRadius.vertical(top: Radius.circular(12))
+                  : BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textColor,
+                  ),
+                ),
+                AnimatedRotation(
+                  turns: isExpanded ? 0.5 : 0,
+                  duration: const Duration(milliseconds: 300),
+                  child: Icon(
+                    Icons.expand_more_rounded,
+                    color: AppColors.muted,
+                    size: 20,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (isExpanded)
+          Container(
+            decoration: BoxDecoration(
+              color: AppColors.card,
+              border: Border(
+                left: BorderSide(color: AppColors.border),
+                right: BorderSide(color: AppColors.border),
+                bottom: BorderSide(color: AppColors.border),
+              ),
+              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
+            ),
+            child: child,
+          ),
+      ],
+    );
+  }
+
+  Widget _buildSliderCard({
+    required String icon,
+    required String label,
+    required dynamic value,
+    required double maxValue,
+    required int divisions,
+    required ValueChanged<double> onChanged,
+    bool isCurrency = false,
+    bool isRating = false,
+    bool showPercent = false,
+  }) {
+    String displayValue;
+    if (isCurrency) {
+      displayValue = 'Rs. ${NumberFormat('#,###').format(value.toInt())}';
+    } else if (isRating) {
+      displayValue = '${value.toStringAsFixed(1)}/5.0';
+    } else if (showPercent) {
+      displayValue = '$value%';
+    } else {
+      displayValue = value.toString();
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.bg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Row(
+                  children: [
+                    Text(icon, style: const TextStyle(fontSize: 18)),
+                    const SizedBox(width: 8),
+                    Text(label, style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.muted, fontWeight: FontWeight.w600)),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(displayValue, style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.primary, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          SliderTheme(
+            data: SliderThemeData(
+              trackHeight: 6,
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
+              overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+            ),
+            child: Slider(
+              value: value.toDouble(),
+              min: 0,
+              max: maxValue,
+              divisions: divisions,
+              activeColor: AppColors.primary,
+              inactiveColor: AppColors.border,
+              onChanged: onChanged,
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -8,6 +8,7 @@ class StockItem {
   final int minQty;
   final int price;
   final int cost;
+  final int discount; // Discount percentage (0-100)
   final String emoji;
   final String? photoUrl;
   final Map<String, int> sizes;
@@ -15,7 +16,7 @@ class StockItem {
 
   StockItem({required this.id, required this.name, required this.category,
     required this.sku, required this.minQty, required this.price,
-    required this.cost, required this.emoji, this.photoUrl, required this.sizes,
+    required this.cost, this.discount = 0, required this.emoji, this.photoUrl, required this.sizes,
     DateTime? createdAt}) : createdAt = createdAt ?? DateTime.now();
 
   int get totalQty => sizes.values.fold(0, (a, b) => a + b);
@@ -51,6 +52,7 @@ class StockItem {
       minQty: _toInt(m['min_qty'] ?? 15),
       price: _toInt(m['price']),
       cost: _toInt(m['cost']),
+      discount: _toInt(m['discount'] ?? 0),
       emoji: m['emoji'] ?? '👕',
       photoUrl: m['photo_url'],
       sizes: parsedSizes,
@@ -62,16 +64,16 @@ class StockItem {
 
   Map<String, dynamic> toMap() => {
     'name': name, 'category': category, 'sku': sku,
-    'min_qty': minQty, 'price': price, 'cost': cost,
+    'min_qty': minQty, 'price': price, 'cost': cost, 'discount': discount,
     'emoji': emoji, 'photo_url': photoUrl, 'sizes': sizes,
     'created_at': createdAt.toIso8601String(),
   };
 
   StockItem copyWith({String? name, String? category, String? sku, int? minQty,
-    int? price, int? cost, String? emoji, String? photoUrl, Map<String, int>? sizes, DateTime? createdAt}) =>
+    int? price, int? cost, int? discount, String? emoji, String? photoUrl, Map<String, int>? sizes, DateTime? createdAt}) =>
       StockItem(id: id, name: name ?? this.name, category: category ?? this.category,
         sku: sku ?? this.sku, minQty: minQty ?? this.minQty, price: price ?? this.price,
-        cost: cost ?? this.cost, emoji: emoji ?? this.emoji,
+        cost: cost ?? this.cost, discount: discount ?? this.discount, emoji: emoji ?? this.emoji,
         photoUrl: photoUrl ?? this.photoUrl, sizes: sizes ?? this.sizes,
         createdAt: createdAt ?? this.createdAt);
 }

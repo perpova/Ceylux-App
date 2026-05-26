@@ -29,7 +29,7 @@ const upload = multer({ storage });
 
 // MySQL pool connection
 const pool = mysql.createPool({
-  host: process.env.DB_HOST || 'loacalhost',
+  host: process.env.DB_HOST || '127.0.0.1',
   port: parseInt(process.env.DB_PORT) || 3306,
   database: process.env.DB_NAME || 'u321040896_ceylux_ak',
   user: process.env.DB_USER || 'u321040896_mr_kishen',
@@ -67,6 +67,7 @@ async function initDB() {
         min_qty INT DEFAULT 0,
         price DECIMAL(10,2) DEFAULT 0.00,
         cost DECIMAL(10,2) DEFAULT 0.00,
+        discount INT DEFAULT 0,
         emoji VARCHAR(50),
         photo_url TEXT,
         sizes JSON,
@@ -98,15 +99,31 @@ async function initDB() {
         order_ref VARCHAR(100) NOT NULL,
         customer_id INT,
         customer_name VARCHAR(255),
+        customer_address TEXT,
+        customer_phone VARCHAR(50),
         items JSON,
         total DECIMAL(10,2) DEFAULT 0.00,
+        discount_percentage INT DEFAULT 0,
         status VARCHAR(50) DEFAULT 'Pending',
         date VARCHAR(50),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
 
-
+    // 5. tiers table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS tiers (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        emoji VARCHAR(10),
+        min_orders INT DEFAULT 0,
+        min_spent DECIMAL(10,2) DEFAULT 0.00,
+        min_rating DECIMAL(2,1) DEFAULT 0.0,
+        discount_percentage INT DEFAULT 0,
+        priority INT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
 
     console.log('✅ MySQL Database initialized and tables verified!');
   } catch (err) {
@@ -217,10 +234,10 @@ app.get('/stock', async (req, res) => {
 
 app.post('/stock', async (req, res) => {
   try {
-    const { name, category, sku, min_qty, price, cost, emoji, photo_url, sizes } = req.body;
+    const { name, category, sku, min_qty, price, cost, discount, emoji, photo_url, sizes } = req.body;
     const [result] = await pool.query(
-      'INSERT INTO stock (name, category, sku, min_qty, price, cost, emoji, photo_url, sizes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [name, category, sku, min_qty, price, cost, emoji, photo_url, JSON.stringify(sizes)]
+      'INSERT INTO stock (name, category, sku, min_qty, price, cost, discount, emoji, photo_url, sizes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [name, category, sku, min_qty, price, cost, discount || 0, emoji, photo_url, JSON.stringify(sizes)]
     );
     const [rows] = await pool.query('SELECT * FROM stock WHERE id = ?', [result.insertId]);
     res.json(rows[0]);
@@ -231,10 +248,10 @@ app.post('/stock', async (req, res) => {
 
 app.put('/stock/:id', async (req, res) => {
   try {
-    const { name, category, sku, min_qty, price, cost, emoji, photo_url, sizes } = req.body;
+    const { name, category, sku, min_qty, price, cost, discount, emoji, photo_url, sizes } = req.body;
     await pool.query(
-      'UPDATE stock SET name = ?, category = ?, sku = ?, min_qty = ?, price = ?, cost = ?, emoji = ?, photo_url = ?, sizes = ? WHERE id = ?',
-      [name, category, sku, min_qty, price, cost, emoji, photo_url, JSON.stringify(sizes), req.params.id]
+      'UPDATE stock SET name = ?, category = ?, sku = ?, min_qty = ?, price = ?, cost = ?, discount = ?, emoji = ?, photo_url = ?, sizes = ? WHERE id = ?',
+      [name, category, sku, min_qty, price, cost, discount || 0, emoji, photo_url, JSON.stringify(sizes), req.params.id]
     );
     const [rows] = await pool.query('SELECT * FROM stock WHERE id = ?', [req.params.id]);
     res.json(rows[0]);
@@ -265,13 +282,30 @@ app.get('/customers', async (req, res) => {
 app.post('/customers', async (req, res) => {
   try {
     const { name, phone, email, address, photo_url, owner_rating, owner_note } = req.body;
+    
+    // Validation
+    if (!name || !phone) {
+      return res.status(400).json({ error: 'Name and phone are required' });
+    }
+    
+    console.log('Adding customer:', { name, phone, email });
+    
     const [result] = await pool.query(
-      'INSERT INTO customers (name, phone, email, address, photo_url, owner_rating, owner_note) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [name, phone, email, address, photo_url, owner_rating || 0, owner_note || '']
+      'INSERT INTO customers (name, phone, email, address, photo_url) VALUES (?, ?, ?, ?, ?)',
+      [name || '', phone || '', email || '', address || '', photo_url || null]
     );
+    
+    console.log('Customer added with ID:', result.insertId);
+    
     const [rows] = await pool.query('SELECT * FROM customers WHERE id = ?', [result.insertId]);
+    
+    if (rows.length === 0) {
+      return res.status(500).json({ error: 'Failed to retrieve inserted customer' });
+    }
+    
     res.json(rows[0]);
   } catch (e) {
+    console.error('Customer creation error:', e.message);
     res.status(500).json({ error: e.message });
   }
 });
@@ -281,7 +315,7 @@ app.put('/customers/:id', async (req, res) => {
     const { name, phone, email, address, photo_url, owner_rating, owner_note } = req.body;
     await pool.query(
       'UPDATE customers SET name = ?, phone = ?, email = ?, address = ?, photo_url = ?, owner_rating = ?, owner_note = ? WHERE id = ?',
-      [name, phone, email, address, photo_url, owner_rating || 0, owner_note || '', req.params.id]
+      [name, phone, email, address, photo_url || null, owner_rating || 0, owner_note || '', req.params.id]
     );
     const [rows] = await pool.query('SELECT * FROM customers WHERE id = ?', [req.params.id]);
     res.json(rows[0]);
@@ -311,10 +345,10 @@ app.get('/orders', async (req, res) => {
 
 app.post('/orders', async (req, res) => {
   try {
-    const { order_ref, customer_id, customer_name, items, total, status, date } = req.body;
+    const { order_ref, customer_id, customer_name, customer_address, customer_phone, items, total, status, date, discount_percentage } = req.body;
     const [result] = await pool.query(
-      'INSERT INTO orders (order_ref, customer_id, customer_name, items, total, status, date) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [order_ref, customer_id, customer_name, JSON.stringify(items), total, status, date]
+      'INSERT INTO orders (order_ref, customer_id, customer_name, customer_address, customer_phone, items, total, status, date, discount_percentage) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [order_ref, customer_id, customer_name, customer_address, customer_phone, JSON.stringify(items), total, status, date, discount_percentage || 0]
     );
     const [rows] = await pool.query('SELECT * FROM orders WHERE id = ?', [result.insertId]);
 
@@ -338,6 +372,76 @@ app.put('/orders/:id/status', async (req, res) => {
     );
     const [rows] = await pool.query('SELECT * FROM orders WHERE id = ? OR order_ref = ?', [req.params.id, req.params.id]);
     res.json(rows[0]);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.put('/orders/:id', async (req, res) => {
+  try {
+    const { order_ref, customer_id, customer_name, customer_address, customer_phone, items, total, status, date, discount_percentage } = req.body;
+    await pool.query(
+      'UPDATE orders SET order_ref = ?, customer_id = ?, customer_name = ?, customer_address = ?, customer_phone = ?, items = ?, total = ?, status = ?, date = ?, discount_percentage = ? WHERE id = ? OR order_ref = ?',
+      [order_ref, customer_id, customer_name, customer_address, customer_phone, JSON.stringify(items), total, status, date, discount_percentage || 0, req.params.id, req.params.id]
+    );
+    const [rows] = await pool.query('SELECT * FROM orders WHERE id = ? OR order_ref = ?', [req.params.id, req.params.id]);
+    res.json(rows[0]);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.delete('/orders/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM orders WHERE id = ? OR order_ref = ?', [req.params.id, req.params.id]);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── TIERS ──────────────────────────────────────────────────────────────────
+app.get('/tiers', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM tiers ORDER BY priority DESC');
+    res.json(rows);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/tiers', async (req, res) => {
+  try {
+    const { name, emoji, min_orders, min_spent, min_rating, discount_percentage, priority } = req.body;
+    const [result] = await pool.query(
+      'INSERT INTO tiers (name, emoji, min_orders, min_spent, min_rating, discount_percentage, priority) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [name, emoji, min_orders || 0, min_spent || 0, min_rating || 0, discount_percentage || 0, priority || 0]
+    );
+    const [rows] = await pool.query('SELECT * FROM tiers WHERE id = ?', [result.insertId]);
+    res.json(rows[0]);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.put('/tiers/:id', async (req, res) => {
+  try {
+    const { name, emoji, min_orders, min_spent, min_rating, discount_percentage, priority } = req.body;
+    await pool.query(
+      'UPDATE tiers SET name = ?, emoji = ?, min_orders = ?, min_spent = ?, min_rating = ?, discount_percentage = ?, priority = ? WHERE id = ?',
+      [name, emoji, min_orders || 0, min_spent || 0, min_rating || 0, discount_percentage || 0, priority || 0, req.params.id]
+    );
+    const [rows] = await pool.query('SELECT * FROM tiers WHERE id = ?', [req.params.id]);
+    res.json(rows[0]);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.delete('/tiers/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM tiers WHERE id = ?', [req.params.id]);
+    res.json({ success: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

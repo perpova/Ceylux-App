@@ -199,6 +199,7 @@
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.5px;
+            white-space: nowrap;
         }
         
         .items-table th.text-center {
@@ -214,11 +215,13 @@
             border-bottom: 1px solid #f0f4f8;
             font-size: 12px;
             color: #1A1A2E;
+            white-space: nowrap;
         }
         
         .items-table .item-name {
             font-weight: 600;
             color: #0C4A6E;
+            white-space: normal;
         }
         
         .items-table .text-center {
@@ -414,10 +417,11 @@
         <table class="items-table">
             <thead>
                 <tr>
-                    <th style="width: 40%;">Item Description</th>
-                    <th style="width: 12%;" class="text-center">Qty</th>
-                    <th style="width: 20%;" class="text-right">Price</th>
-                    <th style="width: 28%;" class="text-right">Total</th>
+                    <th style="width: 35%;">Item Description</th>
+                    <th style="width: 10%;" class="text-center">Qty</th>
+                    <th style="width: 16%;" class="text-right">Price</th>
+                    <th style="width: 14%;" class="text-right">Discount</th>
+                    <th style="width: 25%;" class="text-right">Total</th>
                 </tr>
             </thead>
             <tbody>
@@ -434,12 +438,18 @@
                     <span class="label">Subtotal:</span>
                     <span class="value">Rs. {{SUBTOTAL}}</span>
                 </div>
-                {{#DISCOUNT}}
+                {{#ITEM_DISCOUNTS}}
                 <div class="summary-row discount">
-                    <span class="label">Discount ({{DISCOUNT_PERCENT}}%):</span>
-                    <span class="value">Rs. {{DISCOUNT}}</span>
+                    <span class="label">Item Discounts:</span>
+                    <span class="value">− Rs. {{ITEM_DISCOUNTS}}</span>
                 </div>
-                {{/DISCOUNT}}
+                {{/ITEM_DISCOUNTS}}
+                {{#BILL_DISCOUNT}}
+                <div class="summary-row discount">
+                    <span class="label">Discount ({{BILL_DISCOUNT_PERCENT}}%):</span>
+                    <span class="value">− Rs. {{BILL_DISCOUNT}}</span>
+                </div>
+                {{/BILL_DISCOUNT}}
                 <div class="summary-row total">
                     <span class="label">TOTAL</span>
                     <span class="value">Rs. {{TOTAL}}</span>

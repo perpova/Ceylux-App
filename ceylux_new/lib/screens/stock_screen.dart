@@ -210,10 +210,23 @@ class _StockCard extends StatelessWidget {
             Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
               Text('Rs. ${NumberFormat('#,###').format(item.price)}', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, color: AppColors.primary, fontSize: 13)),
               const SizedBox(height: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(color: sc.withOpacity(0.1), borderRadius: BorderRadius.circular(20), border: Border.all(color: sc.withOpacity(0.4))),
-                child: Text(sl, style: GoogleFonts.plusJakartaSans(fontSize: 10, color: sc, fontWeight: FontWeight.bold)),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (item.discount > 0) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(color: AppColors.warning.withOpacity(0.1), borderRadius: BorderRadius.circular(20), border: Border.all(color: AppColors.warning.withOpacity(0.4))),
+                      child: Text('${item.discount}% OFF', style: GoogleFonts.plusJakartaSans(fontSize: 9, color: AppColors.warning, fontWeight: FontWeight.bold)),
+                    ),
+                    const SizedBox(width: 6),
+                  ],
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(color: sc.withOpacity(0.1), borderRadius: BorderRadius.circular(20), border: Border.all(color: sc.withOpacity(0.4))),
+                    child: Text(sl, style: GoogleFonts.plusJakartaSans(fontSize: 10, color: sc, fontWeight: FontWeight.bold)),
+                  ),
+                ],
               ),
             ]),
           ],
@@ -241,6 +254,7 @@ class _StockFormSheetState extends State<_StockFormSheet> {
   final _sku    = TextEditingController();
   final _price  = TextEditingController();
   final _cost   = TextEditingController();
+  final _discount = TextEditingController();
   final _minQty = TextEditingController();
   String _category = 'Men';
   String _emoji = '👕';
@@ -262,6 +276,7 @@ class _StockFormSheetState extends State<_StockFormSheet> {
       final it = widget.item!;
       _name.text = it.name; _sku.text = it.sku;
       _price.text = it.price.toString(); _cost.text = it.cost.toString();
+      _discount.text = it.discount.toString();
       _minQty.text = it.minQty.toString();
       _category = it.category; _emoji = it.emoji;
       _sizes = Map.from(it.sizes); _existingPhotoUrl = it.photoUrl;
@@ -321,6 +336,7 @@ class _StockFormSheetState extends State<_StockFormSheet> {
         minQty: int.tryParse(_minQty.text) ?? 15,
         price: int.tryParse(_price.text) ?? 0,
         cost: int.tryParse(_cost.text) ?? 0,
+        discount: int.tryParse(_discount.text) ?? 0,
         emoji: _emoji, photoUrl: photoUrl, sizes: _sizes,
         createdAt: _createdAt,
       );
@@ -347,8 +363,9 @@ class _StockFormSheetState extends State<_StockFormSheet> {
       title: Text('Delete Item?', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: AppColors.textColor)),
       content: Text('${widget.item!.name} delete කරන්නද?', style: GoogleFonts.plusJakartaSans(color: AppColors.muted)),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context, false), child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: AppColors.muted, fontWeight: FontWeight.bold))),
-        TextButton(onPressed: () => Navigator.pop(context, true), child: Text('Delete', style: GoogleFonts.plusJakartaSans(color: AppColors.danger, fontWeight: FontWeight.bold))),
+        ActionButton(onTap: () => Navigator.pop(context, false), label: 'Cancel', isOutlined: true, buttonColor: AppColors.muted),
+        const SizedBox(width: 8),
+        ActionButton(onTap: () => Navigator.pop(context, true), label: 'Delete', buttonColor: AppColors.danger),
       ],
     ));
     if (ok != true) return;
@@ -458,7 +475,15 @@ class _StockFormSheetState extends State<_StockFormSheet> {
           const SizedBox(width: 12),
           Expanded(child: GoldTextField(label: 'Cost Price (Rs.)', controller: _cost, keyboardType: TextInputType.number, hint: '2800')),
         ]),
-        GoldTextField(label: 'Min Stock Alert', controller: _minQty, keyboardType: TextInputType.number, hint: '15'),
+        const SizedBox(height: 8),
+        
+        // Discount and Min Stock in one row
+        Row(children: [
+          Expanded(child: GoldTextField(label: 'Discount %', controller: _discount, keyboardType: TextInputType.number, hint: '0')),
+          const SizedBox(width: 12),
+          Expanded(child: GoldTextField(label: 'Min Stock Alert', controller: _minQty, keyboardType: TextInputType.number, hint: '15')),
+        ]),
+        const SizedBox(height: 16),
 
         // Sizes
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
@@ -502,7 +527,7 @@ class _StockFormSheetState extends State<_StockFormSheet> {
   }
 
   @override
-  void dispose() { _name.dispose(); _sku.dispose(); _price.dispose(); _cost.dispose(); _minQty.dispose(); super.dispose(); }
+  void dispose() { _name.dispose(); _sku.dispose(); _price.dispose(); _cost.dispose(); _discount.dispose(); _minQty.dispose(); super.dispose(); }
 }
 
 class _MonthYearPicker extends StatefulWidget {

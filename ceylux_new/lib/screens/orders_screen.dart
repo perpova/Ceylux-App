@@ -1,6 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:image_picker/image_picker.dart';
 import '../services/api_service.dart';
 import '../services/invoice_service.dart';
 import '../models/order.dart';
@@ -184,27 +186,14 @@ class _OrdersScreenState extends State<OrdersScreen> {
               const SizedBox(height: 10),
 
               // ── New Order Button ────────────────────────────────────────
-              GestureDetector(
+              ActionButton(
+                label: 'New Order',
+                icon: Icons.add,
+                buttonColor: btnColor,
+                width: double.infinity,
                 onTap: () => _showNewOrderSheet(context),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  decoration: BoxDecoration(
-                    color: btnColor.withOpacity(isDark ? 0.12 : 0.08),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: btnColor.withOpacity(0.5)),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.add, size: 16, color: btnColor),
-                      const SizedBox(width: 6),
-                      Text('New Order', style: TextStyle(
-                        fontSize: 13, fontWeight: FontWeight.w600, color: btnColor,
-                      )),
-                    ],
-                  ),
-                ),
+                padding: 13,
+                fontSize: 13,
               ),
             ],
           ),
@@ -274,17 +263,236 @@ class _OrdersScreenState extends State<OrdersScreen> {
   }
 
   void _showNewOrderSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context, isScrollControlled: true, backgroundColor: Colors.transparent,
-      builder: (_) => const _NewOrderSheet(),
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const _NewOrderScreen()),
     );
   }
 }
 
 // ── Order Detail ─────────────────────────────────────────────────────────────
-class _OrderDetailSheet extends StatelessWidget {
+class _OrderDetailSheet extends StatefulWidget {
   final AppOrder order;
   const _OrderDetailSheet({required this.order});
+
+  @override
+  State<_OrderDetailSheet> createState() => _OrderDetailSheetState();
+}
+
+class _OrderDetailSheetState extends State<_OrderDetailSheet> {
+  late List<OrderItem> _editableItems;
+  late Map<int, TextEditingController> _qtyControllers;
+  late Map<int, TextEditingController> _priceControllers;
+  late Map<int, TextEditingController> _discountControllers;
+  bool _isEditMode = false;
+  bool _isSaving = false;
+  bool _isDeleting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _editableItems = List.from(widget.order.items);
+    _initializeControllers();
+  }
+
+  void _initializeControllers() {
+    _qtyControllers = {};
+    _priceControllers = {};
+    _discountControllers = {};
+    for (int i = 0; i < _editableItems.length; i++) {
+      _qtyControllers[i] = TextEditingController(text: _editableItems[i].qty.toString());
+      _priceControllers[i] = TextEditingController(text: _editableItems[i].price.toString());
+      _discountControllers[i] = TextEditingController(text: _editableItems[i].discount.toString());
+    }
+  }
+
+  @override
+  void dispose() {
+    _qtyControllers.values.forEach((c) => c.dispose());
+    _priceControllers.values.forEach((c) => c.dispose());
+    _discountControllers.values.forEach((c) => c.dispose());
+    super.dispose();
+  }
+
+  Future<void> _deleteOrder() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.card,
+        title: Text('Delete Order?', style: TextStyle(color: AppColors.textColor)),
+        content: Text('Are you sure you want to permanently delete this order?',
+          style: TextStyle(color: AppColors.muted)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Cancel', style: TextStyle(color: AppColors.muted)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text('Delete', style: TextStyle(color: AppColors.danger)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      setState(() => _isDeleting = true);
+      try {
+        final svc = ApiService();
+        await svc.deleteOrder(widget.order.dbId);
+        if (mounted) {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  Icon(Icons.delete, color: Colors.white, size: 20),
+                  const SizedBox(width: 10),
+                  const Text('Order deleted successfully'),
+                ],
+              ),
+              backgroundColor: AppColors.danger,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error: $e'),
+              backgroundColor: AppColors.danger,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _isDeleting = false);
+      }
+    }
+  }
+
+  void _removeItem(int index) {
+    if (index >= 0 && index < _editableItems.length) {
+      // Dispose the controllers for the removed item
+      _qtyControllers[index]?.dispose();
+      _priceControllers[index]?.dispose();
+      _discountControllers[index]?.dispose();
+      
+      // Remove the item
+      _editableItems.removeAt(index);
+      
+      // Rebuild controllers to match new indices
+      _rebuildControllers();
+    }
+  }
+
+  void _rebuildControllers() {
+    // Clear all old controllers
+    _qtyControllers.values.forEach((c) => c.dispose());
+    _priceControllers.values.forEach((c) => c.dispose());
+    _discountControllers.values.forEach((c) => c.dispose());
+    
+    // Reinitialize with current items
+    _initializeControllers();
+  }
+
+  void _updateEditableItem(int index) {
+    final qty = int.tryParse(_qtyControllers[index]?.text ?? '0') ?? 0;
+    final price = int.tryParse(_priceControllers[index]?.text ?? '0') ?? 0;
+    final discount = int.tryParse(_discountControllers[index]?.text ?? '0') ?? 0;
+    
+    if (index < _editableItems.length) {
+      _editableItems[index] = OrderItem(
+        name: _editableItems[index].name,
+        qty: qty,
+        price: price,
+        size: _editableItems[index].size,
+        discount: discount,
+      );
+    }
+  }
+
+  Future<void> _saveChanges() async {
+    setState(() => _isSaving = true);
+    try {
+      // Update all items from controllers
+      for (int i = 0; i < _editableItems.length; i++) {
+        _updateEditableItem(i);
+      }
+
+      final svc = ApiService();
+      // Calculate new total with discount
+      int subtotal = 0;
+      for (var item in _editableItems) {
+        subtotal += item.subtotal;
+      }
+      int itemDiscounts = 0;
+      for (var item in _editableItems) {
+        itemDiscounts += (item.subtotal * item.discount ~/ 100);
+      }
+      // Apply bill discount percentage to the amount after item discounts
+      int billDiscountAmount = ((subtotal - itemDiscounts) * widget.order.discountPercentage ~/ 100);
+      int newTotal = subtotal - itemDiscounts - billDiscountAmount;
+      
+      final updatedOrder = AppOrder(
+        dbId: widget.order.dbId,
+        id: widget.order.id,
+        customerId: widget.order.customerId,
+        customerName: widget.order.customerName,
+        customerAddress: widget.order.customerAddress,
+        customerPhone: widget.order.customerPhone,
+        items: _editableItems,
+        total: newTotal,
+        status: widget.order.status,
+        date: widget.order.date,
+        discountPercentage: widget.order.discountPercentage,
+      );
+      
+      await svc.updateOrder(widget.order.dbId, updatedOrder);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white, size: 20),
+                const SizedBox(width: 10),
+                const Text('Order updated successfully ✓'),
+              ],
+            ),
+            backgroundColor: AppColors.success,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+        // Close the sheet to refresh with updated data
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: AppColors.danger,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  int get _totalSubtotal => _editableItems.fold<int>(0, (sum, item) => sum + item.subtotal);
+  int get _totalItemDiscounts => _editableItems.fold<int>(0, (sum, item) => sum + (item.subtotal * item.discount ~/ 100));
+  int get _billDiscountAmount => ((_totalSubtotal - _totalItemDiscounts) * widget.order.discountPercentage ~/ 100);
+  int get _totalAmount => _totalSubtotal - _totalItemDiscounts - _billDiscountAmount;
 
   @override
   Widget build(BuildContext context) {
@@ -298,91 +506,303 @@ class _OrderDetailSheet extends StatelessWidget {
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(context).padding.bottom + 20),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(width: 36, height: 4,
-            decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)),
-            margin: const EdgeInsets.only(bottom: 16)),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(order.id, style: TextStyle(fontFamily: 'PlayfairDisplay', fontSize: 18, color: AppColors.textColor)),
-              StatusBadge(status: order.status),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Row(children: [
-            Text(order.customerName, style: TextStyle(color: AppColors.muted, fontSize: 13)),
-            const SizedBox(width: 8),
-            Text('•', style: TextStyle(color: AppColors.border)),
-            const SizedBox(width: 8),
-            Text(order.date, style: TextStyle(color: AppColors.muted, fontSize: 13)),
-          ]),
-          const SizedBox(height: 16),
-          Container(
-            decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.circular(12)),
-            child: Column(
-              children: order.items.map((item) => Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(width: 36, height: 4,
+              decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)),
+              margin: const EdgeInsets.only(bottom: 16)),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(widget.order.id, style: TextStyle(fontFamily: 'PlayfairDisplay', fontSize: 18, color: AppColors.textColor)),
+                Row(
                   children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(item.name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                          Text('Size: ${item.size} × ${item.qty}', style: TextStyle(fontSize: 11, color: AppColors.muted)),
-                        ],
+                    StatusBadge(status: widget.order.status),
+                    const SizedBox(width: 8),
+                    if (!_isEditMode) ...[
+                      GestureDetector(
+                        onTap: () {
+                          // Reset controllers when entering edit mode
+                          _editableItems = List.from(widget.order.items);
+                          _initializeControllers();
+                          setState(() => _isEditMode = true);
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: AppColors.gold.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: AppColors.gold.withOpacity(0.3)),
+                          ),
+                          child: Icon(Icons.edit, color: AppColors.gold, size: 16),
+                        ),
                       ),
-                    ),
-                    Text('Rs. ${NumberFormat('#,###').format(item.subtotal)}',
-                        style: const TextStyle(fontWeight: FontWeight.w600)),
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: _deleteOrder,
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: AppColors.danger.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: AppColors.danger.withOpacity(0.3)),
+                          ),
+                          child: Icon(Icons.delete_outline, color: AppColors.danger, size: 16),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
-              )).toList(),
+              ],
             ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('TOTAL', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1, fontSize: 13)),
-              Text('Rs. ${NumberFormat('#,###').format(order.total)}',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: AppColors.goldLight)),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: ['Pending', 'Processing', 'Delivered'].map((s) => Expanded(
-              child: GestureDetector(
-                onTap: () async {
-                  await svc.updateOrderStatus(order.dbId, s);
-                  if (context.mounted) Navigator.pop(context);
-                },
-                child: Container(
-                  margin: const EdgeInsets.only(right: 8),
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  decoration: BoxDecoration(
-                    color: order.status == s ? AppColors.gold.withOpacity(0.2) : AppColors.bg,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: order.status == s ? AppColors.gold : AppColors.border),
-                  ),
-                  child: Text(s, textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
-                        color: order.status == s ? AppColors.gold : AppColors.muted)),
-                ),
+            const SizedBox(height: 4),
+            Row(children: [
+              Text(widget.order.customerName, style: TextStyle(color: AppColors.muted, fontSize: 13)),
+              const SizedBox(width: 8),
+              Text('•', style: TextStyle(color: AppColors.border)),
+              const SizedBox(width: 8),
+              Text(widget.order.date, style: TextStyle(color: AppColors.muted, fontSize: 13)),
+            ]),
+            const SizedBox(height: 16),
+            Container(
+              decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.circular(12)),
+              child: Column(
+                children: _editableItems.asMap().entries.map((entry) {
+                  int idx = entry.key;
+                  OrderItem item = entry.value;
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    child: _isEditMode
+                        ? Column(
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(item.name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                                        Text('Size: ${item.size}', style: TextStyle(fontSize: 11, color: AppColors.muted)),
+                                      ],
+                                    ),
+                                  ),
+                                  GestureDetector(
+                                    onTap: () => setState(() => _removeItem(idx)),
+                                    child: Icon(Icons.delete, color: AppColors.danger, size: 18),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text('Qty', style: TextStyle(fontSize: 10, color: AppColors.muted)),
+                                        Container(
+                                          decoration: BoxDecoration(
+                                            border: Border.all(color: AppColors.border),
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                          child: TextField(
+                                            keyboardType: TextInputType.number,
+                                            style: TextStyle(fontSize: 12, color: AppColors.textColor),
+                                            decoration: InputDecoration(
+                                              border: InputBorder.none,
+                                              contentPadding: EdgeInsets.zero,
+                                            ),
+                                            controller: _qtyControllers[idx],
+                                            onChanged: (v) => _updateEditableItem(idx),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text('Price', style: TextStyle(fontSize: 10, color: AppColors.muted)),
+                                        Container(
+                                          decoration: BoxDecoration(
+                                            border: Border.all(color: AppColors.border),
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                          child: TextField(
+                                            keyboardType: TextInputType.number,
+                                            style: TextStyle(fontSize: 12, color: AppColors.textColor),
+                                            decoration: InputDecoration(
+                                              border: InputBorder.none,
+                                              contentPadding: EdgeInsets.zero,
+                                            ),
+                                            controller: _priceControllers[idx],
+                                            onChanged: (v) => _updateEditableItem(idx),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text('Discount %', style: TextStyle(fontSize: 10, color: AppColors.muted)),
+                                        Container(
+                                          decoration: BoxDecoration(
+                                            border: Border.all(color: AppColors.border),
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                          child: TextField(
+                                            keyboardType: TextInputType.number,
+                                            style: TextStyle(fontSize: 12, color: AppColors.textColor),
+                                            decoration: InputDecoration(
+                                              border: InputBorder.none,
+                                              contentPadding: EdgeInsets.zero,
+                                            ),
+                                            controller: _discountControllers[idx],
+                                            onChanged: (v) => _updateEditableItem(idx),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Text('Subtotal: Rs. ${NumberFormat('#,###').format(_editableItems[idx].subtotal)}',
+                                style: TextStyle(fontSize: 11, color: AppColors.muted, fontStyle: FontStyle.italic)),
+                              const SizedBox(height: 8),
+                              if (idx < _editableItems.length - 1)
+                                Divider(color: AppColors.border, height: 16),
+                            ],
+                          )
+                        : Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(item.name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                                    Text('Size: ${item.size} × ${item.qty}', style: TextStyle(fontSize: 11, color: AppColors.muted)),
+                                  ],
+                                ),
+                              ),
+                              Text('Rs. ${NumberFormat('#,###').format(item.subtotal)}',
+                                  style: const TextStyle(fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                  );
+                }).toList(),
               ),
-            )).toList(),
-          ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Subtotal', style: TextStyle(fontSize: 12, color: AppColors.muted)),
+                Text('Rs. ${NumberFormat('#,###').format(_totalSubtotal)}',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textColor)),
+              ],
+            ),
+            if (_totalItemDiscounts > 0) ...[
+              const SizedBox(height: 6),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Item Discounts', style: TextStyle(fontSize: 12, color: AppColors.danger)),
+                  Text('−Rs. ${NumberFormat('#,###').format(_totalItemDiscounts)}',
+                      style: TextStyle(fontSize: 12, color: AppColors.danger, fontWeight: FontWeight.w600)),
+                ],
+              ),
+            ],
+            if (widget.order.discountPercentage > 0) ...[
+              const SizedBox(height: 6),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Bill Discount (${widget.order.discountPercentage}%)', 
+                      style: TextStyle(fontSize: 12, color: AppColors.danger)),
+                  Text('−Rs. ${NumberFormat('#,###').format(_billDiscountAmount)}',
+                      style: TextStyle(fontSize: 12, color: AppColors.danger, fontWeight: FontWeight.w600)),
+                ],
+              ),
+            ],
+            const SizedBox(height: 8),
+            Divider(color: AppColors.border, height: 1),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('TOTAL', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1, fontSize: 13, color: AppColors.textColor)),
+                Text('Rs. ${NumberFormat('#,###').format(_totalAmount)}',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: AppColors.goldLight)),
+              ],
+            ),
+            const SizedBox(height: 16),
+            if (_isEditMode)
+              Row(
+                children: [
+                  Expanded(
+                    child: ActionButton(
+                      label: 'Cancel',
+                      onTap: () {
+                        // Reset to original items and exit edit mode
+                        _editableItems = List.from(widget.order.items);
+                        _initializeControllers();
+                        setState(() => _isEditMode = false);
+                      },
+                      isOutlined: true,
+                      buttonColor: AppColors.muted,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: ActionButton(
+                      label: 'Save Changes',
+                      onTap: _saveChanges,
+                      isLoading: _isSaving,
+                      buttonColor: AppColors.gold,
+                      padding: 12,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              )
+            else
+              Row(
+                children: ['Pending', 'Processing', 'Delivered'].map((s) => Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ActionButton(
+                      label: s,
+                      onTap: () async {
+                        await svc.updateOrderStatus(widget.order.dbId, s);
+                        if (context.mounted) Navigator.pop(context);
+                      },
+                      buttonColor: widget.order.status == s ? AppColors.gold : AppColors.muted,
+                      isOutlined: widget.order.status != s,
+                      fontSize: 11,
+                      padding: 10,
+                    ),
+                  ),
+                )).toList(),
+              ),
           const SizedBox(height: 12),
           StreamBuilder<List<Customer>>(
             stream: svc.customersStream(),
             builder: (context, snap) {
               final customers = snap.data ?? [];
               final customer = customers.firstWhere(
-                (c) => c.id == order.customerId,
+                (c) => c.id == widget.order.customerId,
                 orElse: () => Customer(id: '', name: '', phone: '', email: '', address: '', totalOrders: 0, totalSpent: 0),
               );
               final phone = customer.phone.trim();
@@ -390,12 +810,15 @@ class _OrderDetailSheet extends StatelessWidget {
               return Row(
                 children: [
                   Expanded(
-                    child: GestureDetector(
+                    child: ActionButton(
+                      label: 'WhatsApp',
+                      icon: Icons.chat,
+                      buttonColor: const Color(0xFF25D366),
                       onTap: () async {
-                        // Show preparing dialog
                         showDialog(
                           context: context,
                           barrierDismissible: false,
+                          useRootNavigator: true,
                           builder: (_) => AlertDialog(
                             backgroundColor: AppColors.card,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -427,7 +850,6 @@ class _OrderDetailSheet extends StatelessWidget {
                         );
 
                         try {
-                          // Get customer phone and format it
                           String formattedPhone = phone;
                           if (formattedPhone.isNotEmpty) {
                             formattedPhone = formattedPhone.replaceAll(RegExp(r'\D'), '');
@@ -438,15 +860,14 @@ class _OrderDetailSheet extends StatelessWidget {
                             }
                           }
 
-                          await InvoiceService.shareInvoice(order, phone: formattedPhone);
+                          await InvoiceService.shareInvoice(widget.order, phone: formattedPhone);
                           
                           if (context.mounted) {
-                            Navigator.pop(context); // Close dialog
+                            Navigator.pop(context);
                           }
                         } catch (e) {
                           if (context.mounted) {
-                            Navigator.pop(context); // Close dialog
-                            
+                            Navigator.pop(context);
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Row(
@@ -468,33 +889,19 @@ class _OrderDetailSheet extends StatelessWidget {
                           }
                         }
                       },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF25D366).withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: const Color(0xFF25D366).withOpacity(0.4)),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.chat, color: const Color(0xFF25D366), size: 16),
-                            const SizedBox(width: 6),
-                            Text('WhatsApp', style: TextStyle(
-                              color: const Color(0xFF25D366), fontWeight: FontWeight.w600, fontSize: 11)),
-                          ],
-                        ),
-                      ),
                     ),
                   ),
                   const SizedBox(width: 6),
                   Expanded(
-                    child: GestureDetector(
+                    child: ActionButton(
+                      label: 'PDF',
+                      icon: Icons.picture_as_pdf,
+                      buttonColor: AppColors.gold,
                       onTap: () async {
-                        // Show downloading dialog
                         showDialog(
                           context: context,
                           barrierDismissible: false,
+                          useRootNavigator: true,
                           builder: (_) => AlertDialog(
                             backgroundColor: AppColors.card,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -526,11 +933,10 @@ class _OrderDetailSheet extends StatelessWidget {
                         );
 
                         try {
-                          await InvoiceService.downloadInvoice(order);
+                          await InvoiceService.downloadInvoice(widget.order);
                           
                           if (context.mounted) {
-                            Navigator.pop(context); // Close dialog
-                            
+                            Navigator.pop(context);
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Row(
@@ -562,8 +968,7 @@ class _OrderDetailSheet extends StatelessWidget {
                           }
                         } catch (e) {
                           if (context.mounted) {
-                            Navigator.pop(context); // Close dialog
-                            
+                            Navigator.pop(context);
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Row(
@@ -586,23 +991,6 @@ class _OrderDetailSheet extends StatelessWidget {
                           }
                         }
                       },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(
-                          color: AppColors.gold.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: AppColors.gold.withOpacity(0.4)),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.picture_as_pdf, color: AppColors.gold, size: 16),
-                            const SizedBox(width: 6),
-                            Text('PDF', style: TextStyle(
-                              color: AppColors.gold, fontWeight: FontWeight.w600, fontSize: 11)),
-                          ],
-                        ),
-                      ),
                     ),
                   ),
                 ],
@@ -612,38 +1000,192 @@ class _OrderDetailSheet extends StatelessWidget {
           const SizedBox(height: 10),
         ],
       ),
+    ),
     );
   }
 }
 
-// ── New Order Sheet ───────────────────────────────────────────────────────────
-class _NewOrderSheet extends StatefulWidget {
-  const _NewOrderSheet();
+// ── New Order Screen (Full Screen) ─────────────────────────────────────────────
+class _NewOrderScreen extends StatefulWidget {
+  const _NewOrderScreen();
   @override
-  State<_NewOrderSheet> createState() => _NewOrderSheetState();
+  State<_NewOrderScreen> createState() => _NewOrderScreenState();
 }
 
-class _NewOrderSheetState extends State<_NewOrderSheet> {
+class _NewOrderScreenState extends State<_NewOrderScreen> {
   String? _selCustId;
   String? _selCustName;
+  String? _selCustAddress;
+  String? _selCustPhone;
   List<Customer> _customers = [];
-  final List<Map<String, dynamic>> _items = [];
-  final _discountCtrl = TextEditingController();
-  int _manualDiscount = 0;
-  final svc = ApiService();
+  List<Customer> _filteredCustomers = [];
+  String _customerSearch = '';
+  final _customerSearchCtrl = TextEditingController();
 
-  int get _subtotal => _items.fold<int>(0, (a, b) => a + (b['qty'] as int) * (b['price'] as int));
-  int get _discountAmt => (_subtotal * _manualDiscount / 100).round();
-  int get _total => _subtotal - _discountAmt;
+  String _itemSearch = '';
+  final _itemSearchCtrl = TextEditingController();
+  List<StockItem> _stock = [];
+  List<StockItem> _filteredStock = [];
+
+  // Selected items with per-item settings
+  final List<Map<String, dynamic>> _selectedItems = [];
+  
+  int _overallDiscount = 0;
+  final _overallDiscountCtrl = TextEditingController();
+
+  final svc = ApiService();
 
   @override
   void dispose() {
-    _discountCtrl.dispose();
+    _customerSearchCtrl.dispose();
+    _itemSearchCtrl.dispose();
+    _overallDiscountCtrl.dispose();
     super.dispose();
   }
 
-  Future<void> _submit() async {
-    if (_selCustId == null || _items.isEmpty) return;
+  void _updateCustomerFilter(String query) {
+    setState(() {
+      _customerSearch = query.toLowerCase();
+      if (_customerSearch.isEmpty) {
+        _filteredCustomers = _customers;
+      } else {
+        _filteredCustomers = _customers
+            .where((c) => c.name.toLowerCase().contains(_customerSearch) || c.phone.contains(_customerSearch))
+            .toList();
+      }
+    });
+  }
+
+  void _updateItemFilter(String query) {
+    setState(() {
+      _itemSearch = query.toLowerCase();
+      if (_itemSearch.isEmpty) {
+        _filteredStock = _stock;
+      } else {
+        _filteredStock = _stock
+            .where((item) => item.name.toLowerCase().contains(_itemSearch) ||
+                item.category.toLowerCase().contains(_itemSearch) ||
+                item.sku.toLowerCase().contains(_itemSearch))
+            .toList();
+      }
+    });
+  }
+
+  void _selectCustomer(Customer customer) {
+    setState(() {
+      _selCustId = customer.id;
+      _selCustName = customer.name;
+      _selCustAddress = customer.address;
+      _selCustPhone = customer.phone;
+      _customerSearchCtrl.clear();
+      _customerSearch = '';
+      _filteredCustomers = _customers;
+    });
+  }
+
+  void _clearCustomer() {
+    setState(() {
+      _selCustId = null;
+      _selCustName = null;
+      _selCustAddress = null;
+      _selCustPhone = null;
+      _customerSearchCtrl.clear();
+      _customerSearch = '';
+      _filteredCustomers = _customers;
+    });
+  }
+
+  void _addItem(StockItem item, String size, int qty, int price) {
+    setState(() {
+      _selectedItems.add({
+        'item': item,
+        'size': size,
+        'qty': qty,
+        'price': price,
+        'discount': item.discount, // Use discount from stock item
+      });
+      _itemSearchCtrl.clear();
+      _itemSearch = '';
+      _filteredStock = _stock;
+    });
+  }
+
+  void _removeItem(int index) {
+    setState(() => _selectedItems.removeAt(index));
+  }
+
+  void _updateItem(int index, {int? qty, int? price, int? discount}) {
+    setState(() {
+      if (qty != null) _selectedItems[index]['qty'] = qty;
+      if (price != null) _selectedItems[index]['price'] = price;
+      if (discount != null) _selectedItems[index]['discount'] = discount;
+    });
+  }
+
+  void _showItemSettings(int index) {
+    final item = _selectedItems[index];
+    showDialog(
+      context: context,
+      builder: (context) => _ItemSettingsDialog(
+        item: item,
+        onSave: (qty, price, discount) {
+          _updateItem(index, qty: qty, price: price, discount: discount);
+          Navigator.pop(context);
+        },
+      ),
+    );
+  }
+
+  void _showAddCustomerSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _AddCustomerSheet(onCustomerAdded: (customer) {
+        // Auto-select the newly added customer in real-time
+        setState(() {
+          _selCustId = customer.id;
+          _selCustName = customer.name;
+          _selCustPhone = customer.phone;
+          _selCustAddress = customer.address;
+          _customerSearchCtrl.clear();
+          _customerSearch = '';
+          // Add to customers list if not already there
+          if (!_customers.any((c) => c.id == customer.id)) {
+            _customers.add(customer);
+            _filteredCustomers = _customers;
+          }
+        });
+      }),
+    );
+  }
+
+  int _getItemSubtotal(Map<String, dynamic> item) => (item['qty'] as int) * (item['price'] as int);
+  int _getItemDiscount(Map<String, dynamic> item) => _getItemSubtotal(item) * (item['discount'] as int) ~/ 100;
+  int _getItemTotal(Map<String, dynamic> item) => _getItemSubtotal(item) - _getItemDiscount(item);
+
+  int get _totalSubtotal => _selectedItems.fold<int>(0, (a, b) => a + _getItemSubtotal(b));
+  int get _totalItemDiscounts => _selectedItems.fold<int>(0, (a, b) => a + _getItemDiscount(b));
+  int get _overallDiscountAmt => ((_totalSubtotal - _totalItemDiscounts) * _overallDiscount ~/ 100);
+  int get _grandTotal => _totalSubtotal - _totalItemDiscounts - _overallDiscountAmt;
+
+  // Group items by item ID (same item, different sizes)
+  Map<String, List<Map<String, dynamic>>> _groupItemsByName() {
+    final groups = <String, List<Map<String, dynamic>>>{};
+    for (int i = 0; i < _selectedItems.length; i++) {
+      final item = _selectedItems[i];
+      final key = item['item'].id;
+      if (!groups.containsKey(key)) {
+        groups[key] = [];
+      }
+      groups[key]!.add({...item, '_index': i});
+    }
+    return groups;
+  }
+
+  Future<void> _submitOrder() async {
+    if (_selCustId == null || _selectedItems.isEmpty) return;
+    
     final now = DateTime.now();
     final orderId = 'ORD-${now.millisecondsSinceEpoch.toString().substring(7)}';
     final o = AppOrder(
@@ -651,221 +1193,777 @@ class _NewOrderSheetState extends State<_NewOrderSheet> {
       id: orderId,
       customerId: _selCustId!,
       customerName: _selCustName ?? '',
-      items: _items.map((i) => OrderItem(
-        name: i['name'], qty: i['qty'], price: i['price'], size: i['size'],
-      )).toList(),
-      total: _total,
+      customerAddress: _selCustAddress,
+      customerPhone: _selCustPhone,
+      items: _selectedItems
+          .map((i) => OrderItem(
+            name: i['item'].name,
+            qty: i['qty'],
+            price: i['price'],
+            size: i['size'],
+            discount: i['discount'] ?? 0,
+          ))
+          .toList(),
+      total: _grandTotal,
       status: 'Pending',
       date: DateFormat('yyyy-MM-dd').format(now),
+      discountPercentage: _overallDiscount,
     );
+    print('DEBUG: Creating order with discountPercentage: $_overallDiscount');
+    print('DEBUG: Order toMap: ${o.toMap()}');
     await svc.addOrder(o);
     if (mounted) Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    return Scaffold(
+      backgroundColor: AppColors.bg,
+      appBar: AppBar(
+        backgroundColor: AppColors.card,
+        elevation: 0,
+        title: Text('Create New Order', style: TextStyle(fontFamily: 'PlayfairDisplay', fontSize: 20, color: AppColors.textColor)),
+        centerTitle: true,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: AppColors.textColor),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
-      padding: EdgeInsets.fromLTRB(20, 20, 20, bottomInset + bottomPadding + 24),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(width: 36, height: 4,
-              decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)),
-              margin: const EdgeInsets.only(bottom: 16)),
-            Text('New Order', style: TextStyle(fontFamily: 'PlayfairDisplay', fontSize: 18, color: AppColors.textColor)),
-            const SizedBox(height: 16),
+      body: StreamBuilder<List<Customer>>(
+        stream: svc.customersStream(),
+        builder: (context, custSnap) {
+          _customers = custSnap.data ?? [];
+          if (_filteredCustomers.isEmpty && _customerSearch.isEmpty) {
+            _filteredCustomers = _customers;
+          }
 
-            Text('SELECT CUSTOMER', style: TextStyle(fontSize: 10, color: AppColors.muted, letterSpacing: 1)),
-            const SizedBox(height: 8),
-            StreamBuilder<List<Customer>>(
-              stream: svc.customersStream(),
-              builder: (context, snap) {
-                _customers = snap.data ?? [];
-                return DropdownButtonFormField<String>(
-                  value: _selCustId,
-                  dropdownColor: AppColors.card,
-                  style: TextStyle(color: AppColors.textColor, fontSize: 14),
-                  decoration: InputDecoration(
-                    filled: true, fillColor: AppColors.bg,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: AppColors.border)),
-                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: AppColors.border)),
-                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: AppColors.gold)),
-                  ),
-                  hint: Text('Choose customer', style: TextStyle(color: AppColors.muted)),
-                  items: _customers.map((c) => DropdownMenuItem<String>(
-                    value: c.id, child: Text(c.name),
-                  )).toList(),
-                  onChanged: (id) {
-                    if (id == null) return;
-                    final cust = _customers.firstWhere((c) => c.id == id);
-                    setState(() {
-                      _selCustId = id;
-                      _selCustName = cust.name;
-                    });
-                  },
-                );
-              },
-            ),
-            const SizedBox(height: 16),
+          return StreamBuilder<List<StockItem>>(
+            stream: svc.stockStream(),
+            builder: (context, stockSnap) {
+              _stock = stockSnap.data ?? [];
+              if (_filteredStock.isEmpty && _itemSearch.isEmpty) {
+                _filteredStock = _stock;
+              }
 
-            Text('ADD ITEMS', style: TextStyle(fontSize: 10, color: AppColors.muted, letterSpacing: 1)),
-            const SizedBox(height: 8),
-            StreamBuilder<List<StockItem>>(
-              stream: svc.stockStream(),
-              builder: (context, snap) {
-                final stock = snap.data ?? [];
-                return _ItemAdder(stock: stock, onAdd: (item) => setState(() => _items.add(item)));
-              },
-            ),
-
-            if (_items.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              ..._items.map((item) => Container(
-                margin: const EdgeInsets.only(bottom: 6),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.circular(8)),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(child: Text('${item['name']} [${item['size']}] x${item['qty']}',
-                        style: const TextStyle(fontSize: 12))),
-                    Text('Rs. ${NumberFormat('#,###').format((item['qty'] as int) * (item['price'] as int))}',
-                        style: TextStyle(fontSize: 12, color: AppColors.goldLight, fontWeight: FontWeight.w600)),
-                    const SizedBox(width: 8),
-                    GestureDetector(
-                      onTap: () => setState(() => _items.remove(item)),
-                      child: Icon(Icons.close, size: 16, color: AppColors.danger),
-                    ),
-                  ],
-                ),
-              )),
-              const SizedBox(height: 12),
-
-              // ── Discount Section ──────────────────────────
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.bg,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppColors.border),
-                ),
+              return SingleChildScrollView(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('DISCOUNT', style: TextStyle(fontSize: 10, color: AppColors.muted, letterSpacing: 1)),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            controller: _discountCtrl,
-                            keyboardType: TextInputType.number,
-                            style: TextStyle(color: AppColors.textColor, fontSize: 14),
+                    // ── Customer Section ────────────────────────────────
+                    Container(
+                      color: AppColors.card,
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('CUSTOMER', style: TextStyle(fontSize: 10, color: AppColors.muted, letterSpacing: 1, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 10),
+                          
+                          if (_selCustId != null)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: AppColors.gold.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: AppColors.gold.withOpacity(0.3)),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text('Selected', style: TextStyle(fontSize: 9, color: AppColors.muted)),
+                                        Text(_selCustName ?? '', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.gold)),
+                                        const SizedBox(height: 6),
+                                        if (_selCustPhone != null && _selCustPhone!.isNotEmpty)
+                                          Text(_selCustPhone!, style: TextStyle(fontSize: 10, color: AppColors.muted)),
+                                        if (_selCustAddress != null && _selCustAddress!.isNotEmpty) ...[
+                                          const SizedBox(height: 2),
+                                          Text(_selCustAddress!, style: TextStyle(fontSize: 10, color: AppColors.muted, height: 1.3),
+                                            maxLines: 2, overflow: TextOverflow.ellipsis),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                  GestureDetector(
+                                    onTap: _clearCustomer,
+                                    child: Icon(Icons.close, color: AppColors.gold),
+                                  ),
+                                ],
+                              ),
+                            )
+                          else
+                            Column(
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: TextField(
+                                        controller: _customerSearchCtrl,
+                                        onChanged: _updateCustomerFilter,
+                                        style: TextStyle(color: AppColors.textColor, fontSize: 13),
+                                        decoration: InputDecoration(
+                                          hintText: 'Search customer...',
+                                          hintStyle: TextStyle(color: AppColors.muted, fontSize: 12),
+                                          prefixIcon: Icon(Icons.search, color: AppColors.muted, size: 18),
+                                          suffixIcon: _customerSearch.isNotEmpty
+                                              ? GestureDetector(
+                                                  onTap: () {
+                                                    _customerSearchCtrl.clear();
+                                                    _updateCustomerFilter('');
+                                                  },
+                                                  child: Icon(Icons.close_rounded, color: AppColors.muted, size: 18),
+                                                )
+                                              : null,
+                                          filled: true,
+                                          fillColor: AppColors.bg,
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(10),
+                                            borderSide: BorderSide(color: AppColors.border),
+                                          ),
+                                          enabledBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(10),
+                                            borderSide: BorderSide(color: AppColors.border),
+                                          ),
+                                          focusedBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(10),
+                                            borderSide: BorderSide(color: AppColors.gold),
+                                          ),
+                                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      decoration: BoxDecoration(
+                                        color: AppColors.gold.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(color: AppColors.gold.withOpacity(0.3)),
+                                      ),
+                                      child: Material(
+                                        color: Colors.transparent,
+                                        child: InkWell(
+                                          onTap: () => _showAddCustomerSheet(context),
+                                          borderRadius: BorderRadius.circular(10),
+                                          child: Padding(
+                                            padding: const EdgeInsets.all(10),
+                                            child: Icon(Icons.person_add, color: AppColors.gold, size: 20),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                if (_customers.isNotEmpty) ...[
+                                  const SizedBox(height: 8),
+                                  Container(
+                                    constraints: const BoxConstraints(maxHeight: 200),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.bg,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: AppColors.border),
+                                    ),
+                                    child: ListView.builder(
+                                      shrinkWrap: true,
+                                      itemCount: _filteredCustomers.length,
+                                      itemBuilder: (context, i) {
+                                        final c = _filteredCustomers[i];
+                                        return GestureDetector(
+                                          onTap: () => _selectCustomer(c),
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                            decoration: BoxDecoration(
+                                              border: i < _filteredCustomers.length - 1
+                                                  ? Border(bottom: BorderSide(color: AppColors.border.withOpacity(0.5)))
+                                                  : null,
+                                            ),
+                                            child: Row(
+                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                              children: [
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    children: [
+                                                      Text(c.name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                                                      Text(c.phone, style: TextStyle(fontSize: 10, color: AppColors.muted)),
+                                                    ],
+                                                  ),
+                                                ),
+                                                Icon(Icons.arrow_forward, color: AppColors.muted, size: 16),
+                                              ],
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ] else
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(vertical: 20),
+                                    child: Text('No customers found. Add one using the + button!',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(fontSize: 12, color: AppColors.muted, fontStyle: FontStyle.italic)),
+                                  ),
+                              ],
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // ── Items Section ────────────────────────────────────
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('ADD ITEMS', style: TextStyle(fontSize: 10, color: AppColors.muted, letterSpacing: 1, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 10),
+                          
+                          // Item Search
+                          TextField(
+                            controller: _itemSearchCtrl,
+                            onChanged: _updateItemFilter,
+                            style: TextStyle(color: AppColors.textColor, fontSize: 13),
                             decoration: InputDecoration(
-                              hintText: '0',
-                              hintStyle: TextStyle(color: AppColors.muted),
+                              hintText: 'Search items...',
+                              hintStyle: TextStyle(color: AppColors.muted, fontSize: 12),
+                              prefixIcon: Icon(Icons.search, color: AppColors.muted, size: 18),
+                              suffixIcon: _itemSearch.isNotEmpty
+                                  ? GestureDetector(
+                                      onTap: () {
+                                        _itemSearchCtrl.clear();
+                                        _updateItemFilter('');
+                                      },
+                                      child: Icon(Icons.close_rounded, color: AppColors.muted, size: 18),
+                                    )
+                                  : null,
                               filled: true,
-                              fillColor: AppColors.card,
-                              suffixText: '%',
-                              suffixStyle: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold),
+                              fillColor: AppColors.bg,
                               border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(10),
                                 borderSide: BorderSide(color: AppColors.border),
                               ),
                               enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(10),
                                 borderSide: BorderSide(color: AppColors.border),
                               ),
                               focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(10),
                                 borderSide: BorderSide(color: AppColors.gold),
                               ),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                             ),
-                            onChanged: (v) {
-                              final val = int.tryParse(v) ?? 0;
-                              setState(() => _manualDiscount = val.clamp(0, 100));
-                            },
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        ...[5, 10, 15].map((p) => GestureDetector(
-                          onTap: () {
-                            // toggle: same % tap කළොත් clear වෙනවා
-                            if (_manualDiscount == p) {
-                              _discountCtrl.clear();
-                              setState(() => _manualDiscount = 0);
-                            } else {
-                              _discountCtrl.text = '$p';
-                              setState(() => _manualDiscount = p);
-                            }
-                          },
-                          child: Container(
-                            margin: const EdgeInsets.only(left: 6),
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                          const SizedBox(height: 10),
+
+                          // Items Grid/List
+                          Container(
+                            constraints: const BoxConstraints(maxHeight: 300),
                             decoration: BoxDecoration(
-                              color: _manualDiscount == p ? AppColors.gold.withOpacity(0.15) : AppColors.card,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: _manualDiscount == p ? AppColors.gold : AppColors.border,
-                              ),
+                              color: AppColors.card,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppColors.border),
                             ),
-                            child: Text('$p%', style: TextStyle(
-                              fontSize: 12, fontWeight: FontWeight.w600,
-                              color: _manualDiscount == p ? AppColors.gold : AppColors.muted,
-                            )),
+                            child: _filteredStock.isEmpty
+                                ? Center(
+                                    child: Text('No items found', style: TextStyle(color: AppColors.muted)),
+                                  )
+                                : ListView.builder(
+                                    shrinkWrap: true,
+                                    itemCount: _filteredStock.length,
+                                    itemBuilder: (context, i) {
+                                      final item = _filteredStock[i];
+                                      final hasStock = item.totalQty > 0;
+                                      return GestureDetector(
+                                        onTap: hasStock
+                                            ? () => _showAddItemDialog(item)
+                                            : null,
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                          decoration: BoxDecoration(
+                                            color: hasStock ? Colors.transparent : AppColors.danger.withOpacity(0.05),
+                                            border: i < _filteredStock.length - 1
+                                                ? Border(bottom: BorderSide(color: AppColors.border.withOpacity(0.5)))
+                                                : null,
+                                          ),
+                                          child: Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  children: [
+                                                    Row(
+                                                      children: [
+                                                        Text(item.emoji, style: const TextStyle(fontSize: 16)),
+                                                        const SizedBox(width: 8),
+                                                        Expanded(
+                                                          child: Column(
+                                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                                            children: [
+                                                              Text(item.name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                                                              Text('Rs. ${item.price}', style: TextStyle(fontSize: 11, color: AppColors.gold, fontWeight: FontWeight.w600)),
+                                                            ],
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    const SizedBox(height: 6),
+                                                    Text('Stock: ${item.totalQty}', 
+                                                      style: TextStyle(fontSize: 10, color: item.isOutOfStock ? AppColors.danger : AppColors.muted)),
+                                                  ],
+                                                ),
+                                              ),
+                                              if (hasStock)
+                                                Icon(Icons.add_circle_outline, color: AppColors.gold)
+                                              else
+                                                Icon(Icons.block, color: AppColors.danger),
+                                            ],
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
                           ),
-                        )),
-                      ],
+                        ],
+                      ),
                     ),
-                    if (_manualDiscount > 0) ...[
-                      const SizedBox(height: 10),
+                    const SizedBox(height: 20),
+
+                    // ── Selected Items Section ────────────────────────────
+                    if (_selectedItems.isNotEmpty)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: AppColors.gold.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        color: AppColors.card,
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('🎁 $_manualDiscount% discount applied',
-                              style: TextStyle(color: AppColors.gold, fontSize: 12, fontWeight: FontWeight.w600)),
-                            Text('− Rs. ${NumberFormat('#,###').format(_discountAmt)}',
-                              style: TextStyle(color: AppColors.gold, fontSize: 12, fontWeight: FontWeight.w600)),
+                            Text('SELECTED ITEMS (${_groupItemsByName().length} ${_groupItemsByName().length == 1 ? 'item' : 'items'})',
+                              style: TextStyle(fontSize: 10, color: AppColors.muted, letterSpacing: 1, fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 12),
+                            ..._groupItemsByName().entries.map((groupEntry) {
+                              final itemGroup = groupEntry.value;
+                              final firstItem = itemGroup.first;
+                              final stockItem = firstItem['item'] as StockItem;
+                              
+                              // Calculate total for entire group
+                              int groupSubtotal = 0;
+                              int groupDiscount = 0;
+                              for (var item in itemGroup) {
+                                groupSubtotal += _getItemSubtotal(item);
+                                groupDiscount += _getItemDiscount(item);
+                              }
+                              int groupTotal = groupSubtotal - groupDiscount;
+
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 10),
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: AppColors.bg,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: AppColors.border),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // Item name and emoji
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Text(stockItem.emoji, style: const TextStyle(fontSize: 16)),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(stockItem.name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 10),
+                                    
+                                    // List of sizes and quantities
+                                    ...itemGroup.asMap().entries.map((entry) {
+                                      final sizeIdx = entry.key;
+                                      final item = entry.value;
+                                      final originalIdx = item['_index'] as int;
+                                      
+                                      return Padding(
+                                        padding: const EdgeInsets.only(bottom: 8),
+                                        child: Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text('${item['size']} • Qty: ${item['qty']} • Rs. ${item['price']}',
+                                                    style: TextStyle(fontSize: 11, color: AppColors.muted, fontWeight: FontWeight.w500)),
+                                                  const SizedBox(height: 2),
+                                                  Text('Subtotal: Rs. ${_getItemSubtotal(item)}',
+                                                    style: TextStyle(fontSize: 9, color: AppColors.muted)),
+                                                  if (item['discount'] > 0) ...[
+                                                    const SizedBox(height: 1),
+                                                    Text('Discount: −Rs. ${_getItemDiscount(item)} (${item['discount']}%)',
+                                                      style: TextStyle(fontSize: 9, color: AppColors.danger)),
+                                                  ],
+                                                ],
+                                              ),
+                                            ),
+                                            Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                GestureDetector(
+                                                  onTap: () => _showItemSettings(originalIdx),
+                                                  child: Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                    decoration: BoxDecoration(
+                                                      color: AppColors.gold.withOpacity(0.15),
+                                                      borderRadius: BorderRadius.circular(4),
+                                                    ),
+                                                    child: Icon(Icons.edit, size: 12, color: AppColors.gold),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 6),
+                                                GestureDetector(
+                                                  onTap: () => _removeItem(originalIdx),
+                                                  child: Icon(Icons.close, color: AppColors.danger, size: 16),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    }).toList(),
+
+                                    const SizedBox(height: 10),
+                                    Divider(color: AppColors.border, height: 1),
+                                    const SizedBox(height: 10),
+
+                                    // Group totals
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text('Subtotal: Rs. $groupSubtotal',
+                                              style: TextStyle(fontSize: 10, color: AppColors.muted)),
+                                            if (groupDiscount > 0) ...[
+                                              const SizedBox(height: 2),
+                                              Text('Discount: −Rs. $groupDiscount',
+                                                style: TextStyle(fontSize: 10, color: AppColors.danger)),
+                                            ],
+                                          ],
+                                        ),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                          decoration: BoxDecoration(
+                                            color: AppColors.gold.withOpacity(0.1),
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: Text('Total: Rs. $groupTotal',
+                                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.gold)),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
                           ],
                         ),
                       ),
-                    ],
+
+                    const SizedBox(height: 16),
+
+                    // ── Discount Section ────────────────────────────────
+                    if (_selectedItems.isNotEmpty)
+                      Container(
+                        color: AppColors.card,
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('BILL DISCOUNT', style: TextStyle(fontSize: 10, color: AppColors.muted, letterSpacing: 1, fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TextField(
+                                    controller: _overallDiscountCtrl,
+                                    keyboardType: TextInputType.number,
+                                    style: TextStyle(color: AppColors.textColor, fontSize: 14),
+                                    decoration: InputDecoration(
+                                      hintText: '0',
+                                      hintStyle: TextStyle(color: AppColors.muted),
+                                      filled: true,
+                                      fillColor: AppColors.bg,
+                                      suffixText: '%',
+                                      suffixStyle: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                        borderSide: BorderSide(color: AppColors.border),
+                                      ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                        borderSide: BorderSide(color: AppColors.border),
+                                      ),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                        borderSide: BorderSide(color: AppColors.gold),
+                                      ),
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                    ),
+                                    onChanged: (v) {
+                                      final val = int.tryParse(v) ?? 0;
+                                      setState(() => _overallDiscount = val.clamp(0, 100));
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                ...[5, 10, 15].map((p) => GestureDetector(
+                                  onTap: () {
+                                    if (_overallDiscount == p) {
+                                      _overallDiscountCtrl.clear();
+                                      setState(() => _overallDiscount = 0);
+                                    } else {
+                                      _overallDiscountCtrl.text = '$p';
+                                      setState(() => _overallDiscount = p);
+                                    }
+                                  },
+                                  child: Container(
+                                    margin: const EdgeInsets.only(left: 6),
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                                    decoration: BoxDecoration(
+                                      color: _overallDiscount == p ? AppColors.gold.withOpacity(0.15) : AppColors.bg,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                        color: _overallDiscount == p ? AppColors.gold : AppColors.border,
+                                      ),
+                                    ),
+                                    child: Text('$p%', style: TextStyle(
+                                      fontSize: 11, fontWeight: FontWeight.w600,
+                                      color: _overallDiscount == p ? AppColors.gold : AppColors.muted,
+                                    )),
+                                  ),
+                                )).toList(),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+
+                    const SizedBox(height: 16),
+
+                    // ── Total Section ───────────────────────────────────
+                    if (_selectedItems.isNotEmpty)
+                      Container(
+                        color: AppColors.card,
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text('Subtotal', style: TextStyle(color: AppColors.muted, fontSize: 12)),
+                                Text('Rs. ${_totalSubtotal}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                              ],
+                            ),
+                            if (_totalItemDiscounts > 0) ...[
+                              const SizedBox(height: 6),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text('Item Discounts', style: TextStyle(color: AppColors.muted, fontSize: 12)),
+                                  Text('−Rs. ${_totalItemDiscounts}', style: TextStyle(fontSize: 12, color: AppColors.danger)),
+                                ],
+                              ),
+                            ],
+                            if (_overallDiscount > 0) ...[
+                              const SizedBox(height: 6),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text('Bill Discount ($_overallDiscount%)', style: TextStyle(color: AppColors.muted, fontSize: 12)),
+                                  Text('−Rs. ${_overallDiscountAmt}', style: TextStyle(fontSize: 12, color: AppColors.danger)),
+                                ],
+                              ),
+                            ],
+                            const Divider(),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text('GRAND TOTAL', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1, fontSize: 13)),
+                                Text('Rs. ${_grandTotal}',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppColors.goldLight)),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            GoldButton(
+                              label: 'Create Order',
+                              onTap: _selCustId != null && _selectedItems.isNotEmpty ? _submitOrder : () {},
+                            ),
+                          ],
+                        ),
+                      ),
+
+                    const SizedBox(height: 20),
+                  ],
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  void _showAddItemDialog(StockItem item) {
+    String selectedSize = '';
+    int qty = 1;
+    int price = item.price;
+    final sizeList = item.category == 'Kids' ? kidsSizes : allSizes;
+    final availableSizes = sizeList.where((s) => (item.sizes[s] ?? 0) > 0).toList();
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          backgroundColor: AppColors.card,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('${item.emoji} ${item.name}', style: TextStyle(color: AppColors.textColor, fontSize: 16)),
+                    Text('Price: Rs. $price', style: TextStyle(color: AppColors.gold, fontSize: 12)),
                   ],
                 ),
               ),
-              // ─────────────────────────────────────────────
-
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('TOTAL', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
-                  Text('Rs. ${NumberFormat('#,###').format(_total)}',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppColors.goldLight)),
-                ],
-              ),
-              const SizedBox(height: 16),
-              GoldButton(
-                label: 'Confirm & Create Order',
-                onTap: _selCustId != null && _items.isNotEmpty ? _submit : () {},
-              ),
-              const SizedBox(height: 16),
             ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Size Selection
+                Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.bg,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: DropdownButton<String>(
+                    value: selectedSize.isEmpty ? null : selectedSize,
+                    isExpanded: true,
+                    underline: Container(),
+                    dropdownColor: AppColors.card,
+                    style: TextStyle(color: AppColors.textColor),
+                    hint: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Text('Select Size', style: TextStyle(color: AppColors.muted)),
+                    ),
+                    items: availableSizes
+                        .map((s) => DropdownMenuItem(
+                          value: s,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: Text('$s (${item.sizes[s] ?? 0} available)'),
+                          ),
+                        ))
+                        .toList(),
+                    onChanged: (s) => setState(() => selectedSize = s ?? ''),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Quantity
+                Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.bg,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Quantity:', style: TextStyle(color: AppColors.textColor, fontWeight: FontWeight.w600)),
+                      Row(
+                        children: [
+                          IconButton(
+                            icon: Icon(Icons.remove, color: AppColors.muted, size: 18),
+                            onPressed: () => setState(() => qty = (qty - 1).clamp(1, 99)),
+                            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                            padding: EdgeInsets.zero,
+                          ),
+                          SizedBox(
+                            width: 40,
+                            child: Text('$qty', textAlign: TextAlign.center,
+                              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.gold)),
+                          ),
+                          IconButton(
+                            icon: Icon(Icons.add, color: AppColors.gold, size: 18),
+                            onPressed: () => setState(() => qty++),
+                            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                            padding: EdgeInsets.zero,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Price (editable)
+                Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.bg,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: TextField(
+                    keyboardType: TextInputType.number,
+                    style: TextStyle(color: AppColors.textColor),
+                    decoration: InputDecoration(
+                      hintText: 'Price',
+                      hintStyle: TextStyle(color: AppColors.muted),
+                      border: InputBorder.none,
+                      prefixText: 'Rs. ',
+                      prefixStyle: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    ),
+                    controller: TextEditingController(text: '$price'),
+                    onChanged: (v) => setState(() => price = int.tryParse(v) ?? item.price),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            ActionButton(
+              label: 'Cancel',
+              onTap: () => Navigator.pop(context),
+              isOutlined: true,
+              buttonColor: AppColors.muted,
+            ),
+            const SizedBox(width: 8),
+            ActionButton(
+              label: 'Add',
+              onTap: selectedSize.isEmpty ? () {} : () {
+                _addItem(item, selectedSize, qty, price);
+                Navigator.pop(context);
+              },
+              buttonColor: selectedSize.isEmpty ? AppColors.muted : AppColors.gold,
+            ),
           ],
         ),
       ),
@@ -873,97 +1971,386 @@ class _NewOrderSheetState extends State<_NewOrderSheet> {
   }
 }
 
-// ── Item Adder ────────────────────────────────────────────────────────────────
-class _ItemAdder extends StatefulWidget {
-  final List<StockItem> stock;
-  final Function(Map<String, dynamic>) onAdd;
-  const _ItemAdder({required this.stock, required this.onAdd});
+// ── Item Settings Dialog ──────────────────────────────────────────────────────
+class _ItemSettingsDialog extends StatefulWidget {
+  final Map<String, dynamic> item;
+  final Function(int, int, int) onSave;
+  const _ItemSettingsDialog({required this.item, required this.onSave});
   @override
-  State<_ItemAdder> createState() => _ItemAdderState();
+  State<_ItemSettingsDialog> createState() => _ItemSettingsDialogState();
 }
 
-class _ItemAdderState extends State<_ItemAdder> {
-  String? _selId;
-  String _size = '';
-  int _qty = 1;
+class _ItemSettingsDialogState extends State<_ItemSettingsDialog> {
+  late int _qty;
+  late int _price;
+  late int _discount;
 
-  StockItem? get _sel => _selId == null ? null : widget.stock.where((s) => s.id == _selId).firstOrNull;
-  List<String> get _sizes => _sel == null
-      ? []
-      : (_sel!.category == 'Kids' ? kidsSizes : allSizes)
-          .where((s) => (_sel!.sizes[s] ?? 0) > 0)
-          .toList();
+  @override
+  void initState() {
+    super.initState();
+    _qty = widget.item['qty'];
+    _price = widget.item['price'];
+    _discount = widget.item['discount'];
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        DropdownButtonFormField<String>(
-          value: _selId,
-          dropdownColor: AppColors.card,
-          style: TextStyle(color: AppColors.textColor, fontSize: 13),
-          decoration: InputDecoration(
-            filled: true, fillColor: AppColors.bg,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: AppColors.border)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: AppColors.border)),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: AppColors.gold)),
-          ),
-          hint: Text('Select item', style: TextStyle(color: AppColors.muted)),
-          items: widget.stock.map((s) => DropdownMenuItem<String>(
-            value: s.id,
-            child: Text('${s.name} — Rs. ${s.price}'),
-          )).toList(),
-          onChanged: (id) => setState(() { _selId = id; _size = ''; _qty = 1; }),
-        ),
-        if (_sel != null && _sizes.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: DropdownButtonFormField<String>(
-                  value: _size.isNotEmpty ? _size : null,
-                  dropdownColor: AppColors.card,
-                  style: TextStyle(color: AppColors.textColor, fontSize: 13),
-                  decoration: InputDecoration(
-                    filled: true, fillColor: AppColors.bg,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: AppColors.border)),
-                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: AppColors.border)),
-                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: AppColors.gold)),
-                  ),
-                  hint: Text('Size', style: TextStyle(color: AppColors.muted)),
-                  items: _sizes.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
-                  onChanged: (s) => setState(() => _size = s ?? ''),
-                ),
+    return AlertDialog(
+      backgroundColor: AppColors.card,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: Text('Item Settings', style: TextStyle(color: AppColors.textColor)),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Item Info
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.bg,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.border),
               ),
-              const SizedBox(width: 8),
-              Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  IconButton(
-                    icon: Icon(Icons.remove_circle_outline, color: AppColors.muted),
-                    onPressed: () => setState(() => _qty = (_qty - 1).clamp(1, 99)),
-                  ),
-                  Text('$_qty', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textColor)),
-                  IconButton(
-                    icon: Icon(Icons.add_circle_outline, color: AppColors.gold),
-                    onPressed: () => setState(() => _qty++),
+                  Row(
+                    children: [
+                      Text(widget.item['item'].emoji, style: const TextStyle(fontSize: 18)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(widget.item['item'].name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                            Text('Size: ${widget.item['size']}', style: TextStyle(fontSize: 10, color: AppColors.muted)),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          GoldButton(
-            label: '+ Add Item',
-            onTap: () {
-              if (_sel != null && _size.isNotEmpty) {
-                widget.onAdd({'name': _sel!.name, 'qty': _qty, 'price': _sel!.price, 'size': _size});
-                setState(() { _selId = null; _size = ''; _qty = 1; });
-              }
-            },
-            isOutlined: true,
-          ),
-        ],
+            ),
+            const SizedBox(height: 16),
+
+            // Quantity
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.bg,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('QUANTITY', style: TextStyle(fontSize: 10, color: AppColors.muted, letterSpacing: 1, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      IconButton(
+                        icon: Icon(Icons.remove_circle_outline, color: AppColors.muted),
+                        onPressed: () => setState(() => _qty = (_qty - 1).clamp(1, 99)),
+                      ),
+                      Text('$_qty', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.gold)),
+                      IconButton(
+                        icon: Icon(Icons.add_circle_outline, color: AppColors.gold),
+                        onPressed: () => setState(() => _qty++),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Price
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.bg,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('PRICE', style: TextStyle(fontSize: 10, color: AppColors.muted, letterSpacing: 1, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 10),
+                  TextField(
+                    keyboardType: TextInputType.number,
+                    style: TextStyle(color: AppColors.textColor, fontSize: 14, fontWeight: FontWeight.bold),
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: AppColors.card,
+                      prefixText: 'Rs. ',
+                      prefixStyle: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: AppColors.border),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: AppColors.border),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: AppColors.gold),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    ),
+                    controller: TextEditingController(text: '$_price'),
+                    onChanged: (v) => setState(() => _price = int.tryParse(v) ?? widget.item['price']),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Discount
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.bg,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('ITEM DISCOUNT', style: TextStyle(fontSize: 10, color: AppColors.muted, letterSpacing: 1, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          keyboardType: TextInputType.number,
+                          style: TextStyle(color: AppColors.textColor, fontSize: 14),
+                          decoration: InputDecoration(
+                            filled: true,
+                            fillColor: AppColors.card,
+                            suffixText: '%',
+                            suffixStyle: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: AppColors.border),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: AppColors.border),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: AppColors.gold),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          ),
+                          controller: TextEditingController(text: '$_discount'),
+                          onChanged: (v) => setState(() => _discount = int.tryParse(v) ?? 0),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ...[5, 10, 15].map((p) => GestureDetector(
+                        onTap: () => setState(() => _discount = _discount == p ? 0 : p),
+                        child: Container(
+                          margin: const EdgeInsets.only(left: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: _discount == p ? AppColors.gold.withOpacity(0.15) : AppColors.card,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: _discount == p ? AppColors.gold : AppColors.border,
+                            ),
+                          ),
+                          child: Text('$p%', style: TextStyle(
+                            fontSize: 10, fontWeight: FontWeight.w600,
+                            color: _discount == p ? AppColors.gold : AppColors.muted,
+                          )),
+                        ),
+                      )).toList(),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        ActionButton(
+          label: 'Cancel',
+          onTap: () => Navigator.pop(context),
+          isOutlined: true,
+          buttonColor: AppColors.muted,
+        ),
+        const SizedBox(width: 8),
+        ActionButton(
+          label: 'Save',
+          onTap: () => widget.onSave(_qty, _price, _discount),
+          buttonColor: AppColors.gold,
+        ),
       ],
+    );
+  }
+}
+
+// ── Add Customer Sheet ──────────────────────────────────────────────────────
+
+class _AddCustomerSheet extends StatefulWidget {
+  final Function(Customer customer) onCustomerAdded;
+  const _AddCustomerSheet({required this.onCustomerAdded});
+  
+  @override
+  State<_AddCustomerSheet> createState() => _AddCustomerSheetState();
+}
+
+class _AddCustomerSheetState extends State<_AddCustomerSheet> {
+  final _name = TextEditingController();
+  final _phone = TextEditingController();
+  final _email = TextEditingController();
+  final _address = TextEditingController();
+  File? _photo;
+  bool _saving = false;
+  final svc = ApiService();
+
+  Future<void> _pickPhoto() async {
+    final picked = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 80);
+    if (picked != null) setState(() => _photo = File(picked.path));
+  }
+
+  Future<void> _save() async {
+    if (_name.text.isEmpty || _phone.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Name and Phone are required'), backgroundColor: AppColors.danger),
+      );
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      String? photoUrl;
+      if (_photo != null) photoUrl = await svc.uploadPhoto(_photo!, 'customers');
+      final newCustomer = Customer(
+        id: '',
+        name: _name.text,
+        phone: _phone.text,
+        email: _email.text,
+        address: _address.text,
+        totalOrders: 0,
+        totalSpent: 0,
+        photoUrl: photoUrl,
+        ownerRating: 0,
+        ownerNote: '',
+      );
+      await svc.addCustomer(newCustomer);
+      
+      // Wait a moment for the database to update, then get the fresh customer list
+      await Future.delayed(Duration(milliseconds: 500));
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Customer added successfully ✓'), backgroundColor: AppColors.success, duration: Duration(seconds: 1)),
+        );
+        
+        // Get the newly added customer from the updated list
+        final updatedCustomers = await svc.getCustomers();
+        final addedCustomer = updatedCustomers.firstWhere(
+          (c) => c.phone == _phone.text && c.name == _name.text,
+          orElse: () => newCustomer,
+        );
+        
+        widget.onCustomerAdded(addedCustomer);
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.danger),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _phone.dispose();
+    _email.dispose();
+    _address.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 20),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.border,
+                borderRadius: BorderRadius.circular(2),
+              ),
+              margin: EdgeInsets.only(bottom: 16),
+            ),
+            Text(
+              'Add Customer',
+              style: TextStyle(
+                fontSize: 18,
+                color: AppColors.gold,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 20),
+            GestureDetector(
+              onTap: _pickPhoto,
+              child: Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.bg,
+                  border: Border.all(color: AppColors.gold, width: 2),
+                ),
+                child: _photo != null
+                    ? ClipOval(child: Image.file(_photo!, fit: BoxFit.cover))
+                    : Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.camera_alt_outlined, color: AppColors.gold, size: 24),
+                          Text('Photo',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: AppColors.muted,
+                                fontWeight: FontWeight.bold,
+                              )),
+                        ],
+                      ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            GoldTextField(label: 'Name *', controller: _name, hint: 'Full name'),
+            GoldTextField(label: 'Phone *', controller: _phone, keyboardType: TextInputType.phone, hint: '07X XXX XXXX'),
+            GoldTextField(label: 'Email', controller: _email, keyboardType: TextInputType.emailAddress, hint: 'email@example.com'),
+            GoldTextField(label: 'Address', controller: _address, maxLines: 2, hint: 'Street, City'),
+            const SizedBox(height: 16),
+            _saving
+                ? CircularProgressIndicator(color: AppColors.gold)
+                : GoldButton(label: 'Add Customer', onTap: _save),
+          ],
+        ),
+      ),
     );
   }
 }

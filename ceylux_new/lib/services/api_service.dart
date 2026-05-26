@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 import '../models/stock_item.dart';
 import '../models/customer.dart';
 import '../models/order.dart';
+import '../models/tier.dart';
 
 class ApiService {
   static final ApiService _instance = ApiService._();
@@ -29,17 +30,26 @@ class ApiService {
   }
 
   Future<void> addStockItem(StockItem item) async {
-    await _client.post(Uri.parse('$baseUrl/stock'),
+    final response = await _client.post(Uri.parse('$baseUrl/stock'),
         headers: {'Content-Type': 'application/json'}, body: jsonEncode(item.toMap()));
+    if (response.statusCode != 200) {
+      throw Exception('Failed to add stock: ${response.statusCode} - ${response.body}');
+    }
   }
 
   Future<void> updateStockItem(StockItem item) async {
-    await _client.put(Uri.parse('$baseUrl/stock/${item.id}'),
+    final response = await _client.put(Uri.parse('$baseUrl/stock/${item.id}'),
         headers: {'Content-Type': 'application/json'}, body: jsonEncode(item.toMap()));
+    if (response.statusCode != 200) {
+      throw Exception('Failed to update stock: ${response.statusCode} - ${response.body}');
+    }
   }
 
   Future<void> deleteStockItem(String id) async {
-    await _client.delete(Uri.parse('$baseUrl/stock/$id'));
+    final response = await _client.delete(Uri.parse('$baseUrl/stock/$id'));
+    if (response.statusCode != 200) {
+      throw Exception('Failed to delete stock: ${response.statusCode} - ${response.body}');
+    }
   }
 
   Stream<List<Customer>> customersStream() async* {
@@ -53,18 +63,56 @@ class ApiService {
     }
   }
 
+  Future<List<Customer>> getCustomers() async {
+    try {
+      final r = await _client.get(Uri.parse('$baseUrl/customers'));
+      final list = jsonDecode(r.body) as List;
+      return list.map((m) => Customer.fromMap(Map<String, dynamic>.from(m))).toList();
+    } catch (e) {
+      return [];
+    }
+  }
+
   Future<void> addCustomer(Customer c) async {
-    await _client.post(Uri.parse('$baseUrl/customers'),
-        headers: {'Content-Type': 'application/json'}, body: jsonEncode(c.toMap()));
+    final customerData = {
+      'name': c.name,
+      'phone': c.phone,
+      'email': c.email,
+      'address': c.address,
+      'photo_url': c.photoUrl,
+    };
+    
+    final response = await _client.post(Uri.parse('$baseUrl/customers'),
+        headers: {'Content-Type': 'application/json'}, body: jsonEncode(customerData));
+    
+    if (response.statusCode != 200) {
+      throw Exception('Failed to add customer: ${response.statusCode} - ${response.body}');
+    }
   }
 
   Future<void> updateCustomer(Customer c) async {
-    await _client.put(Uri.parse('$baseUrl/customers/${c.id}'),
-        headers: {'Content-Type': 'application/json'}, body: jsonEncode(c.toMap()));
+    final customerData = {
+      'name': c.name,
+      'phone': c.phone,
+      'email': c.email,
+      'address': c.address,
+      'photo_url': c.photoUrl,
+      'owner_rating': c.ownerRating,
+      'owner_note': c.ownerNote,
+    };
+    
+    final response = await _client.put(Uri.parse('$baseUrl/customers/${c.id}'),
+        headers: {'Content-Type': 'application/json'}, body: jsonEncode(customerData));
+    if (response.statusCode != 200) {
+      throw Exception('Failed to update customer: ${response.statusCode} - ${response.body}');
+    }
   }
 
   Future<void> deleteCustomer(String id) async {
-    await _client.delete(Uri.parse('$baseUrl/customers/$id'));
+    final response = await _client.delete(Uri.parse('$baseUrl/customers/$id'));
+    if (response.statusCode != 200) {
+      throw Exception('Failed to delete customer: ${response.statusCode} - ${response.body}');
+    }
   }
 
   Stream<List<AppOrder>> ordersStream() async* {
@@ -79,13 +127,34 @@ class ApiService {
   }
 
   Future<void> addOrder(AppOrder o) async {
-    await _client.post(Uri.parse('$baseUrl/orders'),
+    final response = await _client.post(Uri.parse('$baseUrl/orders'),
         headers: {'Content-Type': 'application/json'}, body: jsonEncode(o.toMap()));
+    if (response.statusCode != 200) {
+      throw Exception('Failed to add order: ${response.statusCode} - ${response.body}');
+    }
   }
 
   Future<void> updateOrderStatus(String id, String status) async {
-    await _client.put(Uri.parse('$baseUrl/orders/$id/status'),
+    final response = await _client.put(Uri.parse('$baseUrl/orders/$id/status'),
         headers: {'Content-Type': 'application/json'}, body: jsonEncode({'status': status}));
+    if (response.statusCode != 200) {
+      throw Exception('Failed to update order status: ${response.statusCode} - ${response.body}');
+    }
+  }
+
+  Future<void> updateOrder(String id, AppOrder order) async {
+    final response = await _client.put(Uri.parse('$baseUrl/orders/$id'),
+        headers: {'Content-Type': 'application/json'}, body: jsonEncode(order.toMap()));
+    if (response.statusCode != 200) {
+      throw Exception('Failed to update order: ${response.statusCode} - ${response.body}');
+    }
+  }
+
+  Future<void> deleteOrder(String id) async {
+    final response = await _client.delete(Uri.parse('$baseUrl/orders/$id'));
+    if (response.statusCode != 200) {
+      throw Exception('Failed to delete order: ${response.statusCode} - ${response.body}');
+    }
   }
 
   Future<String> uploadPhoto(File file, String folder) async {
@@ -109,12 +178,17 @@ class ApiService {
 
   Future<void> updateUserProfile(String userId, Map<String, dynamic> profileData) async {
     try {
-      await _client.put(
+      final response = await _client.put(
         Uri.parse('$baseUrl/user/$userId'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode(profileData),
       );
-    } catch (_) {}
+      if (response.statusCode != 200) {
+        throw Exception('Failed to update user profile: ${response.statusCode} - ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('Failed to update user profile: $e');
+    }
   }
 
   Future<void> uploadProfileImage(File file, String userId) async {
@@ -128,5 +202,65 @@ class ApiService {
 
   Future<void> seedInitialData() async {
     try { await _client.post(Uri.parse('$baseUrl/seed')); } catch (_) {}
+  }
+
+  // Tier Management
+  Stream<List<Tier>> tiersStream() async* {
+    while (true) {
+      try {
+        final r = await _client.get(Uri.parse('$baseUrl/tiers'));
+        final list = jsonDecode(r.body) as List;
+        final tiers = list.map((m) => Tier.fromMap(Map<String, dynamic>.from(m))).toList();
+        // Sort by priority descending (highest tier first)
+        tiers.sort((a, b) => b.priority.compareTo(a.priority));
+        yield tiers;
+      } catch (_) { yield []; }
+      await Future.delayed(const Duration(seconds: 3));
+    }
+  }
+
+  Future<List<Tier>> getTiers() async {
+    try {
+      final r = await _client.get(Uri.parse('$baseUrl/tiers'));
+      final list = jsonDecode(r.body) as List;
+      final tiers = list.map((m) => Tier.fromMap(Map<String, dynamic>.from(m))).toList();
+      tiers.sort((a, b) => b.priority.compareTo(a.priority));
+      return tiers;
+    } catch (_) { return []; }
+  }
+
+  Future<void> addTier(Tier tier) async {
+    try {
+      final response = await _client.post(Uri.parse('$baseUrl/tiers'),
+        headers: {'Content-Type': 'application/json'}, body: jsonEncode(tier.toMap()));
+      if (response.statusCode != 200) {
+        throw Exception('Failed to add tier: ${response.statusCode} - ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('Failed to add tier: $e');
+    }
+  }
+
+  Future<void> updateTier(String tierId, Tier tier) async {
+    try {
+      final response = await _client.put(Uri.parse('$baseUrl/tiers/$tierId'),
+        headers: {'Content-Type': 'application/json'}, body: jsonEncode(tier.toMap()));
+      if (response.statusCode != 200) {
+        throw Exception('Failed to update tier: ${response.statusCode} - ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('Failed to update tier: $e');
+    }
+  }
+
+  Future<void> deleteTier(String tierId) async {
+    try {
+      final response = await _client.delete(Uri.parse('$baseUrl/tiers/$tierId'));
+      if (response.statusCode != 200) {
+        throw Exception('Failed to delete tier: ${response.statusCode} - ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('Failed to delete tier: $e');
+    }
   }
 }

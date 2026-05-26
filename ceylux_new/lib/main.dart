@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ota_update/ota_update.dart';
+import 'package:shimmer/shimmer.dart';
 import 'services/update_service.dart';
 import 'utils/theme.dart';
 import 'models/stock_item.dart';
@@ -90,7 +91,8 @@ class _SplashGateState extends State<SplashGate> {
   }
 
   Future<void> _check() async {
-    await Future.delayed(const Duration(milliseconds: 800));
+    // Show splash screen for at least 3.5 seconds
+    await Future.delayed(const Duration(milliseconds: 3500));
 
     if (Platform.isAndroid) {
       setState(() {
@@ -213,39 +215,203 @@ class _SplashGateState extends State<SplashGate> {
       backgroundColor: AppColors.bg,
       body: Stack(
         children: [
-          Center(
-            child: AnimatedOpacity(
-              duration: const Duration(milliseconds: 400),
-              opacity: _updateAvailable ? 0.25 : 1.0,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 260, height: 80,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 8))],
+          // Premium Loading Screen
+          if (!_updateAvailable && _checkingUpdate)
+            Center(
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Logo with Shimmer Effect
+                    Shimmer.fromColors(
+                        baseColor: AppColors.gold.withOpacity(0.3),
+                        highlightColor: AppColors.gold.withOpacity(0.8),
+                        period: const Duration(milliseconds: 2000),
+                        child: Container(
+                          width: 280, height: 90,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.gold.withOpacity(0.4),
+                                blurRadius: 40,
+                                offset: const Offset(0, 0),
+                                spreadRadius: 10,
+                              ),
+                              BoxShadow(
+                                color: AppColors.primary.withOpacity(0.2),
+                                blurRadius: 20,
+                                offset: const Offset(0, 8),
+                              ),
+                            ],
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(16),
+                            child: Image.asset('assets/images/ceylux_logo.png', fit: BoxFit.contain),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                    
+                    // CEYLUX Premium Text with Shimmer
+                    Shimmer.fromColors(
+                      baseColor: AppColors.gold.withOpacity(0.4),
+                      highlightColor: AppColors.gold.withOpacity(0.9),
+                      period: const Duration(milliseconds: 2500),
+                      child: Column(
+                        children: [
+                          Text(
+                            'CEYLUX',
+                            style: GoogleFonts.outfit(
+                              fontSize: 32,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.gold,
+                              letterSpacing: 3,
+                              shadows: [
+                                Shadow(
+                                  color: AppColors.gold.withOpacity(0.3),
+                                  blurRadius: 15,
+                                  offset: const Offset(0, 0),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'CLOTHING',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.gold.withOpacity(0.7),
+                              letterSpacing: 2,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: Image.asset('assets/images/ceylux_logo.png', fit: BoxFit.contain),
+                    const SizedBox(height: 48),
+                    
+                    // Glowing Circular Progress Indicator
+                    Container(
+                      width: 160,
+                      height: 160,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.primary.withOpacity(0.3),
+                            blurRadius: 30,
+                            spreadRadius: 10,
+                          ),
+                        ],
+                      ),
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          // Animated rotating gradient border
+                          TweenAnimationBuilder<double>(
+                            tween: Tween(begin: 0.0, end: 1.0),
+                            duration: const Duration(seconds: 2),
+                            onEnd: () {},
+                            builder: (context, value, child) {
+                              return Transform.rotate(
+                                angle: value * 6.28,
+                                child: Container(
+                                  width: 160,
+                                  height: 160,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: AppColors.primary.withOpacity(0.4),
+                                      width: 2,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                          // Inner circle
+                          Container(
+                            width: 150,
+                            height: 150,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: AppColors.bg.withOpacity(0.5),
+                              border: Border.all(
+                                color: AppColors.primary.withOpacity(0.2),
+                                width: 1,
+                              ),
+                            ),
+                          ),
+                          // Pulsing center
+                          TweenAnimationBuilder<double>(
+                            tween: Tween(begin: 0.8, end: 1.0),
+                            duration: const Duration(seconds: 1),
+                            onEnd: () {},
+                            builder: (context, value, child) {
+                              return Transform.scale(
+                                scale: value,
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      _statusMessage == 'Checking for updates...' ? '...' : '∞',
+                                      style: GoogleFonts.outfit(
+                                        fontSize: 36,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.primary.withOpacity(0.6),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text('CEYLUX', style: GoogleFonts.outfit(fontSize: 28, color: AppColors.primary, fontWeight: FontWeight.bold, letterSpacing: 3)),
-                  const SizedBox(height: 32),
-                  if (!_updateAvailable && _checkingUpdate) ...[
-                    const CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 32),
+                    
+                    // Status Text with Animation
                     Text(
                       _statusMessage,
-                      style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.muted, fontWeight: FontWeight.w600),
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primary,
+                        letterSpacing: 1.5,
+                      ),
                     ),
                   ],
-                ],
+                ),
+              ),
+            )
+          // Original UI for Update Available
+          else if (_updateAvailable)
+            Center(
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 400),
+                opacity: 1.0,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 260, height: 80,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 8))],
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: Image.asset('assets/images/ceylux_logo.png', fit: BoxFit.contain),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text('CEYLUX', style: GoogleFonts.outfit(fontSize: 28, color: AppColors.primary, fontWeight: FontWeight.bold, letterSpacing: 3)),
+                  ],
+                ),
               ),
             ),
-          ),
 
           if (_updateAvailable)
             Center(
