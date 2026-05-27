@@ -32,9 +32,16 @@ class AppOrder {
   final String date;
   final int discountPercentage; // Bill discount percentage
   final int loyaltyDiscount; // Loyalty discount percentage (from customer tier)
+  final String? deliveryMethodId;
+  final String? deliveryMethodName;
+  final String? paymentProofUrl;
+  final String? deliveryNotes;
+  final String? paymentMethodId;
+  final String? paymentMethodName;
 
   AppOrder({required this.dbId, required this.id, required this.customerId, required this.customerName,
-    this.customerAddress, this.customerPhone, required this.items, required this.total, required this.status, required this.date, this.discountPercentage = 0, this.loyaltyDiscount = 0});
+    this.customerAddress, this.customerPhone, required this.items, required this.total, required this.status, required this.date, this.discountPercentage = 0, this.loyaltyDiscount = 0,
+    this.deliveryMethodId, this.deliveryMethodName, this.paymentProofUrl, this.deliveryNotes, this.paymentMethodId, this.paymentMethodName});
 
   static int _toInt(dynamic v) {
     if (v == null) return 0;
@@ -77,6 +84,12 @@ class AppOrder {
           : m['date']?.toString() ?? '',
       discountPercentage: _toInt(m['discount_percentage']),
       loyaltyDiscount: _toInt(m['loyalty_discount']),
+      deliveryMethodId: m['delivery_method_id']?.toString(),
+      deliveryMethodName: m['delivery_method_name']?.toString(),
+      paymentProofUrl: m['payment_proof_url']?.toString(),
+      deliveryNotes: m['delivery_notes']?.toString(),
+      paymentMethodId: m['payment_method_id']?.toString(),
+      paymentMethodName: m['payment_method_name']?.toString(),
     );
   }
 
@@ -87,10 +100,22 @@ class AppOrder {
     'customer_phone': customerPhone,
     'items': items.map((e) => e.toMap()).toList(),
     'total': total, 'status': status, 'date': date, 'discount_percentage': discountPercentage, 'loyalty_discount': loyaltyDiscount,
+    'delivery_method_id': deliveryMethodId,
+    'delivery_method_name': deliveryMethodName,
+    'payment_proof_url': paymentProofUrl,
+    'delivery_notes': deliveryNotes,
+    'payment_method_id': paymentMethodId,
+    'payment_method_name': paymentMethodName,
   };
 
-  AppOrder copyWith({String? status}) => AppOrder(
+  AppOrder copyWith({String? status, String? deliveryMethodId, String? deliveryMethodName, String? paymentProofUrl, String? deliveryNotes, String? paymentMethodId, String? paymentMethodName}) => AppOrder(
     dbId: dbId,
     id: id, customerId: customerId, customerName: customerName,
-    items: items, total: total, status: status ?? this.status, date: date, discountPercentage: discountPercentage, loyaltyDiscount: loyaltyDiscount);
+    items: items, total: total, status: status ?? this.status, date: date, discountPercentage: discountPercentage, loyaltyDiscount: loyaltyDiscount,
+    deliveryMethodId: deliveryMethodId ?? this.deliveryMethodId,
+    deliveryMethodName: deliveryMethodName ?? this.deliveryMethodName,
+    paymentProofUrl: paymentProofUrl ?? this.paymentProofUrl,
+    deliveryNotes: deliveryNotes ?? this.deliveryNotes,
+    paymentMethodId: paymentMethodId ?? this.paymentMethodId,
+    paymentMethodName: paymentMethodName ?? this.paymentMethodName);
 }

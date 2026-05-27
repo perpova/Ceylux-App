@@ -19,7 +19,11 @@ const JWT_SECRET = process.env.JWT_SECRET || 'ceylux_secret_2025';
 // Multer
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const folder = path.join(__dirname, 'uploads', req.params.folder);
+    const pathParts = req.path.split('/');
+    const folderName = (pathParts.length >= 3 && pathParts[1] === 'upload')
+      ? pathParts[2]
+      : 'payment-proofs';
+    const folder = path.join(__dirname, 'uploads', folderName);
     fs.mkdirSync(folder, { recursive: true });
     cb(null, folder);
   },
@@ -107,6 +111,12 @@ async function initDB() {
         loyalty_discount INT DEFAULT 0,
         status VARCHAR(50) DEFAULT 'Pending',
         date VARCHAR(50),
+        delivery_method_id VARCHAR(100),
+        delivery_method_name VARCHAR(255),
+        payment_proof_url TEXT,
+        delivery_notes TEXT,
+        payment_method_id VARCHAR(100),
+        payment_method_name VARCHAR(255),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
@@ -123,6 +133,31 @@ async function initDB() {
         min_rating DECIMAL(2,1) DEFAULT 0.0,
         discount_percentage INT DEFAULT 0,
         priority INT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // 6. delivery_methods table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS delivery_methods (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        description TEXT,
+        emoji VARCHAR(10),
+        account_details TEXT,
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // 7. payment_methods table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS payment_methods (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        description TEXT,
+        emoji VARCHAR(10),
+        is_active BOOLEAN DEFAULT TRUE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
@@ -213,6 +248,15 @@ app.post('/auth/signin', async (req, res) => {
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
+});
+
+// ── PAYMENT PROOF UPLOAD ───────────────────────────────────────────────────
+app.post('/upload/payment-proofs', upload.single('proof'), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No file' });
+  const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+  const baseUrl = process.env.BASE_URL || `${protocol}://${req.headers.host}`;
+  const url = `${baseUrl}/uploads/payment-proofs/${req.file.filename}`;
+  res.json({ url });
 });
 
 // ── PHOTO UPLOAD ───────────────────────────────────────────────────────────
@@ -347,10 +391,10 @@ app.get('/orders', async (req, res) => {
 
 app.post('/orders', async (req, res) => {
   try {
-    const { order_ref, customer_id, customer_name, customer_address, customer_phone, items, total, status, date, discount_percentage, loyalty_discount } = req.body;
+    const { order_ref, customer_id, customer_name, customer_address, customer_phone, items, total, status, date, discount_percentage, loyalty_discount, delivery_method_id, delivery_method_name, payment_proof_url, delivery_notes, payment_method_id, payment_method_name } = req.body;
     const [result] = await pool.query(
-      'INSERT INTO orders (order_ref, customer_id, customer_name, customer_address, customer_phone, items, total, status, date, discount_percentage, loyalty_discount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [order_ref, customer_id, customer_name, customer_address, customer_phone, JSON.stringify(items), total, status, date, discount_percentage || 0, loyalty_discount || 0]
+      'INSERT INTO orders (order_ref, customer_id, customer_name, customer_address, customer_phone, items, total, status, date, discount_percentage, loyalty_discount, delivery_method_id, delivery_method_name, payment_proof_url, delivery_notes, payment_method_id, payment_method_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [order_ref, customer_id, customer_name, customer_address, customer_phone, JSON.stringify(items), total, status, date, discount_percentage || 0, loyalty_discount || 0, delivery_method_id || null, delivery_method_name || null, payment_proof_url || null, delivery_notes || null, payment_method_id || null, payment_method_name || null]
     );
     const [rows] = await pool.query('SELECT * FROM orders WHERE id = ?', [result.insertId]);
 
@@ -381,10 +425,10 @@ app.put('/orders/:id/status', async (req, res) => {
 
 app.put('/orders/:id', async (req, res) => {
   try {
-    const { order_ref, customer_id, customer_name, customer_address, customer_phone, items, total, status, date, discount_percentage, loyalty_discount } = req.body;
+    const { order_ref, customer_id, customer_name, customer_address, customer_phone, items, total, status, date, discount_percentage, loyalty_discount, delivery_method_id, delivery_method_name, payment_proof_url, delivery_notes, payment_method_id, payment_method_name } = req.body;
     await pool.query(
-      'UPDATE orders SET order_ref = ?, customer_id = ?, customer_name = ?, customer_address = ?, customer_phone = ?, items = ?, total = ?, status = ?, date = ?, discount_percentage = ?, loyalty_discount = ? WHERE id = ? OR order_ref = ?',
-      [order_ref, customer_id, customer_name, customer_address, customer_phone, JSON.stringify(items), total, status, date, discount_percentage || 0, loyalty_discount || 0, req.params.id, req.params.id]
+      'UPDATE orders SET order_ref = ?, customer_id = ?, customer_name = ?, customer_address = ?, customer_phone = ?, items = ?, total = ?, status = ?, date = ?, discount_percentage = ?, loyalty_discount = ?, delivery_method_id = ?, delivery_method_name = ?, payment_proof_url = ?, delivery_notes = ?, payment_method_id = ?, payment_method_name = ? WHERE id = ? OR order_ref = ?',
+      [order_ref, customer_id, customer_name, customer_address, customer_phone, JSON.stringify(items), total, status, date, discount_percentage || 0, loyalty_discount || 0, delivery_method_id || null, delivery_method_name || null, payment_proof_url || null, delivery_notes || null, payment_method_id || null, payment_method_name || null, req.params.id, req.params.id]
     );
     const [rows] = await pool.query('SELECT * FROM orders WHERE id = ? OR order_ref = ?', [req.params.id, req.params.id]);
     res.json(rows[0]);
@@ -443,6 +487,100 @@ app.put('/tiers/:id', async (req, res) => {
 app.delete('/tiers/:id', async (req, res) => {
   try {
     await pool.query('DELETE FROM tiers WHERE id = ?', [req.params.id]);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── DELIVERY METHODS ───────────────────────────────────────────────────────
+app.get('/delivery-methods', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM delivery_methods WHERE is_active = TRUE ORDER BY name');
+    res.json(rows);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/delivery-methods', async (req, res) => {
+  try {
+    const { name, description, emoji, account_details, is_active } = req.body;
+    const [result] = await pool.query(
+      'INSERT INTO delivery_methods (name, description, emoji, account_details, is_active) VALUES (?, ?, ?, ?, ?)',
+      [name, description || '', emoji || '🚚', account_details || null, is_active !== false]
+    );
+    const [rows] = await pool.query('SELECT * FROM delivery_methods WHERE id = ?', [result.insertId]);
+    res.json(rows[0]);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.put('/delivery-methods/:id', async (req, res) => {
+  try {
+    const { name, description, emoji, account_details, is_active } = req.body;
+    await pool.query(
+      'UPDATE delivery_methods SET name = ?, description = ?, emoji = ?, account_details = ?, is_active = ? WHERE id = ?',
+      [name, description || '', emoji || '🚚', account_details || null, is_active !== false, req.params.id]
+    );
+    const [rows] = await pool.query('SELECT * FROM delivery_methods WHERE id = ?', [req.params.id]);
+    res.json(rows[0]);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.delete('/delivery-methods/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM delivery_methods WHERE id = ?', [req.params.id]);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── PAYMENT METHODS ────────────────────────────────────────────────────────
+app.get('/payment-methods', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM payment_methods WHERE is_active = TRUE ORDER BY name');
+    res.json(rows);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/payment-methods', async (req, res) => {
+  try {
+    const { name, description, emoji, is_active } = req.body;
+    const [result] = await pool.query(
+      'INSERT INTO payment_methods (name, description, emoji, is_active) VALUES (?, ?, ?, ?)',
+      [name, description || '', emoji || '💳', is_active !== false]
+    );
+    const [rows] = await pool.query('SELECT * FROM payment_methods WHERE id = ?', [result.insertId]);
+    res.json(rows[0]);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.put('/payment-methods/:id', async (req, res) => {
+  try {
+    const { name, description, emoji, is_active } = req.body;
+    await pool.query(
+      'UPDATE payment_methods SET name = ?, description = ?, emoji = ?, is_active = ? WHERE id = ?',
+      [name, description || '', emoji || '💳', is_active !== false, req.params.id]
+    );
+    const [rows] = await pool.query('SELECT * FROM payment_methods WHERE id = ?', [req.params.id]);
+    res.json(rows[0]);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.delete('/payment-methods/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM payment_methods WHERE id = ?', [req.params.id]);
     res.json({ success: true });
   } catch (e) {
     res.status(500).json({ error: e.message });

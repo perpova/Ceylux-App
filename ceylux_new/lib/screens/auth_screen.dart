@@ -52,6 +52,7 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
         await prefs.setString('token', data['token']);
         await prefs.setString('userName', data['user']['name']);
         await prefs.setString('userEmail', data['user']['email']);
+        await prefs.setString('userId', data['user']['id'].toString());
         if (mounted) Navigator.pushReplacementNamed(context, '/home');
       } else {
         setState(() => _error = data['error'] ?? 'Sign in failed');
@@ -89,6 +90,7 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
         await prefs.setString('token', data['token']);
         await prefs.setString('userName', data['user']['name']);
         await prefs.setString('userEmail', data['user']['email']);
+        await prefs.setString('userId', data['user']['id'].toString());
         if (mounted) Navigator.pushReplacementNamed(context, '/home');
       } else {
         setState(() => _error = data['error'] ?? 'Sign up failed');

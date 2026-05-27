@@ -9,6 +9,8 @@ import '../models/order.dart';
 import '../models/customer.dart';
 import '../models/stock_item.dart';
 import '../models/tier.dart';
+import '../models/delivery_method.dart';
+import '../models/payment_method.dart';
 import '../utils/theme.dart';
 import '../widgets/common_widgets.dart';
 
@@ -333,11 +335,251 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
   bool _isSaving = false;
   bool _isDeleting = false;
 
+  // Delivery method fields
+  String? _selectedDeliveryMethodId;
+  String? _selectedDeliveryMethodName;
+  File? _paymentProofImage;
+  List<DeliveryMethod> _deliveryMethods = [];
+  bool _loadingDeliveryMethods = false;
+  bool _uploadingProof = false;
+
+  // Payment method fields
+  String? _selectedPaymentMethodId;
+  String? _selectedPaymentMethodName;
+  List<PaymentMethod> _paymentMethods = [];
+  bool _loadingPaymentMethods = false;
+
+  final svc = ApiService();
+
   @override
   void initState() {
     super.initState();
     _editableItems = List.from(widget.order.items);
     _initializeControllers();
+    _selectedDeliveryMethodId = widget.order.deliveryMethodId;
+    _selectedDeliveryMethodName = widget.order.deliveryMethodName;
+    _selectedPaymentMethodId = widget.order.paymentMethodId;
+    _selectedPaymentMethodName = widget.order.paymentMethodName;
+    _loadDeliveryMethods();
+    _loadPaymentMethods();
+  }
+
+  Future<void> _loadDeliveryMethods() async {
+    setState(() => _loadingDeliveryMethods = true);
+    try {
+      final methods = await svc.getDeliveryMethods();
+      if (mounted) {
+        setState(() {
+          _deliveryMethods = methods;
+          _loadingDeliveryMethods = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _loadingDeliveryMethods = false);
+    }
+  }
+
+  Future<void> _loadPaymentMethods() async {
+    setState(() => _loadingPaymentMethods = true);
+    try {
+      final methods = await svc.getPaymentMethods();
+      if (mounted) {
+        setState(() {
+          _paymentMethods = methods;
+          _loadingPaymentMethods = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _loadingPaymentMethods = false);
+    }
+  }
+
+  Future<void> _pickPaymentProof() async {
+    final picked = await ImagePicker()
+        .pickImage(source: ImageSource.gallery, imageQuality: 85);
+    if (picked != null) {
+      setState(() => _paymentProofImage = File(picked.path));
+    }
+  }
+
+  Future<void> _saveDeliveryMethod() async {
+    if (_selectedDeliveryMethodId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Please select a delivery method'),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _uploadingProof = true);
+    try {
+      String? proofUrl = widget.order.paymentProofUrl;
+      if (_paymentProofImage != null) {
+        proofUrl = await svc.uploadPaymentProof(_paymentProofImage!);
+      }
+
+      final updatedOrder = widget.order.copyWith(
+        deliveryMethodId: _selectedDeliveryMethodId,
+        deliveryMethodName: _selectedDeliveryMethodName,
+        paymentProofUrl: proofUrl,
+        paymentMethodId: _selectedPaymentMethodId,
+        paymentMethodName: _selectedPaymentMethodName,
+      );
+
+      await svc.updateOrder(widget.order.dbId, updatedOrder);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                const SizedBox(width: 10),
+                const Text('Payment & Delivery details saved ✓'),
+              ],
+            ),
+            backgroundColor: AppColors.success,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: AppColors.danger,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingProof = false);
+    }
+  }
+
+  Widget _buildProofSelectionWidget() {
+    if (_paymentProofImage != null) {
+      return Stack(
+        alignment: Alignment.topRight,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.file(
+              _paymentProofImage!,
+              height: 120,
+              width: double.infinity,
+              fit: BoxFit.cover,
+            ),
+          ),
+          Positioned(
+            top: 8,
+            right: 8,
+            child: GestureDetector(
+              onTap: () => setState(() => _paymentProofImage = null),
+              child: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: const BoxDecoration(
+                  color: Colors.black54,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.close, color: Colors.white, size: 18),
+              ),
+            ),
+          ),
+        ],
+      );
+    } else if (widget.order.paymentProofUrl != null &&
+        widget.order.paymentProofUrl!.isNotEmpty) {
+      return Stack(
+        alignment: Alignment.topRight,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.network(
+              widget.order.paymentProofUrl!,
+              height: 120,
+              width: double.infinity,
+              fit: BoxFit.cover,
+            ),
+          ),
+          Positioned(
+            top: 8,
+            right: 8,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppColors.success.withOpacity(0.9),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Text(
+                'Existing Proof',
+                style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: 8,
+            left: 8,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.black54,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Text(
+                'Tap to replace',
+                style: TextStyle(color: Colors.white, fontSize: 10),
+              ),
+            ),
+          ),
+        ],
+      );
+    } else {
+      return Container(
+        padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+        decoration: BoxDecoration(
+          color: AppColors.bg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: AppColors.border,
+            width: 1.5,
+          ),
+        ),
+        child: Column(
+          children: [
+            Icon(
+              Icons.cloud_upload_outlined,
+              size: 32,
+              color: AppColors.muted,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Upload Payment Proof (Optional)',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textColor,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              'Bank transfer screenshot, cheque photo, etc.',
+              style: TextStyle(
+                fontSize: 10,
+                color: AppColors.muted,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
   }
 
   void _initializeControllers() {
@@ -1238,7 +1480,476 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
                 );
               },
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 16),
+            
+            // ── Delivery & Payment Info Display (View Mode) ──
+            if (!_isEditMode) ...[
+              Divider(color: AppColors.border, height: 1),
+              const SizedBox(height: 16),
+              Text(
+                'DELIVERY & PAYMENT INFO',
+                style: TextStyle(
+                  fontSize: 11,
+                  letterSpacing: 1,
+                  color: AppColors.muted,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: AppColors.isDark
+                        ? [
+                            AppColors.card,
+                            AppColors.card.withOpacity(0.8),
+                          ]
+                        : [
+                            const Color(0xFFF8FAFC),
+                            const Color(0xFFF1F5F9),
+                          ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: AppColors.gold.withOpacity(0.2),
+                    width: 1.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Delivery method row
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppColors.gold.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.local_shipping_outlined,
+                            size: 18,
+                            color: AppColors.gold,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'DELIVERY METHOD',
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.muted,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                _selectedDeliveryMethodName ?? 'Not selected',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.textColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Divider(color: AppColors.border.withOpacity(0.5), height: 1),
+                    const SizedBox(height: 16),
+                    // Payment method row
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.payment_outlined,
+                            size: 18,
+                            color: AppColors.primaryLight,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'PAYMENT METHOD',
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.muted,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                _selectedPaymentMethodName ?? 'Not selected',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.textColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    
+                    // Payment proof image section
+                    if (widget.order.paymentProofUrl != null &&
+                        widget.order.paymentProofUrl!.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      Divider(color: AppColors.border.withOpacity(0.5), height: 1),
+                      const SizedBox(height: 16),
+                      Text(
+                        'PAYMENT PROOF',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.muted,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      GestureDetector(
+                        onTap: () {
+                          // Show zoomable interactive full-screen image dialog
+                          showDialog(
+                            context: context,
+                            builder: (context) => Dialog(
+                              backgroundColor: Colors.black.withOpacity(0.95),
+                              insetPadding: EdgeInsets.zero,
+                              child: Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  Center(
+                                    child: InteractiveViewer(
+                                      maxScale: 4.0,
+                                      child: Image.network(
+                                        widget.order.paymentProofUrl!,
+                                        fit: BoxFit.contain,
+                                      ),
+                                    ),
+                                  ),
+                                  Positioned(
+                                    top: 40,
+                                    right: 20,
+                                    child: IconButton(
+                                      onPressed: () => Navigator.pop(context),
+                                      icon: const Icon(
+                                        Icons.close_rounded,
+                                        color: Colors.white,
+                                        size: 32,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: AppColors.border,
+                                width: 1.5,
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                Image.network(
+                                  widget.order.paymentProofUrl!,
+                                  height: 200,
+                                  width: double.infinity,
+                                  fit: BoxFit.cover,
+                                  loadingBuilder: (context, child, loadingProgress) {
+                                    if (loadingProgress == null) return child;
+                                    return Container(
+                                      height: 200,
+                                      color: AppColors.bg,
+                                      child: Center(
+                                        child: CircularProgressIndicator(
+                                          value: loadingProgress.expectedTotalBytes != null
+                                              ? loadingProgress.cumulativeBytesLoaded /
+                                                  loadingProgress.expectedTotalBytes!
+                                              : null,
+                                          color: AppColors.gold,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                  errorBuilder: (context, error, st) =>
+                                      Container(
+                                    height: 200,
+                                    color: AppColors.bg,
+                                    child: Center(
+                                      child: Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Icon(Icons.image_not_supported_outlined,
+                                              color: AppColors.muted,
+                                              size: 32),
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            'Could not load payment proof image',
+                                            style: TextStyle(
+                                              color: AppColors.muted,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                // Semi-transparent overlay to indicate click action
+                                Positioned(
+                                  bottom: 0,
+                                  left: 0,
+                                  right: 0,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 8, horizontal: 12),
+                                    color: Colors.black.withOpacity(0.6),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.zoom_in,
+                                          color: Colors.white.withOpacity(0.9),
+                                          size: 16,
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          'Tap to view full size',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w500,
+                                            color: Colors.white.withOpacity(0.9),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
+
+            // ── UPDATE DELIVERY & PAYMENT SECTION (EDIT MODE) ──
+            if (!_isEditMode && widget.order.status != 'Delivered') ...[
+              Divider(color: AppColors.border, height: 1),
+              const SizedBox(height: 16),
+              Text(
+                'UPDATE DELIVERY & PAYMENT',
+                style: TextStyle(
+                  fontSize: 11,
+                  letterSpacing: 1,
+                  color: AppColors.muted,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.card,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.border),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.02),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Delivery Method Selection
+                    Text(
+                      'DELIVERY METHOD',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.muted,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    if (_loadingDeliveryMethods)
+                      Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: CircularProgressIndicator(color: AppColors.gold, strokeWidth: 2),
+                        ),
+                      )
+                    else if (_deliveryMethods.isEmpty)
+                      Text(
+                        'No delivery methods available',
+                        style: TextStyle(color: AppColors.muted, fontSize: 12),
+                      )
+                    else
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: AppColors.bg,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _selectedDeliveryMethodId,
+                            isExpanded: true,
+                            dropdownColor: AppColors.card,
+                            style: TextStyle(color: AppColors.textColor, fontSize: 13, fontWeight: FontWeight.w500),
+                            hint: Text('Select Delivery Method',
+                                style: TextStyle(color: AppColors.muted, fontSize: 13)),
+                            items: _deliveryMethods
+                                .map((method) => DropdownMenuItem<String>(
+                                      value: method.id,
+                                      child: Text('${method.emoji} ${method.name}'),
+                                    ))
+                                .toList(),
+                            onChanged: (id) {
+                              if (id != null) {
+                                final method = _deliveryMethods.firstWhere((m) => m.id == id);
+                                setState(() {
+                                  _selectedDeliveryMethodId = id;
+                                  _selectedDeliveryMethodName = method.name;
+                                });
+                              }
+                            },
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: 16),
+
+                    // Payment Method Selection
+                    Text(
+                      'PAYMENT METHOD',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.muted,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    if (_loadingPaymentMethods)
+                      Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: CircularProgressIndicator(color: AppColors.gold, strokeWidth: 2),
+                        ),
+                      )
+                    else if (_paymentMethods.isEmpty)
+                      Text(
+                        'No payment methods available',
+                        style: TextStyle(color: AppColors.muted, fontSize: 12),
+                      )
+                    else
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: AppColors.bg,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _selectedPaymentMethodId,
+                            isExpanded: true,
+                            dropdownColor: AppColors.card,
+                            style: TextStyle(color: AppColors.textColor, fontSize: 13, fontWeight: FontWeight.w500),
+                            hint: Text('Select Payment Method',
+                                style: TextStyle(color: AppColors.muted, fontSize: 13)),
+                            items: _paymentMethods
+                                .map((method) => DropdownMenuItem<String>(
+                                      value: method.id,
+                                      child: Text('${method.emoji} ${method.name}'),
+                                    ))
+                                .toList(),
+                            onChanged: (id) {
+                              if (id != null) {
+                                final method = _paymentMethods.firstWhere((m) => m.id == id);
+                                setState(() {
+                                  _selectedPaymentMethodId = id;
+                                  _selectedPaymentMethodName = method.name;
+                                });
+                              }
+                            },
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: 16),
+
+                    // Payment Proof Selection (Optional)
+                    Text(
+                      'PAYMENT PROOF (OPTIONAL)',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.muted,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    GestureDetector(
+                      onTap: _pickPaymentProof,
+                      child: _buildProofSelectionWidget(),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Action Button to Save Details
+                    ActionButton(
+                      label: 'Save Payment & Delivery Details',
+                      onTap: _saveDeliveryMethod,
+                      isLoading: _uploadingProof,
+                      buttonColor: AppColors.primary,
+                      padding: 12,
+                      fontSize: 13,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
           ],
         ),
       ),

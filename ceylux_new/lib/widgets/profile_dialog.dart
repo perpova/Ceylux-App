@@ -44,8 +44,18 @@ class _ProfileDialogState extends State<ProfileDialog> {
 
   Future<void> _loadUserData() async {
     final prefs = await SharedPreferences.getInstance();
+    final savedUserId = prefs.getString('userId');
+    final userEmail = prefs.getString('userEmail');
+
+    if (savedUserId == null || savedUserId.startsWith('user_')) {
+      _userId = (userEmail != null && userEmail.isNotEmpty)
+          ? userEmail
+          : 'user_${DateTime.now().millisecondsSinceEpoch}';
+    } else {
+      _userId = savedUserId;
+    }
+
     setState(() {
-      _userId = prefs.getString('userId') ?? 'user_${DateTime.now().millisecondsSinceEpoch}';
       _profileImagePath = prefs.getString('profileImagePath');
       _passwordController.text = prefs.getString('userPassword') ?? '';
       _emailController.text = prefs.getString('userEmail') ?? '';
@@ -53,8 +63,8 @@ class _ProfileDialogState extends State<ProfileDialog> {
       _nameController.text = widget.userName;
     });
 
-    // Save userId if not exists
-    if (prefs.getString('userId') == null) {
+    // Save userId if it has changed/resolved to email or was never saved
+    if (savedUserId != _userId) {
       await prefs.setString('userId', _userId!);
     }
   }

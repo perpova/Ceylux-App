@@ -17,6 +17,8 @@ import '../services/invoice_service.dart';
 import '../services/api_service.dart';
 import '../models/order.dart';
 import '../models/tier.dart';
+import '../models/delivery_method.dart';
+import '../models/payment_method.dart';
 import 'auth_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -34,10 +36,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late ThemeMode _currentThemeMode;
   bool _isInvoiceExpanded = false;
   bool _isTierExpanded = false;
+  bool _isDeliveryExpanded = false;
 
   final svc = ApiService();
   List<Tier> _tiers = [];
   bool _loadingTiers = false;
+  List<DeliveryMethod> _deliveryMethods = [];
+  bool _loadingDeliveryMethods = false;
+  List<PaymentMethod> _paymentMethods = [];
+  bool _loadingPaymentMethods = false;
+  bool _isPaymentExpanded = false;
 
   @override
   void initState() {
@@ -45,6 +53,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _loadUser();
     _currentThemeMode = themeNotifier.value;
     _loadTiers();
+    _loadDeliveryMethods();
+    _loadPaymentMethods();
     // Listen to theme changes and rebuild in real-time
     themeNotifier.addListener(_onThemeChanged);
   }
@@ -79,6 +89,50 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
               content: Text('Error loading tiers: $e'),
+              backgroundColor: AppColors.danger),
+        );
+      }
+    }
+  }
+
+  Future<void> _loadDeliveryMethods() async {
+    setState(() => _loadingDeliveryMethods = true);
+    try {
+      final methods = await svc.getDeliveryMethods();
+      if (mounted) {
+        setState(() {
+          _deliveryMethods = methods;
+          _loadingDeliveryMethods = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _loadingDeliveryMethods = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('Error loading delivery methods: $e'),
+              backgroundColor: AppColors.danger),
+        );
+      }
+    }
+  }
+
+  Future<void> _loadPaymentMethods() async {
+    setState(() => _loadingPaymentMethods = true);
+    try {
+      final methods = await svc.getPaymentMethods();
+      if (mounted) {
+        setState(() {
+          _paymentMethods = methods;
+          _loadingPaymentMethods = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _loadingPaymentMethods = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('Error loading payment methods: $e'),
               backgroundColor: AppColors.danger),
         );
       }
@@ -315,6 +369,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _showEditTierDialog(Tier tier) {
+    final nameCtrl = TextEditingController(text: tier.name);
+    final emojiCtrl = TextEditingController(text: tier.emoji);
     String name = tier.name;
     String emoji = tier.emoji;
     int minOrders = tier.minOrders;
@@ -331,7 +387,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: Row(
             children: [
-              Text('${tier.emoji} ', style: const TextStyle(fontSize: 24)),
+              Text('${emoji} ', style: const TextStyle(fontSize: 24)),
               Text('Edit Tier',
                   style: GoogleFonts.outfit(
                       fontWeight: FontWeight.bold,
@@ -382,10 +438,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                   // Name & Emoji Fields
                   TextField(
+                    controller: nameCtrl,
                     style: GoogleFonts.plusJakartaSans(
                         color: AppColors.textColor,
                         fontWeight: FontWeight.w600),
-                    controller: TextEditingController(text: name),
                     decoration: InputDecoration(
                       labelText: 'Tier Name',
                       prefixIcon: const Icon(Icons.label),
@@ -398,10 +454,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const SizedBox(height: 12),
                   TextField(
+                    controller: emojiCtrl,
                     style: GoogleFonts.plusJakartaSans(
                         color: AppColors.textColor,
                         fontWeight: FontWeight.w600),
-                    controller: TextEditingController(text: emoji),
                     decoration: InputDecoration(
                       labelText: 'Emoji',
                       prefixIcon: const Icon(Icons.emoji_emotions),
@@ -470,7 +526,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             ElevatedButton(
               onPressed: () async {
-                if (name.isEmpty || emoji.isEmpty) {
+                final nameValue = nameCtrl.text.trim();
+                final emojiValue = emojiCtrl.text.trim();
+                if (nameValue.isEmpty || emojiValue.isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                         content: const Text('Please enter tier name and emoji'),
@@ -481,8 +539,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 }
                 try {
                   final updatedTier = tier.copyWith(
-                    name: name,
-                    emoji: emoji,
+                    name: nameValue,
+                    emoji: emojiValue,
                     minOrders: minOrders,
                     minSpent: minSpent,
                     minRating: minRating,
@@ -495,7 +553,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                           content:
-                              Text('✓ Tier "${name}" updated successfully!'),
+                              Text('✓ Tier "${nameValue}" updated successfully!'),
                           backgroundColor: AppColors.success,
                           duration: const Duration(seconds: 2)),
                     );
@@ -567,6 +625,574 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       content: Text('Error: $e'),
                       backgroundColor: AppColors.danger),
                 );
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
+            child: Text('Delete',
+                style: GoogleFonts.plusJakartaSans(
+                    color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAddDeliveryMethodDialog() {
+    final nameCtrl = TextEditingController();
+    final descCtrl = TextEditingController();
+    String emoji = '🚚';
+
+    showDialog(
+      context: context,
+      builder: (_) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          backgroundColor: AppColors.card,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text('Add Delivery Method',
+              style: GoogleFonts.outfit(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 20,
+                  color: AppColors.primary)),
+          content: SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 350),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: nameCtrl,
+                    style: GoogleFonts.plusJakartaSans(
+                        color: AppColors.textColor, fontWeight: FontWeight.w600),
+                    decoration: InputDecoration(
+                      labelText: 'Method Name *',
+                      hintText: 'e.g., Express, Standard, Pickup',
+                      prefixIcon: const Icon(Icons.local_shipping_outlined),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      filled: true,
+                      fillColor: AppColors.bg,
+                      hintStyle: TextStyle(color: AppColors.muted),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: descCtrl,
+                    style: GoogleFonts.plusJakartaSans(
+                        color: AppColors.textColor, fontWeight: FontWeight.w600),
+                    decoration: InputDecoration(
+                      labelText: 'Description',
+                      hintText: 'e.g., Free delivery for orders above 5000 LKR',
+                      prefixIcon: const Icon(Icons.description_outlined),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      filled: true,
+                      fillColor: AppColors.bg,
+                      hintStyle: TextStyle(color: AppColors.muted),
+                    ),
+                    maxLines: 2,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Cancel',
+                  style: GoogleFonts.plusJakartaSans(
+                      color: AppColors.muted, fontWeight: FontWeight.w600)),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final name = nameCtrl.text.trim();
+                final description = descCtrl.text.trim();
+                if (name.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                        content: const Text('Please enter method name'),
+                        backgroundColor: AppColors.danger),
+                  );
+                  return;
+                }
+                try {
+                  final method = DeliveryMethod(
+                    id: '',
+                    name: name,
+                    description: description,
+                    emoji: emoji,
+                    accountDetails: null,
+                  );
+                  await svc.addDeliveryMethod(method);
+                  if (mounted) {
+                    Navigator.pop(context);
+                    _loadDeliveryMethods();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                          content: Text('✓ Delivery method "$name" added!'),
+                          backgroundColor: AppColors.success),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                          content: Text('Error: $e'),
+                          backgroundColor: AppColors.danger),
+                    );
+                  }
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              child: Text('Add Method',
+                  style: GoogleFonts.plusJakartaSans(
+                      color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showEditDeliveryMethodDialog(DeliveryMethod method) {
+    final nameCtrl = TextEditingController(text: method.name);
+    final descCtrl = TextEditingController(text: method.description);
+    String emoji = method.emoji;
+
+    showDialog(
+      context: context,
+      builder: (_) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          backgroundColor: AppColors.card,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text('Edit Delivery Method',
+              style: GoogleFonts.outfit(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 20,
+                  color: AppColors.primary)),
+          content: SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 350),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: nameCtrl,
+                    style: GoogleFonts.plusJakartaSans(
+                        color: AppColors.textColor, fontWeight: FontWeight.w600),
+                    decoration: InputDecoration(
+                      labelText: 'Method Name *',
+                      prefixIcon: const Icon(Icons.local_shipping_outlined),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      filled: true,
+                      fillColor: AppColors.bg,
+                      hintStyle: TextStyle(color: AppColors.muted),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: descCtrl,
+                    style: GoogleFonts.plusJakartaSans(
+                        color: AppColors.textColor, fontWeight: FontWeight.w600),
+                    decoration: InputDecoration(
+                      labelText: 'Description',
+                      prefixIcon: const Icon(Icons.description_outlined),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      filled: true,
+                      fillColor: AppColors.bg,
+                      hintStyle: TextStyle(color: AppColors.muted),
+                    ),
+                    maxLines: 2,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Cancel',
+                  style: GoogleFonts.plusJakartaSans(
+                      color: AppColors.muted, fontWeight: FontWeight.w600)),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final name = nameCtrl.text.trim();
+                final description = descCtrl.text.trim();
+                if (name.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                        content: const Text('Please enter method name'),
+                        backgroundColor: AppColors.danger),
+                  );
+                  return;
+                }
+                try {
+                  final updated = DeliveryMethod(
+                    id: method.id,
+                    name: name,
+                    description: description,
+                    emoji: emoji,
+                    accountDetails: null,
+                    isActive: method.isActive,
+                  );
+                  await svc.updateDeliveryMethod(method.id, updated);
+                  if (mounted) {
+                    Navigator.pop(context);
+                    _loadDeliveryMethods();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                          content: Text('✓ Delivery method updated!'),
+                          backgroundColor: AppColors.success),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                          content: Text('Error: $e'),
+                          backgroundColor: AppColors.danger),
+                    );
+                  }
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 13),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                elevation: 2,
+              ),
+              child: Text('Save Changes',
+                  style: GoogleFonts.plusJakartaSans(
+                      color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showDeleteDeliveryMethodDialog(DeliveryMethod method) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: AppColors.card,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('Delete Delivery Method?',
+            style: GoogleFonts.outfit(
+                fontWeight: FontWeight.bold, color: AppColors.danger)),
+        content: Text('Delete ${method.emoji} ${method.name}?',
+            style: GoogleFonts.plusJakartaSans(color: AppColors.textColor)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel',
+                style: GoogleFonts.plusJakartaSans(color: AppColors.muted)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              try {
+                await svc.deleteDeliveryMethod(method.id);
+                if (mounted) {
+                  Navigator.pop(context);
+                  _loadDeliveryMethods();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                        content: Text('✓ Delivery method deleted!'),
+                        backgroundColor: AppColors.success),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                        content: Text('Error: $e'),
+                        backgroundColor: AppColors.danger),
+                  );
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
+            child: Text('Delete',
+                style: GoogleFonts.plusJakartaSans(
+                    color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAddPaymentMethodDialog() {
+    final nameCtrl = TextEditingController();
+    final descCtrl = TextEditingController();
+    String emoji = '💳';
+
+    showDialog(
+      context: context,
+      builder: (_) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          backgroundColor: AppColors.card,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text('Add Payment Method',
+              style: GoogleFonts.outfit(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 20,
+                  color: AppColors.primary)),
+          content: SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 350),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: nameCtrl,
+                    style: GoogleFonts.plusJakartaSans(
+                        color: AppColors.textColor, fontWeight: FontWeight.w600),
+                    decoration: InputDecoration(
+                      labelText: 'Payment Method Name *',
+                      hintText: 'e.g., Bank Transfer, Credit Card, Cash',
+                      prefixIcon: const Icon(Icons.payment_outlined),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      filled: true,
+                      fillColor: AppColors.bg,
+                      hintStyle: TextStyle(color: AppColors.muted),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: descCtrl,
+                    style: GoogleFonts.plusJakartaSans(
+                        color: AppColors.textColor, fontWeight: FontWeight.w600),
+                    decoration: InputDecoration(
+                      labelText: 'Description',
+                      hintText: 'e.g., Visa Card, Paypal, Online Banking',
+                      prefixIcon: const Icon(Icons.info_outline),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      filled: true,
+                      fillColor: AppColors.bg,
+                      hintStyle: TextStyle(color: AppColors.muted),
+                    ),
+                    maxLines: 2,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Cancel',
+                  style: GoogleFonts.plusJakartaSans(
+                      color: AppColors.muted, fontWeight: FontWeight.w600)),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final name = nameCtrl.text.trim();
+                final description = descCtrl.text.trim();
+                if (name.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                        content: const Text('Please enter payment method name'),
+                        backgroundColor: AppColors.danger),
+                  );
+                  return;
+                }
+                try {
+                  final method = PaymentMethod(
+                    id: '',
+                    name: name,
+                    description: description,
+                    emoji: emoji,
+                  );
+                  await svc.addPaymentMethod(method);
+                  if (mounted) {
+                    Navigator.pop(context);
+                    _loadPaymentMethods();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                          content: Text('✓ Payment method "$name" added!'),
+                          backgroundColor: AppColors.success),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                          content: Text('Error: $e'),
+                          backgroundColor: AppColors.danger),
+                    );
+                  }
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 13),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                elevation: 2,
+              ),
+              child: Text('Add Method',
+                  style: GoogleFonts.plusJakartaSans(
+                      color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showEditPaymentMethodDialog(PaymentMethod method) {
+    final nameCtrl = TextEditingController(text: method.name);
+    final descCtrl = TextEditingController(text: method.description);
+    String emoji = method.emoji;
+
+    showDialog(
+      context: context,
+      builder: (_) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          backgroundColor: AppColors.card,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text('Edit Payment Method',
+              style: GoogleFonts.outfit(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 20,
+                  color: AppColors.primary)),
+          content: SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 350),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: nameCtrl,
+                    style: GoogleFonts.plusJakartaSans(
+                        color: AppColors.textColor, fontWeight: FontWeight.w600),
+                    decoration: InputDecoration(
+                      labelText: 'Payment Method Name *',
+                      prefixIcon: const Icon(Icons.payment_outlined),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      filled: true,
+                      fillColor: AppColors.bg,
+                      hintStyle: TextStyle(color: AppColors.muted),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: descCtrl,
+                    style: GoogleFonts.plusJakartaSans(
+                        color: AppColors.textColor, fontWeight: FontWeight.w600),
+                    decoration: InputDecoration(
+                      labelText: 'Description',
+                      prefixIcon: const Icon(Icons.info_outline),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      filled: true,
+                      fillColor: AppColors.bg,
+                      hintStyle: TextStyle(color: AppColors.muted),
+                    ),
+                    maxLines: 2,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Cancel',
+                  style: GoogleFonts.plusJakartaSans(color: AppColors.muted)),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final name = nameCtrl.text.trim();
+                final description = descCtrl.text.trim();
+                if (name.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                        content: const Text('Please enter payment method name'),
+                        backgroundColor: AppColors.danger),
+                  );
+                  return;
+                }
+                try {
+                  final updated = method.copyWith(
+                    name: name,
+                    description: description,
+                    emoji: emoji,
+                  );
+                  await svc.updatePaymentMethod(method.id, updated);
+                  if (mounted) {
+                    Navigator.pop(context);
+                    _loadPaymentMethods();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                          content: Text('✓ Payment method updated!'),
+                          backgroundColor: AppColors.success),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                          content: Text('Error: $e'),
+                          backgroundColor: AppColors.danger),
+                    );
+                  }
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 13),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                elevation: 2,
+              ),
+              child: Text('Save Changes',
+                  style: GoogleFonts.plusJakartaSans(
+                      color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showDeletePaymentMethodDialog(PaymentMethod method) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: AppColors.card,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('Delete Payment Method?',
+            style: GoogleFonts.outfit(
+                fontWeight: FontWeight.bold, color: AppColors.danger)),
+        content: Text('Delete ${method.emoji} ${method.name}?',
+            style: GoogleFonts.plusJakartaSans(color: AppColors.textColor)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel',
+                style: GoogleFonts.plusJakartaSans(color: AppColors.muted)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              try {
+                await svc.deletePaymentMethod(method.id);
+                if (mounted) {
+                  Navigator.pop(context);
+                  _loadPaymentMethods();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                        content: Text('✓ Payment method deleted!'),
+                        backgroundColor: AppColors.success),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                        content: Text('Error: $e'),
+                        backgroundColor: AppColors.danger),
+                  );
+                }
               }
             },
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
@@ -1320,22 +1946,11 @@ Save as HTML file and upload in settings to use custom template.
                           ],
                         ),
                       ),
-                      ElevatedButton.icon(
-                        onPressed: _showAddTierDialog,
-                        icon: const Icon(Icons.add,
-                            size: 16, color: Colors.white),
-                        label: Text('Add Tier',
-                            style: GoogleFonts.plusJakartaSans(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white)),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 12),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10)),
-                        ),
+                      GoldButton(
+                        label: 'Add Tier',
+                        onTap: _showAddTierDialog,
+                        icon: Icons.add,
+                        isSmall: true,
                       ),
                     ],
                   ),
@@ -1530,6 +2145,413 @@ Save as HTML file and upload in settings to use custom template.
             ),
           ),
           const SizedBox(height: 24),
+          Text(
+            'DELIVERY METHODS',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: AppColors.muted,
+              letterSpacing: 1.0,
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          // Delivery Methods - Expandable
+          _buildExpandableSection(
+            title: 'DELIVERY METHODS',
+            isExpanded: _isDeliveryExpanded,
+            onToggle: () =>
+                setState(() => _isDeliveryExpanded = !_isDeliveryExpanded),
+            child: CeyluxCard(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Manage delivery options for orders',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 12,
+                                color: AppColors.muted,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      GoldButton(
+                        label: 'Add Method',
+                        onTap: _showAddDeliveryMethodDialog,
+                        icon: Icons.add,
+                        isSmall: true,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  if (_loadingDeliveryMethods)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 20),
+                      child: Center(
+                          child: CircularProgressIndicator(
+                              color: AppColors.primary)),
+                    )
+                  else if (_deliveryMethods.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 20),
+                      child: Center(
+                        child: Text(
+                          'No delivery methods yet. Create your first one!',
+                          style: GoogleFonts.plusJakartaSans(
+                              color: AppColors.muted, fontSize: 12),
+                        ),
+                      ),
+                    )
+                  else
+                    ListView.separated(
+                      shrinkWrap: true,
+                      physics: NeverScrollableScrollPhysics(),
+                      itemCount: _deliveryMethods.length,
+                      separatorBuilder: (_, __) =>
+                          Divider(color: AppColors.border, height: 12),
+                      itemBuilder: (_, i) {
+                        final method = _deliveryMethods[i];
+                        return GestureDetector(
+                          onTap: () => _showEditDeliveryMethodDialog(method),
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: AppColors.bg,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: AppColors.border),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(
+                                      child: Row(
+                                        children: [
+                                          Text(method.emoji,
+                                              style: TextStyle(fontSize: 20)),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  method.name,
+                                                  style: GoogleFonts
+                                                      .plusJakartaSans(
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: AppColors.textColor,
+                                                  ),
+                                                ),
+                                                Text(
+                                                  method.description,
+                                                  style: GoogleFonts
+                                                      .plusJakartaSans(
+                                                    fontSize: 10,
+                                                    color: AppColors.muted,
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    PopupMenuButton(
+                                      icon: Icon(Icons.more_vert,
+                                          color: AppColors.primary, size: 20),
+                                      color: AppColors.card,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        side:
+                                            BorderSide(color: AppColors.border),
+                                      ),
+                                      itemBuilder: (_) => [
+                                        PopupMenuItem(
+                                          child: Row(
+                                            children: [
+                                              Icon(Icons.edit,
+                                                  size: 16,
+                                                  color: AppColors.primary),
+                                              const SizedBox(width: 8),
+                                              Text('Edit',
+                                                  style: GoogleFonts
+                                                      .plusJakartaSans(
+                                                    color: AppColors.textColor,
+                                                    fontWeight: FontWeight.w600,
+                                                  )),
+                                            ],
+                                          ),
+                                          onTap: () => Future.delayed(
+                                              Duration(milliseconds: 100),
+                                              () =>
+                                                  _showEditDeliveryMethodDialog(
+                                                      method)),
+                                        ),
+                                        PopupMenuItem(
+                                          child: Row(
+                                            children: [
+                                              Icon(Icons.delete,
+                                                  size: 16,
+                                                  color: AppColors.danger),
+                                              const SizedBox(width: 8),
+                                              Text('Delete',
+                                                  style: GoogleFonts
+                                                      .plusJakartaSans(
+                                                    color: AppColors.danger,
+                                                    fontWeight: FontWeight.w600,
+                                                  )),
+                                            ],
+                                          ),
+                                          onTap: () => Future.delayed(
+                                              Duration(milliseconds: 100),
+                                              () =>
+                                                  _showDeleteDeliveryMethodDialog(
+                                                      method)),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'PAYMENT METHODS',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: AppColors.muted,
+              letterSpacing: 1.0,
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          // Payment Methods - Expandable
+          _buildExpandableSection(
+            title: 'PAYMENT METHODS',
+            isExpanded: _isPaymentExpanded,
+            onToggle: () =>
+                setState(() => _isPaymentExpanded = !_isPaymentExpanded),
+            child: CeyluxCard(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Manage payment options for customers',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 12,
+                                color: AppColors.muted,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                        
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      GoldButton(
+                        label: 'Add Method',
+                        onTap: _showAddPaymentMethodDialog,
+                        icon: Icons.add,
+                        isSmall: true,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  if (_loadingPaymentMethods)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 20),
+                      child: Center(
+                          child: CircularProgressIndicator(
+                              color: AppColors.primary)),
+                    )
+                  else if (_paymentMethods.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 20),
+                      child: Center(
+                        child: Text(
+                          'No payment methods yet. Create your first one!',
+                          style: GoogleFonts.plusJakartaSans(
+                              color: AppColors.muted, fontSize: 12),
+                        ),
+                      ),
+                    )
+                  else
+                    ListView.separated(
+                      shrinkWrap: true,
+                      physics: NeverScrollableScrollPhysics(),
+                      itemCount: _paymentMethods.length,
+                      separatorBuilder: (_, __) =>
+                          Divider(color: AppColors.border, height: 12),
+                      itemBuilder: (_, i) {
+                        final method = _paymentMethods[i];
+                        return GestureDetector(
+                          onTap: () => _showEditPaymentMethodDialog(method),
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: AppColors.bg,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: AppColors.border),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(
+                                      child: Row(
+                                        children: [
+                                          Text(method.emoji,
+                                              style: TextStyle(fontSize: 20)),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  method.name,
+                                                  style: GoogleFonts
+                                                      .plusJakartaSans(
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: AppColors.textColor,
+                                                  ),
+                                                ),
+                                                Text(
+                                                  method.description,
+                                                  style: GoogleFonts
+                                                      .plusJakartaSans(
+                                                    fontSize: 10,
+                                                    color: AppColors.muted,
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    PopupMenuButton(
+                                      icon: Icon(Icons.more_vert,
+                                          color: AppColors.primary, size: 20),
+                                      color: AppColors.card,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        side:
+                                            BorderSide(color: AppColors.border),
+                                      ),
+                                      itemBuilder: (_) => [
+                                        PopupMenuItem(
+                                          child: Row(
+                                            children: [
+                                              Icon(Icons.edit,
+                                                  size: 16,
+                                                  color: AppColors.primary),
+                                              const SizedBox(width: 8),
+                                              Text('Edit',
+                                                  style: GoogleFonts
+                                                      .plusJakartaSans(
+                                                    color: AppColors.textColor,
+                                                    fontWeight: FontWeight.w600,
+                                                  )),
+                                            ],
+                                          ),
+                                          onTap: () => Future.delayed(
+                                              Duration(milliseconds: 100),
+                                              () =>
+                                                  _showEditPaymentMethodDialog(
+                                                      method)),
+                                        ),
+                                        PopupMenuItem(
+                                          child: Row(
+                                            children: [
+                                              Icon(Icons.delete,
+                                                  size: 16,
+                                                  color: AppColors.danger),
+                                              const SizedBox(width: 8),
+                                              Text('Delete',
+                                                  style: GoogleFonts
+                                                      .plusJakartaSans(
+                                                    color: AppColors.danger,
+                                                    fontWeight: FontWeight.w600,
+                                                  )),
+                                            ],
+                                          ),
+                                          onTap: () => Future.delayed(
+                                              Duration(milliseconds: 100),
+                                              () =>
+                                                  _showDeletePaymentMethodDialog(
+                                                      method)),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'INVOICE & RECEIPTS',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: AppColors.muted,
+              letterSpacing: 1.0,
+            ),
+          ),
+          const SizedBox(height: 10),
 
           // Invoice Settings - Expandable
           _buildExpandableSection(
@@ -2034,7 +3056,7 @@ Save as HTML file and upload in settings to use custom template.
                   icon: Icons.cloud_done_rounded,
                   iconColor: AppColors.success,
                   title: 'Database Connector',
-                  subtitle: 'MySQL API Server synced',
+                  subtitle: 'API Server synced',
                   trailing: Container(
                     padding:
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 4),

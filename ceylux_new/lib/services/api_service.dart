@@ -7,6 +7,8 @@ import '../models/stock_item.dart';
 import '../models/customer.dart';
 import '../models/order.dart';
 import '../models/tier.dart';
+import '../models/delivery_method.dart';
+import '../models/payment_method.dart';
 
 class ApiService {
   static final ApiService _instance = ApiService._();
@@ -261,6 +263,100 @@ class ApiService {
       }
     } catch (e) {
       throw Exception('Failed to delete tier: $e');
+    }
+  }
+
+  // Delivery Methods
+  Stream<List<DeliveryMethod>> deliveryMethodsStream() async* {
+    while (true) {
+      try {
+        final r = await _client.get(Uri.parse('$baseUrl/delivery-methods'));
+        final list = jsonDecode(r.body) as List;
+        yield list.map((m) => DeliveryMethod.fromMap(Map<String, dynamic>.from(m))).toList();
+      } catch (_) { yield []; }
+      await Future.delayed(const Duration(milliseconds: 1500));
+    }
+  }
+
+  Future<List<DeliveryMethod>> getDeliveryMethods() async {
+    try {
+      final r = await _client.get(Uri.parse('$baseUrl/delivery-methods'));
+      final list = jsonDecode(r.body) as List;
+      return list.map((m) => DeliveryMethod.fromMap(Map<String, dynamic>.from(m))).toList();
+    } catch (_) { return []; }
+  }
+
+  Future<void> addDeliveryMethod(DeliveryMethod method) async {
+    final response = await _client.post(Uri.parse('$baseUrl/delivery-methods'),
+        headers: {'Content-Type': 'application/json'}, body: jsonEncode(method.toMap()));
+    if (response.statusCode != 200) {
+      throw Exception('Failed to add delivery method: ${response.statusCode} - ${response.body}');
+    }
+  }
+
+  Future<void> updateDeliveryMethod(String id, DeliveryMethod method) async {
+    final response = await _client.put(Uri.parse('$baseUrl/delivery-methods/$id'),
+        headers: {'Content-Type': 'application/json'}, body: jsonEncode(method.toMap()));
+    if (response.statusCode != 200) {
+      throw Exception('Failed to update delivery method: ${response.statusCode} - ${response.body}');
+    }
+  }
+
+  Future<void> deleteDeliveryMethod(String id) async {
+    final response = await _client.delete(Uri.parse('$baseUrl/delivery-methods/$id'));
+    if (response.statusCode != 200) {
+      throw Exception('Failed to delete delivery method: ${response.statusCode} - ${response.body}');
+    }
+  }
+
+  Future<String> uploadPaymentProof(File file) async {
+    final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/upload/payment-proofs'));
+    request.files.add(await http.MultipartFile.fromPath('proof', file.path));
+    final response = await request.send();
+    final body = await response.stream.bytesToString();
+    return jsonDecode(body)['url'];
+  }
+
+  // Payment Methods
+  Stream<List<PaymentMethod>> paymentMethodsStream() async* {
+    while (true) {
+      try {
+        final r = await _client.get(Uri.parse('$baseUrl/payment-methods'));
+        final list = jsonDecode(r.body) as List;
+        yield list.map((m) => PaymentMethod.fromJson(Map<String, dynamic>.from(m))).toList();
+      } catch (_) { yield []; }
+      await Future.delayed(const Duration(milliseconds: 1500));
+    }
+  }
+
+  Future<List<PaymentMethod>> getPaymentMethods() async {
+    try {
+      final r = await _client.get(Uri.parse('$baseUrl/payment-methods'));
+      final list = jsonDecode(r.body) as List;
+      return list.map((m) => PaymentMethod.fromJson(Map<String, dynamic>.from(m))).toList();
+    } catch (_) { return []; }
+  }
+
+  Future<void> addPaymentMethod(PaymentMethod method) async {
+    final response = await _client.post(Uri.parse('$baseUrl/payment-methods'),
+        headers: {'Content-Type': 'application/json'}, body: jsonEncode(method.toJson()));
+    if (response.statusCode != 200) {
+      throw Exception('Failed to add payment method: ${response.statusCode} - ${response.body}');
+    }
+  }
+
+  Future<void> updatePaymentMethod(String id, PaymentMethod method) async {
+    final response = await _client.put(Uri.parse('$baseUrl/payment-methods/$id'),
+        headers: {'Content-Type': 'application/json'}, body: jsonEncode(method.toJson()));
+    if (response.statusCode != 200) {
+      throw Exception('Failed to update payment method: ${response.statusCode} - ${response.body}');
+    }
+  }
+
+  Future<void> deletePaymentMethod(String id) async {
+    final response = await _client.delete(Uri.parse('$baseUrl/payment-methods/$id'));
+    if (response.statusCode != 200) {
+      throw Exception('Failed to delete payment method: ${response.statusCode} - ${response.body}');
     }
   }
 }
