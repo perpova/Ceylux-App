@@ -32,17 +32,19 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
   List<AppOrder> _applySearchAndSort(List<AppOrder> orders) {
     // Apply status filter
-    var filtered = _filter == 'All' 
-        ? orders 
+    var filtered = _filter == 'All'
+        ? orders
         : orders.where((o) => o.status == _filter).toList();
 
     // Apply search filter
     if (_searchQuery.isNotEmpty) {
       final query = _searchQuery.toLowerCase();
-      filtered = filtered.where((o) =>
-          o.customerName.toLowerCase().contains(query) ||
-          o.id.toLowerCase().contains(query) ||
-          o.date.contains(query)).toList();
+      filtered = filtered
+          .where((o) =>
+              o.customerName.toLowerCase().contains(query) ||
+              o.id.toLowerCase().contains(query) ||
+              o.date.contains(query))
+          .toList();
     }
 
     // Apply sorting
@@ -90,14 +92,16 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 decoration: InputDecoration(
                   hintText: 'Search by customer name, order ID, or date...',
                   hintStyle: TextStyle(color: AppColors.muted, fontSize: 12),
-                  prefixIcon: Icon(Icons.search, color: AppColors.muted, size: 20),
+                  prefixIcon:
+                      Icon(Icons.search, color: AppColors.muted, size: 20),
                   suffixIcon: _searchQuery.isNotEmpty
                       ? GestureDetector(
                           onTap: () {
                             _searchCtrl.clear();
                             setState(() => _searchQuery = '');
                           },
-                          child: Icon(Icons.close_rounded, color: AppColors.muted, size: 18),
+                          child: Icon(Icons.close_rounded,
+                              color: AppColors.muted, size: 18),
                         )
                       : null,
                   filled: true,
@@ -114,7 +118,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
                     borderRadius: BorderRadius.circular(14),
                     borderSide: BorderSide(color: AppColors.gold, width: 1.5),
                   ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                 ),
               ),
               const SizedBox(height: 10),
@@ -126,22 +131,34 @@ class _OrdersScreenState extends State<OrdersScreen> {
                     child: SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: Row(
-                        children: ['All', 'Pending', 'Processing', 'Delivered'].map((s) => GestureDetector(
-                          onTap: () => setState(() => _filter = s),
-                          child: Container(
-                            margin: const EdgeInsets.only(right: 8),
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                            decoration: BoxDecoration(
-                              color: _filter == s ? AppColors.gold.withOpacity(0.15) : Colors.transparent,
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: _filter == s ? AppColors.gold : AppColors.border),
-                            ),
-                            child: Text(s, style: TextStyle(
-                              fontSize: 12, fontWeight: FontWeight.w600,
-                              color: _filter == s ? AppColors.gold : AppColors.muted,
-                            )),
-                          ),
-                        )).toList(),
+                        children: ['All', 'Pending', 'Processing', 'Delivered']
+                            .map((s) => GestureDetector(
+                                  onTap: () => setState(() => _filter = s),
+                                  child: Container(
+                                    margin: const EdgeInsets.only(right: 8),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 14, vertical: 7),
+                                    decoration: BoxDecoration(
+                                      color: _filter == s
+                                          ? AppColors.gold.withOpacity(0.15)
+                                          : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(
+                                          color: _filter == s
+                                              ? AppColors.gold
+                                              : AppColors.border),
+                                    ),
+                                    child: Text(s,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: _filter == s
+                                              ? AppColors.gold
+                                              : AppColors.muted,
+                                        )),
+                                  ),
+                                ))
+                            .toList(),
                       ),
                     ),
                   ),
@@ -151,24 +168,37 @@ class _OrdersScreenState extends State<OrdersScreen> {
                     color: AppColors.card,
                     position: PopupMenuPosition.over,
                     itemBuilder: (BuildContext context) {
-                      return ['Recent', 'Oldest', 'High to Low', 'Low to High', 'Customer (A-Z)', 'Customer (Z-A)']
+                      return [
+                        'Recent',
+                        'Oldest',
+                        'High to Low',
+                        'Low to High',
+                        'Customer (A-Z)',
+                        'Customer (Z-A)'
+                      ]
                           .map((s) => PopupMenuItem<String>(
-                            value: s,
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (_sortBy == s)
-                                  Icon(Icons.check, size: 16, color: AppColors.gold)
-                                else
-                                  const SizedBox(width: 16),
-                                const SizedBox(width: 8),
-                                Text(s, style: TextStyle(
-                                  color: _sortBy == s ? AppColors.gold : AppColors.textColor,
-                                  fontWeight: _sortBy == s ? FontWeight.bold : FontWeight.normal,
-                                )),
-                              ],
-                            ),
-                          ))
+                                value: s,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (_sortBy == s)
+                                      Icon(Icons.check,
+                                          size: 16, color: AppColors.gold)
+                                    else
+                                      const SizedBox(width: 16),
+                                    const SizedBox(width: 8),
+                                    Text(s,
+                                        style: TextStyle(
+                                          color: _sortBy == s
+                                              ? AppColors.gold
+                                              : AppColors.textColor,
+                                          fontWeight: _sortBy == s
+                                              ? FontWeight.bold
+                                              : FontWeight.normal,
+                                        )),
+                                  ],
+                                ),
+                              ))
                           .toList();
                     },
                     child: Container(
@@ -203,11 +233,13 @@ class _OrdersScreenState extends State<OrdersScreen> {
             stream: svc.ordersStream(),
             builder: (context, snap) {
               if (snap.connectionState == ConnectionState.waiting) {
-                return Center(child: CircularProgressIndicator(color: AppColors.gold));
+                return Center(
+                    child: CircularProgressIndicator(color: AppColors.gold));
               }
               final orders = _applySearchAndSort(snap.data ?? []);
               if (orders.isEmpty) {
-                return Center(child: Text(
+                return Center(
+                    child: Text(
                   _searchQuery.isNotEmpty ? 'No orders found' : 'No orders',
                   style: TextStyle(color: AppColors.muted),
                 ));
@@ -226,11 +258,19 @@ class _OrdersScreenState extends State<OrdersScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(o.customerName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                              Text(o.customerName,
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14,
+                                      color: AppColors.textColor)),
                               const SizedBox(height: 2),
-                              Text('${o.id} • ${o.date}', style: TextStyle(fontSize: 11, color: AppColors.muted)),
+                              Text('${o.id} • ${o.date}',
+                                  style: TextStyle(
+                                      fontSize: 11, color: AppColors.muted)),
                               const SizedBox(height: 4),
-                              Text('${o.items.length} item(s)', style: TextStyle(fontSize: 11, color: AppColors.muted)),
+                              Text('${o.items.length} item(s)',
+                                  style: TextStyle(
+                                      fontSize: 11, color: AppColors.muted)),
                             ],
                           ),
                         ),
@@ -238,7 +278,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             Text('Rs. ${NumberFormat('#,###').format(o.total)}',
-                                style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.goldLight)),
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.gold)),
                             const SizedBox(height: 6),
                             StatusBadge(status: o.status),
                           ],
@@ -257,7 +299,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
   void _showOrderDetail(BuildContext context, AppOrder o) {
     showModalBottomSheet(
-      context: context, isScrollControlled: true, backgroundColor: Colors.transparent,
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (_) => _OrderDetailSheet(order: o),
     );
   }
@@ -300,9 +344,12 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
     _priceControllers = {};
     _discountControllers = {};
     for (int i = 0; i < _editableItems.length; i++) {
-      _qtyControllers[i] = TextEditingController(text: _editableItems[i].qty.toString());
-      _priceControllers[i] = TextEditingController(text: _editableItems[i].price.toString());
-      _discountControllers[i] = TextEditingController(text: _editableItems[i].discount.toString());
+      _qtyControllers[i] =
+          TextEditingController(text: _editableItems[i].qty.toString());
+      _priceControllers[i] =
+          TextEditingController(text: _editableItems[i].price.toString());
+      _discountControllers[i] =
+          TextEditingController(text: _editableItems[i].discount.toString());
     }
   }
 
@@ -319,9 +366,10 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.card,
-        title: Text('Delete Order?', style: TextStyle(color: AppColors.textColor)),
+        title:
+            Text('Delete Order?', style: TextStyle(color: AppColors.textColor)),
         content: Text('Are you sure you want to permanently delete this order?',
-          style: TextStyle(color: AppColors.muted)),
+            style: TextStyle(color: AppColors.muted)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -353,7 +401,8 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
               ),
               backgroundColor: AppColors.danger,
               behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
               duration: const Duration(seconds: 2),
             ),
           );
@@ -365,7 +414,8 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
               content: Text('Error: $e'),
               backgroundColor: AppColors.danger,
               behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
             ),
           );
         }
@@ -381,10 +431,10 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
       _qtyControllers[index]?.dispose();
       _priceControllers[index]?.dispose();
       _discountControllers[index]?.dispose();
-      
+
       // Remove the item
       _editableItems.removeAt(index);
-      
+
       // Rebuild controllers to match new indices
       _rebuildControllers();
     }
@@ -395,7 +445,7 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
     _qtyControllers.values.forEach((c) => c.dispose());
     _priceControllers.values.forEach((c) => c.dispose());
     _discountControllers.values.forEach((c) => c.dispose());
-    
+
     // Reinitialize with current items
     _initializeControllers();
   }
@@ -403,8 +453,9 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
   void _updateEditableItem(int index) {
     final qty = int.tryParse(_qtyControllers[index]?.text ?? '0') ?? 0;
     final price = int.tryParse(_priceControllers[index]?.text ?? '0') ?? 0;
-    final discount = int.tryParse(_discountControllers[index]?.text ?? '0') ?? 0;
-    
+    final discount =
+        int.tryParse(_discountControllers[index]?.text ?? '0') ?? 0;
+
     if (index < _editableItems.length) {
       _editableItems[index] = OrderItem(
         name: _editableItems[index].name,
@@ -435,9 +486,10 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
         itemDiscounts += (item.subtotal * item.discount ~/ 100);
       }
       // Apply bill discount percentage to the amount after item discounts
-      int billDiscountAmount = ((subtotal - itemDiscounts) * widget.order.discountPercentage ~/ 100);
+      int billDiscountAmount =
+          ((subtotal - itemDiscounts) * widget.order.discountPercentage ~/ 100);
       int newTotal = subtotal - itemDiscounts - billDiscountAmount;
-      
+
       final updatedOrder = AppOrder(
         dbId: widget.order.dbId,
         id: widget.order.id,
@@ -451,9 +503,9 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
         date: widget.order.date,
         discountPercentage: widget.order.discountPercentage,
       );
-      
+
       await svc.updateOrder(widget.order.dbId, updatedOrder);
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -466,7 +518,8 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
             ),
             backgroundColor: AppColors.success,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             duration: const Duration(seconds: 2),
           ),
         );
@@ -480,7 +533,8 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
             content: Text('Error: $e'),
             backgroundColor: AppColors.danger,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
         );
       }
@@ -489,10 +543,15 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
     }
   }
 
-  int get _totalSubtotal => _editableItems.fold<int>(0, (sum, item) => sum + item.subtotal);
-  int get _totalItemDiscounts => _editableItems.fold<int>(0, (sum, item) => sum + (item.subtotal * item.discount ~/ 100));
-  int get _billDiscountAmount => ((_totalSubtotal - _totalItemDiscounts) * widget.order.discountPercentage ~/ 100);
-  int get _totalAmount => _totalSubtotal - _totalItemDiscounts - _billDiscountAmount;
+  int get _totalSubtotal =>
+      _editableItems.fold<int>(0, (sum, item) => sum + item.subtotal);
+  int get _totalItemDiscounts => _editableItems.fold<int>(
+      0, (sum, item) => sum + (item.subtotal * item.discount ~/ 100));
+  int get _billDiscountAmount => ((_totalSubtotal - _totalItemDiscounts) *
+      widget.order.discountPercentage ~/
+      100);
+  int get _totalAmount =>
+      _totalSubtotal - _totalItemDiscounts - _billDiscountAmount;
 
   @override
   Widget build(BuildContext context) {
@@ -505,18 +564,41 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
         color: AppColors.card,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(context).padding.bottom + 20),
+      padding: EdgeInsets.fromLTRB(
+          20, 20, 20, MediaQuery.of(context).padding.bottom + 20),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(width: 36, height: 4,
-              decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)),
-              margin: const EdgeInsets.only(bottom: 16)),
+            Row(
+              children: [
+                GestureDetector(
+                  onTap: () => Navigator.pop(context),
+                  child: Icon(Icons.arrow_back,
+                      size: 20, color: AppColors.primary),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Center(
+                    child: Container(
+                        width: 36,
+                        height: 4,
+                        decoration: BoxDecoration(
+                            color: AppColors.border,
+                            borderRadius: BorderRadius.circular(2))),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(widget.order.id, style: TextStyle(fontFamily: 'PlayfairDisplay', fontSize: 18, color: AppColors.textColor)),
+                Text(widget.order.id,
+                    style: TextStyle(
+                        fontFamily: 'PlayfairDisplay',
+                        fontSize: 18,
+                        color: AppColors.textColor)),
                 Row(
                   children: [
                     StatusBadge(status: widget.order.status),
@@ -534,9 +616,11 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
                           decoration: BoxDecoration(
                             color: AppColors.gold.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: AppColors.gold.withOpacity(0.3)),
+                            border: Border.all(
+                                color: AppColors.gold.withOpacity(0.3)),
                           ),
-                          child: Icon(Icons.edit, color: AppColors.gold, size: 16),
+                          child:
+                              Icon(Icons.edit, color: AppColors.gold, size: 16),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -547,9 +631,11 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
                           decoration: BoxDecoration(
                             color: AppColors.danger.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: AppColors.danger.withOpacity(0.3)),
+                            border: Border.all(
+                                color: AppColors.danger.withOpacity(0.3)),
                           ),
-                          child: Icon(Icons.delete_outline, color: AppColors.danger, size: 16),
+                          child: Icon(Icons.delete_outline,
+                              color: AppColors.danger, size: 16),
                         ),
                       ),
                     ],
@@ -559,39 +645,60 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
             ),
             const SizedBox(height: 4),
             Row(children: [
-              Text(widget.order.customerName, style: TextStyle(color: AppColors.muted, fontSize: 13)),
+              Text(widget.order.customerName,
+                  style: TextStyle(
+                      color: AppColors.textColor,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600)),
               const SizedBox(width: 8),
               Text('•', style: TextStyle(color: AppColors.border)),
               const SizedBox(width: 8),
-              Text(widget.order.date, style: TextStyle(color: AppColors.muted, fontSize: 13)),
+              Text(widget.order.date,
+                  style: TextStyle(
+                      color: AppColors.textColor,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600)),
             ]),
             const SizedBox(height: 16),
             Container(
-              decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(
+                  color: AppColors.bg, borderRadius: BorderRadius.circular(12)),
               child: Column(
                 children: _editableItems.asMap().entries.map((entry) {
                   int idx = entry.key;
                   OrderItem item = entry.value;
                   return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
                     child: _isEditMode
                         ? Column(
                             children: [
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
-                                        Text(item.name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                                        Text('Size: ${item.size}', style: TextStyle(fontSize: 11, color: AppColors.muted)),
+                                        Text(item.name,
+                                            style: TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w600,
+                                                color: AppColors.textColor)),
+                                        Text('Size: ${item.size}',
+                                            style: TextStyle(
+                                                fontSize: 11,
+                                                color: AppColors.muted)),
                                       ],
                                     ),
                                   ),
                                   GestureDetector(
-                                    onTap: () => setState(() => _removeItem(idx)),
-                                    child: Icon(Icons.delete, color: AppColors.danger, size: 18),
+                                    onTap: () =>
+                                        setState(() => _removeItem(idx)),
+                                    child: Icon(Icons.delete,
+                                        color: AppColors.danger, size: 18),
                                   ),
                                 ],
                               ),
@@ -600,24 +707,34 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
                                 children: [
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
-                                        Text('Qty', style: TextStyle(fontSize: 10, color: AppColors.muted)),
+                                        Text('Qty',
+                                            style: TextStyle(
+                                                fontSize: 10,
+                                                color: AppColors.muted)),
                                         Container(
                                           decoration: BoxDecoration(
-                                            border: Border.all(color: AppColors.border),
-                                            borderRadius: BorderRadius.circular(6),
+                                            border: Border.all(
+                                                color: AppColors.border),
+                                            borderRadius:
+                                                BorderRadius.circular(6),
                                           ),
-                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 8, vertical: 6),
                                           child: TextField(
                                             keyboardType: TextInputType.number,
-                                            style: TextStyle(fontSize: 12, color: AppColors.textColor),
+                                            style: TextStyle(
+                                                fontSize: 12,
+                                                color: AppColors.textColor),
                                             decoration: InputDecoration(
                                               border: InputBorder.none,
                                               contentPadding: EdgeInsets.zero,
                                             ),
                                             controller: _qtyControllers[idx],
-                                            onChanged: (v) => _updateEditableItem(idx),
+                                            onChanged: (v) =>
+                                                _updateEditableItem(idx),
                                           ),
                                         ),
                                       ],
@@ -626,24 +743,34 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
                                   const SizedBox(width: 10),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
-                                        Text('Price', style: TextStyle(fontSize: 10, color: AppColors.muted)),
+                                        Text('Price',
+                                            style: TextStyle(
+                                                fontSize: 10,
+                                                color: AppColors.muted)),
                                         Container(
                                           decoration: BoxDecoration(
-                                            border: Border.all(color: AppColors.border),
-                                            borderRadius: BorderRadius.circular(6),
+                                            border: Border.all(
+                                                color: AppColors.border),
+                                            borderRadius:
+                                                BorderRadius.circular(6),
                                           ),
-                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 8, vertical: 6),
                                           child: TextField(
                                             keyboardType: TextInputType.number,
-                                            style: TextStyle(fontSize: 12, color: AppColors.textColor),
+                                            style: TextStyle(
+                                                fontSize: 12,
+                                                color: AppColors.textColor),
                                             decoration: InputDecoration(
                                               border: InputBorder.none,
                                               contentPadding: EdgeInsets.zero,
                                             ),
                                             controller: _priceControllers[idx],
-                                            onChanged: (v) => _updateEditableItem(idx),
+                                            onChanged: (v) =>
+                                                _updateEditableItem(idx),
                                           ),
                                         ),
                                       ],
@@ -652,24 +779,35 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
                                   const SizedBox(width: 10),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
-                                        Text('Discount %', style: TextStyle(fontSize: 10, color: AppColors.muted)),
+                                        Text('Discount %',
+                                            style: TextStyle(
+                                                fontSize: 10,
+                                                color: AppColors.muted)),
                                         Container(
                                           decoration: BoxDecoration(
-                                            border: Border.all(color: AppColors.border),
-                                            borderRadius: BorderRadius.circular(6),
+                                            border: Border.all(
+                                                color: AppColors.border),
+                                            borderRadius:
+                                                BorderRadius.circular(6),
                                           ),
-                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 8, vertical: 6),
                                           child: TextField(
                                             keyboardType: TextInputType.number,
-                                            style: TextStyle(fontSize: 12, color: AppColors.textColor),
+                                            style: TextStyle(
+                                                fontSize: 12,
+                                                color: AppColors.textColor),
                                             decoration: InputDecoration(
                                               border: InputBorder.none,
                                               contentPadding: EdgeInsets.zero,
                                             ),
-                                            controller: _discountControllers[idx],
-                                            onChanged: (v) => _updateEditableItem(idx),
+                                            controller:
+                                                _discountControllers[idx],
+                                            onChanged: (v) =>
+                                                _updateEditableItem(idx),
                                           ),
                                         ),
                                       ],
@@ -677,8 +815,12 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
                                   ),
                                 ],
                               ),
-                              Text('Subtotal: Rs. ${NumberFormat('#,###').format(_editableItems[idx].subtotal)}',
-                                style: TextStyle(fontSize: 11, color: AppColors.muted, fontStyle: FontStyle.italic)),
+                              Text(
+                                  'Subtotal: Rs. ${NumberFormat('#,###').format(_editableItems[idx].subtotal)}',
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      color: AppColors.muted,
+                                      fontStyle: FontStyle.italic)),
                               const SizedBox(height: 8),
                               if (idx < _editableItems.length - 1)
                                 Divider(color: AppColors.border, height: 16),
@@ -691,13 +833,23 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(item.name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                                    Text('Size: ${item.size} × ${item.qty}', style: TextStyle(fontSize: 11, color: AppColors.muted)),
+                                    Text(item.name,
+                                        style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                            color: AppColors.textColor)),
+                                    Text('Size: ${item.size} × ${item.qty}',
+                                        style: TextStyle(
+                                            fontSize: 11,
+                                            color: AppColors.muted)),
                                   ],
                                 ),
                               ),
-                              Text('Rs. ${NumberFormat('#,###').format(item.subtotal)}',
-                                  style: const TextStyle(fontWeight: FontWeight.w600)),
+                              Text(
+                                  'Rs. ${NumberFormat('#,###').format(item.subtotal)}',
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.textColor)),
                             ],
                           ),
                   );
@@ -708,9 +860,16 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Subtotal', style: TextStyle(fontSize: 12, color: AppColors.muted)),
+                Text('Subtotal',
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textColor,
+                        fontWeight: FontWeight.w600)),
                 Text('Rs. ${NumberFormat('#,###').format(_totalSubtotal)}',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textColor)),
+                    style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textColor)),
               ],
             ),
             if (_totalItemDiscounts > 0) ...[
@@ -718,9 +877,14 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Item Discounts', style: TextStyle(fontSize: 12, color: AppColors.danger)),
-                  Text('−Rs. ${NumberFormat('#,###').format(_totalItemDiscounts)}',
-                      style: TextStyle(fontSize: 12, color: AppColors.danger, fontWeight: FontWeight.w600)),
+                  Text('Item Discounts',
+                      style: TextStyle(fontSize: 12, color: AppColors.danger)),
+                  Text(
+                      '−Rs. ${NumberFormat('#,###').format(_totalItemDiscounts)}',
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.danger,
+                          fontWeight: FontWeight.w600)),
                 ],
               ),
             ],
@@ -729,10 +893,14 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Bill Discount (${widget.order.discountPercentage}%)', 
+                  Text('Bill Discount (${widget.order.discountPercentage}%)',
                       style: TextStyle(fontSize: 12, color: AppColors.danger)),
-                  Text('−Rs. ${NumberFormat('#,###').format(_billDiscountAmount)}',
-                      style: TextStyle(fontSize: 12, color: AppColors.danger, fontWeight: FontWeight.w600)),
+                  Text(
+                      '−Rs. ${NumberFormat('#,###').format(_billDiscountAmount)}',
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.danger,
+                          fontWeight: FontWeight.w600)),
                 ],
               ),
             ],
@@ -742,9 +910,17 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('TOTAL', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1, fontSize: 13, color: AppColors.textColor)),
+                Text('TOTAL',
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1,
+                        fontSize: 13,
+                        color: AppColors.gold)),
                 Text('Rs. ${NumberFormat('#,###').format(_totalAmount)}',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: AppColors.goldLight)),
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 20,
+                        color: AppColors.gold)),
               ],
             ),
             const SizedBox(height: 16),
@@ -779,228 +955,268 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
               )
             else
               Row(
-                children: ['Pending', 'Processing', 'Delivered'].map((s) => Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: ActionButton(
-                      label: s,
-                      onTap: () async {
-                        await svc.updateOrderStatus(widget.order.dbId, s);
-                        if (context.mounted) Navigator.pop(context);
-                      },
-                      buttonColor: widget.order.status == s ? AppColors.gold : AppColors.muted,
-                      isOutlined: widget.order.status != s,
-                      fontSize: 11,
-                      padding: 10,
-                    ),
-                  ),
-                )).toList(),
-              ),
-          const SizedBox(height: 12),
-          StreamBuilder<List<Customer>>(
-            stream: svc.customersStream(),
-            builder: (context, snap) {
-              final customers = snap.data ?? [];
-              final customer = customers.firstWhere(
-                (c) => c.id == widget.order.customerId,
-                orElse: () => Customer(id: '', name: '', phone: '', email: '', address: '', totalOrders: 0, totalSpent: 0),
-              );
-              final phone = customer.phone.trim();
-
-              return Row(
-                children: [
-                  Expanded(
-                    child: ActionButton(
-                      label: 'WhatsApp',
-                      icon: Icons.chat,
-                      buttonColor: const Color(0xFF25D366),
-                      onTap: () async {
-                        showDialog(
-                          context: context,
-                          barrierDismissible: false,
-                          useRootNavigator: true,
-                          builder: (_) => AlertDialog(
-                            backgroundColor: AppColors.card,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                            content: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                CircularProgressIndicator(color: const Color(0xFF25D366)),
-                                const SizedBox(height: 16),
-                                Text(
-                                  'Preparing Invoice...',
-                                  style: TextStyle(
-                                    color: AppColors.textColor,
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  'Creating PDF and preparing for WhatsApp',
-                                  style: TextStyle(
-                                    color: AppColors.muted,
-                                    fontSize: 11,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ],
+                children: ['Pending', 'Processing', 'Delivered']
+                    .map((s) => Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: ActionButton(
+                              label: s,
+                              onTap: () async {
+                                await svc.updateOrderStatus(
+                                    widget.order.dbId, s);
+                                if (context.mounted) Navigator.pop(context);
+                              },
+                              buttonColor: widget.order.status == s
+                                  ? AppColors.gold
+                                  : AppColors.muted,
+                              isOutlined: widget.order.status != s,
+                              fontSize: 11,
+                              padding: 10,
                             ),
                           ),
-                        );
+                        ))
+                    .toList(),
+              ),
+            const SizedBox(height: 12),
+            StreamBuilder<List<Customer>>(
+              stream: svc.customersStream(),
+              builder: (context, snap) {
+                final customers = snap.data ?? [];
+                final customer = customers.firstWhere(
+                  (c) => c.id == widget.order.customerId,
+                  orElse: () => Customer(
+                      id: '',
+                      name: '',
+                      phone: '',
+                      email: '',
+                      address: '',
+                      totalOrders: 0,
+                      totalSpent: 0),
+                );
+                final phone = customer.phone.trim();
 
-                        try {
-                          String formattedPhone = phone;
-                          if (formattedPhone.isNotEmpty) {
-                            formattedPhone = formattedPhone.replaceAll(RegExp(r'\D'), '');
-                            if (formattedPhone.startsWith('0') && formattedPhone.length == 10) {
-                              formattedPhone = '94${formattedPhone.substring(1)}';
-                            } else if (!formattedPhone.startsWith('94') && formattedPhone.length == 9) {
-                              formattedPhone = '94$formattedPhone';
+                return Row(
+                  children: [
+                    Expanded(
+                      child: ActionButton(
+                        label: 'WhatsApp',
+                        icon: Icons.chat,
+                        buttonColor: const Color(0xFF25D366),
+                        onTap: () async {
+                          showDialog(
+                            context: context,
+                            barrierDismissible: false,
+                            useRootNavigator: true,
+                            builder: (_) => AlertDialog(
+                              backgroundColor: AppColors.card,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16)),
+                              content: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  CircularProgressIndicator(
+                                      color: const Color(0xFF25D366)),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    'Preparing Invoice...',
+                                    style: TextStyle(
+                                      color: AppColors.textColor,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    'Creating PDF and preparing for WhatsApp',
+                                    style: TextStyle(
+                                      color: AppColors.muted,
+                                      fontSize: 11,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+
+                          try {
+                            String formattedPhone = phone;
+                            if (formattedPhone.isNotEmpty) {
+                              formattedPhone =
+                                  formattedPhone.replaceAll(RegExp(r'\D'), '');
+                              if (formattedPhone.startsWith('0') &&
+                                  formattedPhone.length == 10) {
+                                formattedPhone =
+                                    '94${formattedPhone.substring(1)}';
+                              } else if (!formattedPhone.startsWith('94') &&
+                                  formattedPhone.length == 9) {
+                                formattedPhone = '94$formattedPhone';
+                              }
+                            }
+
+                            await InvoiceService.shareInvoice(widget.order,
+                                phone: formattedPhone);
+
+                            if (context.mounted) {
+                              Navigator.pop(context);
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              Navigator.pop(context);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Row(
+                                    children: [
+                                      Icon(Icons.error,
+                                          color: Colors.white, size: 20),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Text(
+                                          'Error: $e',
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 11),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  backgroundColor: AppColors.danger,
+                                  behavior: SnackBarBehavior.floating,
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10)),
+                                ),
+                              );
                             }
                           }
-
-                          await InvoiceService.shareInvoice(widget.order, phone: formattedPhone);
-                          
-                          if (context.mounted) {
-                            Navigator.pop(context);
-                          }
-                        } catch (e) {
-                          if (context.mounted) {
-                            Navigator.pop(context);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Row(
-                                  children: [
-                                    Icon(Icons.error, color: Colors.white, size: 20),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: Text('Error: $e',
-                                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 11),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                backgroundColor: AppColors.danger,
-                                behavior: SnackBarBehavior.floating,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                              ),
-                            );
-                          }
-                        }
-                      },
+                        },
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: ActionButton(
-                      label: 'PDF',
-                      icon: Icons.picture_as_pdf,
-                      buttonColor: AppColors.gold,
-                      onTap: () async {
-                        showDialog(
-                          context: context,
-                          barrierDismissible: false,
-                          useRootNavigator: true,
-                          builder: (_) => AlertDialog(
-                            backgroundColor: AppColors.card,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                            content: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                CircularProgressIndicator(color: AppColors.gold),
-                                const SizedBox(height: 16),
-                                Text(
-                                  'Generating Receipt...',
-                                  style: TextStyle(
-                                    color: AppColors.textColor,
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 14,
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: ActionButton(
+                        label: 'PDF',
+                        icon: Icons.picture_as_pdf,
+                        buttonColor: AppColors.gold,
+                        onTap: () async {
+                          showDialog(
+                            context: context,
+                            barrierDismissible: false,
+                            useRootNavigator: true,
+                            builder: (_) => AlertDialog(
+                              backgroundColor: AppColors.card,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16)),
+                              content: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  CircularProgressIndicator(
+                                      color: AppColors.gold),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    'Generating Receipt...',
+                                    style: TextStyle(
+                                      color: AppColors.textColor,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14,
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  'Creating PDF and saving to downloads',
-                                  style: TextStyle(
-                                    color: AppColors.muted,
-                                    fontSize: 11,
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    'Creating PDF and saving to downloads',
+                                    style: TextStyle(
+                                      color: AppColors.muted,
+                                      fontSize: 11,
+                                    ),
+                                    textAlign: TextAlign.center,
                                   ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                          ),
-                        );
+                          );
 
-                        try {
-                          await InvoiceService.downloadInvoice(widget.order);
-                          
-                          if (context.mounted) {
-                            Navigator.pop(context);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Row(
-                                  children: [
-                                    Icon(Icons.download_done, color: Colors.white, size: 20),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Text('PDF downloaded!',
-                                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 11),
-                                          ),
-                                          Text('Check Downloads folder',
-                                            style: TextStyle(fontSize: 9, color: Colors.white70),
-                                          ),
-                                        ],
+                          try {
+                            await InvoiceService.downloadInvoice(widget.order);
+
+                            if (context.mounted) {
+                              Navigator.pop(context);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Row(
+                                    children: [
+                                      Icon(Icons.download_done,
+                                          color: Colors.white, size: 20),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              'PDF downloaded!',
+                                              style: TextStyle(
+                                                  fontWeight: FontWeight.w600,
+                                                  fontSize: 11),
+                                            ),
+                                            Text(
+                                              'Check Downloads folder',
+                                              style: TextStyle(
+                                                  fontSize: 9,
+                                                  color: Colors.white70),
+                                            ),
+                                          ],
+                                        ),
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
+                                  backgroundColor: AppColors.success,
+                                  behavior: SnackBarBehavior.floating,
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10)),
+                                  duration: const Duration(seconds: 3),
                                 ),
-                                backgroundColor: AppColors.success,
-                                behavior: SnackBarBehavior.floating,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                duration: const Duration(seconds: 3),
-                              ),
-                            );
-                          }
-                        } catch (e) {
-                          if (context.mounted) {
-                            Navigator.pop(context);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Row(
-                                  children: [
-                                    Icon(Icons.error, color: Colors.white, size: 20),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: Text('Failed: $e',
-                                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 10),
+                              );
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              Navigator.pop(context);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Row(
+                                    children: [
+                                      Icon(Icons.error,
+                                          color: Colors.white, size: 20),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Text(
+                                          'Failed: $e',
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 10),
+                                        ),
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
+                                  backgroundColor: AppColors.danger,
+                                  behavior: SnackBarBehavior.floating,
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10)),
+                                  duration: const Duration(seconds: 3),
                                 ),
-                                backgroundColor: AppColors.danger,
-                                behavior: SnackBarBehavior.floating,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                duration: const Duration(seconds: 3),
-                              ),
-                            );
+                              );
+                            }
                           }
-                        }
-                      },
+                        },
+                      ),
                     ),
-                  ),
-                ],
-              );
-            },
-          ),
-          const SizedBox(height: 10),
-        ],
+                  ],
+                );
+              },
+            ),
+            const SizedBox(height: 10),
+          ],
+        ),
       ),
-    ),
     );
   }
 }
@@ -1029,7 +1245,7 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
 
   // Selected items with per-item settings
   final List<Map<String, dynamic>> _selectedItems = [];
-  
+
   int _overallDiscount = 0;
   final _overallDiscountCtrl = TextEditingController();
 
@@ -1050,7 +1266,9 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
         _filteredCustomers = _customers;
       } else {
         _filteredCustomers = _customers
-            .where((c) => c.name.toLowerCase().contains(_customerSearch) || c.phone.contains(_customerSearch))
+            .where((c) =>
+                c.name.toLowerCase().contains(_customerSearch) ||
+                c.phone.contains(_customerSearch))
             .toList();
       }
     });
@@ -1063,7 +1281,8 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
         _filteredStock = _stock;
       } else {
         _filteredStock = _stock
-            .where((item) => item.name.toLowerCase().contains(_itemSearch) ||
+            .where((item) =>
+                item.name.toLowerCase().contains(_itemSearch) ||
                 item.category.toLowerCase().contains(_itemSearch) ||
                 item.sku.toLowerCase().contains(_itemSearch))
             .toList();
@@ -1160,14 +1379,21 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
     );
   }
 
-  int _getItemSubtotal(Map<String, dynamic> item) => (item['qty'] as int) * (item['price'] as int);
-  int _getItemDiscount(Map<String, dynamic> item) => _getItemSubtotal(item) * (item['discount'] as int) ~/ 100;
-  int _getItemTotal(Map<String, dynamic> item) => _getItemSubtotal(item) - _getItemDiscount(item);
+  int _getItemSubtotal(Map<String, dynamic> item) =>
+      (item['qty'] as int) * (item['price'] as int);
+  int _getItemDiscount(Map<String, dynamic> item) =>
+      _getItemSubtotal(item) * (item['discount'] as int) ~/ 100;
+  int _getItemTotal(Map<String, dynamic> item) =>
+      _getItemSubtotal(item) - _getItemDiscount(item);
 
-  int get _totalSubtotal => _selectedItems.fold<int>(0, (a, b) => a + _getItemSubtotal(b));
-  int get _totalItemDiscounts => _selectedItems.fold<int>(0, (a, b) => a + _getItemDiscount(b));
-  int get _overallDiscountAmt => ((_totalSubtotal - _totalItemDiscounts) * _overallDiscount ~/ 100);
-  int get _grandTotal => _totalSubtotal - _totalItemDiscounts - _overallDiscountAmt;
+  int get _totalSubtotal =>
+      _selectedItems.fold<int>(0, (a, b) => a + _getItemSubtotal(b));
+  int get _totalItemDiscounts =>
+      _selectedItems.fold<int>(0, (a, b) => a + _getItemDiscount(b));
+  int get _overallDiscountAmt =>
+      ((_totalSubtotal - _totalItemDiscounts) * _overallDiscount ~/ 100);
+  int get _grandTotal =>
+      _totalSubtotal - _totalItemDiscounts - _overallDiscountAmt;
 
   // Group items by item ID (same item, different sizes)
   Map<String, List<Map<String, dynamic>>> _groupItemsByName() {
@@ -1185,7 +1411,7 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
 
   Future<void> _submitOrder() async {
     if (_selCustId == null || _selectedItems.isEmpty) return;
-    
+
     final now = DateTime.now();
     final orderId = 'ORD-${now.millisecondsSinceEpoch.toString().substring(7)}';
     final o = AppOrder(
@@ -1197,12 +1423,12 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
       customerPhone: _selCustPhone,
       items: _selectedItems
           .map((i) => OrderItem(
-            name: i['item'].name,
-            qty: i['qty'],
-            price: i['price'],
-            size: i['size'],
-            discount: i['discount'] ?? 0,
-          ))
+                name: i['item'].name,
+                qty: i['qty'],
+                price: i['price'],
+                size: i['size'],
+                discount: i['discount'] ?? 0,
+              ))
           .toList(),
       total: _grandTotal,
       status: 'Pending',
@@ -1222,7 +1448,11 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
       appBar: AppBar(
         backgroundColor: AppColors.card,
         elevation: 0,
-        title: Text('Create New Order', style: TextStyle(fontFamily: 'PlayfairDisplay', fontSize: 20, color: AppColors.textColor)),
+        title: Text('Create New Order',
+            style: TextStyle(
+                fontFamily: 'PlayfairDisplay',
+                fontSize: 20,
+                color: AppColors.textColor)),
         centerTitle: true,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: AppColors.textColor),
@@ -1256,40 +1486,66 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('CUSTOMER', style: TextStyle(fontSize: 10, color: AppColors.muted, letterSpacing: 1, fontWeight: FontWeight.bold)),
+                          Text('CUSTOMER',
+                              style: TextStyle(
+                                  fontSize: 10,
+                                  color: AppColors.muted,
+                                  letterSpacing: 1,
+                                  fontWeight: FontWeight.bold)),
                           const SizedBox(height: 10),
-                          
                           if (_selCustId != null)
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 12),
                               decoration: BoxDecoration(
                                 color: AppColors.gold.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: AppColors.gold.withOpacity(0.3)),
+                                border: Border.all(
+                                    color: AppColors.gold.withOpacity(0.3)),
                               ),
                               child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
-                                        Text('Selected', style: TextStyle(fontSize: 9, color: AppColors.muted)),
-                                        Text(_selCustName ?? '', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.gold)),
+                                        Text('Selected',
+                                            style: TextStyle(
+                                                fontSize: 9,
+                                                color: AppColors.muted)),
+                                        Text(_selCustName ?? '',
+                                            style: TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w600,
+                                                color: AppColors.gold)),
                                         const SizedBox(height: 6),
-                                        if (_selCustPhone != null && _selCustPhone!.isNotEmpty)
-                                          Text(_selCustPhone!, style: TextStyle(fontSize: 10, color: AppColors.muted)),
-                                        if (_selCustAddress != null && _selCustAddress!.isNotEmpty) ...[
+                                        if (_selCustPhone != null &&
+                                            _selCustPhone!.isNotEmpty)
+                                          Text(_selCustPhone!,
+                                              style: TextStyle(
+                                                  fontSize: 10,
+                                                  color: AppColors.muted)),
+                                        if (_selCustAddress != null &&
+                                            _selCustAddress!.isNotEmpty) ...[
                                           const SizedBox(height: 2),
-                                          Text(_selCustAddress!, style: TextStyle(fontSize: 10, color: AppColors.muted, height: 1.3),
-                                            maxLines: 2, overflow: TextOverflow.ellipsis),
+                                          Text(_selCustAddress!,
+                                              style: TextStyle(
+                                                  fontSize: 10,
+                                                  color: AppColors.muted,
+                                                  height: 1.3),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis),
                                         ],
                                       ],
                                     ),
                                   ),
                                   GestureDetector(
                                     onTap: _clearCustomer,
-                                    child: Icon(Icons.close, color: AppColors.gold),
+                                    child: Icon(Icons.close,
+                                        color: AppColors.gold),
                                   ),
                                 ],
                               ),
@@ -1303,35 +1559,51 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
                                       child: TextField(
                                         controller: _customerSearchCtrl,
                                         onChanged: _updateCustomerFilter,
-                                        style: TextStyle(color: AppColors.textColor, fontSize: 13),
+                                        style: TextStyle(
+                                            color: AppColors.textColor,
+                                            fontSize: 13),
                                         decoration: InputDecoration(
                                           hintText: 'Search customer...',
-                                          hintStyle: TextStyle(color: AppColors.muted, fontSize: 12),
-                                          prefixIcon: Icon(Icons.search, color: AppColors.muted, size: 18),
+                                          hintStyle: TextStyle(
+                                              color: AppColors.muted,
+                                              fontSize: 12),
+                                          prefixIcon: Icon(Icons.search,
+                                              color: AppColors.muted, size: 18),
                                           suffixIcon: _customerSearch.isNotEmpty
                                               ? GestureDetector(
                                                   onTap: () {
                                                     _customerSearchCtrl.clear();
                                                     _updateCustomerFilter('');
                                                   },
-                                                  child: Icon(Icons.close_rounded, color: AppColors.muted, size: 18),
+                                                  child: Icon(
+                                                      Icons.close_rounded,
+                                                      color: AppColors.muted,
+                                                      size: 18),
                                                 )
                                               : null,
                                           filled: true,
                                           fillColor: AppColors.bg,
                                           border: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(10),
-                                            borderSide: BorderSide(color: AppColors.border),
+                                            borderRadius:
+                                                BorderRadius.circular(10),
+                                            borderSide: BorderSide(
+                                                color: AppColors.border),
                                           ),
                                           enabledBorder: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(10),
-                                            borderSide: BorderSide(color: AppColors.border),
+                                            borderRadius:
+                                                BorderRadius.circular(10),
+                                            borderSide: BorderSide(
+                                                color: AppColors.border),
                                           ),
                                           focusedBorder: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(10),
-                                            borderSide: BorderSide(color: AppColors.gold),
+                                            borderRadius:
+                                                BorderRadius.circular(10),
+                                            borderSide: BorderSide(
+                                                color: AppColors.gold),
                                           ),
-                                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                          contentPadding:
+                                              const EdgeInsets.symmetric(
+                                                  horizontal: 12, vertical: 12),
                                         ),
                                       ),
                                     ),
@@ -1340,16 +1612,22 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
                                       decoration: BoxDecoration(
                                         color: AppColors.gold.withOpacity(0.1),
                                         borderRadius: BorderRadius.circular(10),
-                                        border: Border.all(color: AppColors.gold.withOpacity(0.3)),
+                                        border: Border.all(
+                                            color: AppColors.gold
+                                                .withOpacity(0.3)),
                                       ),
                                       child: Material(
                                         color: Colors.transparent,
                                         child: InkWell(
-                                          onTap: () => _showAddCustomerSheet(context),
-                                          borderRadius: BorderRadius.circular(10),
+                                          onTap: () =>
+                                              _showAddCustomerSheet(context),
+                                          borderRadius:
+                                              BorderRadius.circular(10),
                                           child: Padding(
                                             padding: const EdgeInsets.all(10),
-                                            child: Icon(Icons.person_add, color: AppColors.gold, size: 20),
+                                            child: Icon(Icons.person_add,
+                                                color: AppColors.gold,
+                                                size: 20),
                                           ),
                                         ),
                                       ),
@@ -1359,11 +1637,13 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
                                 if (_customers.isNotEmpty) ...[
                                   const SizedBox(height: 8),
                                   Container(
-                                    constraints: const BoxConstraints(maxHeight: 200),
+                                    constraints:
+                                        const BoxConstraints(maxHeight: 200),
                                     decoration: BoxDecoration(
                                       color: AppColors.bg,
                                       borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(color: AppColors.border),
+                                      border:
+                                          Border.all(color: AppColors.border),
                                     ),
                                     child: ListView.builder(
                                       shrinkWrap: true,
@@ -1373,25 +1653,49 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
                                         return GestureDetector(
                                           onTap: () => _selectCustomer(c),
                                           child: Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 12, vertical: 10),
                                             decoration: BoxDecoration(
-                                              border: i < _filteredCustomers.length - 1
-                                                  ? Border(bottom: BorderSide(color: AppColors.border.withOpacity(0.5)))
+                                              border: i <
+                                                      _filteredCustomers
+                                                              .length -
+                                                          1
+                                                  ? Border(
+                                                      bottom: BorderSide(
+                                                          color: AppColors
+                                                              .border
+                                                              .withOpacity(
+                                                                  0.5)))
                                                   : null,
                                             ),
                                             child: Row(
-                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment
+                                                      .spaceBetween,
                                               children: [
                                                 Expanded(
                                                   child: Column(
-                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
                                                     children: [
-                                                      Text(c.name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                                                      Text(c.phone, style: TextStyle(fontSize: 10, color: AppColors.muted)),
+                                                      Text(c.name,
+                                                          style: const TextStyle(
+                                                              fontSize: 12,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w600)),
+                                                      Text(c.phone,
+                                                          style: TextStyle(
+                                                              fontSize: 10,
+                                                              color: AppColors
+                                                                  .muted)),
                                                     ],
                                                   ),
                                                 ),
-                                                Icon(Icons.arrow_forward, color: AppColors.muted, size: 16),
+                                                Icon(Icons.arrow_forward,
+                                                    color: AppColors.muted,
+                                                    size: 16),
                                               ],
                                             ),
                                           ),
@@ -1401,10 +1705,15 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
                                   ),
                                 ] else
                                   Container(
-                                    padding: const EdgeInsets.symmetric(vertical: 20),
-                                    child: Text('No customers found. Add one using the + button!',
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(fontSize: 12, color: AppColors.muted, fontStyle: FontStyle.italic)),
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 20),
+                                    child: Text(
+                                        'No customers found. Add one using the + button!',
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                            fontSize: 12,
+                                            color: AppColors.muted,
+                                            fontStyle: FontStyle.italic)),
                                   ),
                               ],
                             ),
@@ -1419,25 +1728,34 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('ADD ITEMS', style: TextStyle(fontSize: 10, color: AppColors.muted, letterSpacing: 1, fontWeight: FontWeight.bold)),
+                          Text('ADD ITEMS',
+                              style: TextStyle(
+                                  fontSize: 10,
+                                  color: AppColors.muted,
+                                  letterSpacing: 1,
+                                  fontWeight: FontWeight.bold)),
                           const SizedBox(height: 10),
-                          
+
                           // Item Search
                           TextField(
                             controller: _itemSearchCtrl,
                             onChanged: _updateItemFilter,
-                            style: TextStyle(color: AppColors.textColor, fontSize: 13),
+                            style: TextStyle(
+                                color: AppColors.textColor, fontSize: 13),
                             decoration: InputDecoration(
                               hintText: 'Search items...',
-                              hintStyle: TextStyle(color: AppColors.muted, fontSize: 12),
-                              prefixIcon: Icon(Icons.search, color: AppColors.muted, size: 18),
+                              hintStyle: TextStyle(
+                                  color: AppColors.muted, fontSize: 12),
+                              prefixIcon: Icon(Icons.search,
+                                  color: AppColors.muted, size: 18),
                               suffixIcon: _itemSearch.isNotEmpty
                                   ? GestureDetector(
                                       onTap: () {
                                         _itemSearchCtrl.clear();
                                         _updateItemFilter('');
                                       },
-                                      child: Icon(Icons.close_rounded, color: AppColors.muted, size: 18),
+                                      child: Icon(Icons.close_rounded,
+                                          color: AppColors.muted, size: 18),
                                     )
                                   : null,
                               filled: true,
@@ -1454,7 +1772,8 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
                                 borderRadius: BorderRadius.circular(10),
                                 borderSide: BorderSide(color: AppColors.gold),
                               ),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                              contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 12),
                             ),
                           ),
                           const SizedBox(height: 10),
@@ -1469,7 +1788,9 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
                             ),
                             child: _filteredStock.isEmpty
                                 ? Center(
-                                    child: Text('No items found', style: TextStyle(color: AppColors.muted)),
+                                    child: Text('No items found',
+                                        style:
+                                            TextStyle(color: AppColors.muted)),
                                   )
                                 : ListView.builder(
                                     shrinkWrap: true,
@@ -1482,45 +1803,87 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
                                             ? () => _showAddItemDialog(item)
                                             : null,
                                         child: Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 12, vertical: 12),
                                           decoration: BoxDecoration(
-                                            color: hasStock ? Colors.transparent : AppColors.danger.withOpacity(0.05),
-                                            border: i < _filteredStock.length - 1
-                                                ? Border(bottom: BorderSide(color: AppColors.border.withOpacity(0.5)))
+                                            color: hasStock
+                                                ? Colors.transparent
+                                                : AppColors.danger
+                                                    .withOpacity(0.05),
+                                            border: i <
+                                                    _filteredStock.length - 1
+                                                ? Border(
+                                                    bottom: BorderSide(
+                                                        color: AppColors.border
+                                                            .withOpacity(0.5)))
                                                 : null,
                                           ),
                                           child: Row(
-                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.spaceBetween,
                                             children: [
                                               Expanded(
                                                 child: Column(
-                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
                                                   children: [
                                                     Row(
                                                       children: [
-                                                        Text(item.emoji, style: const TextStyle(fontSize: 16)),
-                                                        const SizedBox(width: 8),
+                                                        Text(item.emoji,
+                                                            style:
+                                                                const TextStyle(
+                                                                    fontSize:
+                                                                        16)),
+                                                        const SizedBox(
+                                                            width: 8),
                                                         Expanded(
                                                           child: Column(
-                                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                                            crossAxisAlignment:
+                                                                CrossAxisAlignment
+                                                                    .start,
                                                             children: [
-                                                              Text(item.name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                                                              Text('Rs. ${item.price}', style: TextStyle(fontSize: 11, color: AppColors.gold, fontWeight: FontWeight.w600)),
+                                                              Text(item.name,
+                                                                  style: const TextStyle(
+                                                                      fontSize:
+                                                                          12,
+                                                                      fontWeight:
+                                                                          FontWeight
+                                                                              .w600)),
+                                                              Text(
+                                                                  'Rs. ${item.price}',
+                                                                  style: TextStyle(
+                                                                      fontSize:
+                                                                          11,
+                                                                      color: AppColors
+                                                                          .gold,
+                                                                      fontWeight:
+                                                                          FontWeight
+                                                                              .w600)),
                                                             ],
                                                           ),
                                                         ),
                                                       ],
                                                     ),
                                                     const SizedBox(height: 6),
-                                                    Text('Stock: ${item.totalQty}', 
-                                                      style: TextStyle(fontSize: 10, color: item.isOutOfStock ? AppColors.danger : AppColors.muted)),
+                                                    Text(
+                                                        'Stock: ${item.totalQty}',
+                                                        style: TextStyle(
+                                                            fontSize: 10,
+                                                            color: item
+                                                                    .isOutOfStock
+                                                                ? AppColors
+                                                                    .danger
+                                                                : AppColors
+                                                                    .muted)),
                                                   ],
                                                 ),
                                               ),
                                               if (hasStock)
-                                                Icon(Icons.add_circle_outline, color: AppColors.gold)
+                                                Icon(Icons.add_circle_outline,
+                                                    color: AppColors.gold)
                                               else
-                                                Icon(Icons.block, color: AppColors.danger),
+                                                Icon(Icons.block,
+                                                    color: AppColors.danger),
                                             ],
                                           ),
                                         ),
@@ -1541,14 +1904,19 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('SELECTED ITEMS (${_groupItemsByName().length} ${_groupItemsByName().length == 1 ? 'item' : 'items'})',
-                              style: TextStyle(fontSize: 10, color: AppColors.muted, letterSpacing: 1, fontWeight: FontWeight.bold)),
+                            Text(
+                                'SELECTED ITEMS (${_groupItemsByName().length} ${_groupItemsByName().length == 1 ? 'item' : 'items'})',
+                                style: TextStyle(
+                                    fontSize: 10,
+                                    color: AppColors.muted,
+                                    letterSpacing: 1,
+                                    fontWeight: FontWeight.bold)),
                             const SizedBox(height: 12),
                             ..._groupItemsByName().entries.map((groupEntry) {
                               final itemGroup = groupEntry.value;
                               final firstItem = itemGroup.first;
                               final stockItem = firstItem['item'] as StockItem;
-                              
+
                               // Calculate total for entire group
                               int groupSubtotal = 0;
                               int groupDiscount = 0;
@@ -1571,45 +1939,69 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
                                   children: [
                                     // Item name and emoji
                                     Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
                                       children: [
                                         Row(
                                           children: [
-                                            Text(stockItem.emoji, style: const TextStyle(fontSize: 16)),
+                                            Text(stockItem.emoji,
+                                                style: const TextStyle(
+                                                    fontSize: 16)),
                                             const SizedBox(width: 8),
                                             Expanded(
-                                              child: Text(stockItem.name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                                              child: Text(stockItem.name,
+                                                  style: const TextStyle(
+                                                      fontSize: 13,
+                                                      fontWeight:
+                                                          FontWeight.bold)),
                                             ),
                                           ],
                                         ),
                                       ],
                                     ),
                                     const SizedBox(height: 10),
-                                    
+
                                     // List of sizes and quantities
                                     ...itemGroup.asMap().entries.map((entry) {
                                       final sizeIdx = entry.key;
                                       final item = entry.value;
                                       final originalIdx = item['_index'] as int;
-                                      
+
                                       return Padding(
-                                        padding: const EdgeInsets.only(bottom: 8),
+                                        padding:
+                                            const EdgeInsets.only(bottom: 8),
                                         child: Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
                                           children: [
                                             Expanded(
                                               child: Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
                                                 children: [
-                                                  Text('${item['size']} • Qty: ${item['qty']} • Rs. ${item['price']}',
-                                                    style: TextStyle(fontSize: 11, color: AppColors.muted, fontWeight: FontWeight.w500)),
+                                                  Text(
+                                                      '${item['size']} • Qty: ${item['qty']} • Rs. ${item['price']}',
+                                                      style: TextStyle(
+                                                          fontSize: 11,
+                                                          color:
+                                                              AppColors.muted,
+                                                          fontWeight:
+                                                              FontWeight.w500)),
                                                   const SizedBox(height: 2),
-                                                  Text('Subtotal: Rs. ${_getItemSubtotal(item)}',
-                                                    style: TextStyle(fontSize: 9, color: AppColors.muted)),
+                                                  Text(
+                                                      'Subtotal: Rs. ${_getItemSubtotal(item)}',
+                                                      style: TextStyle(
+                                                          fontSize: 9,
+                                                          color:
+                                                              AppColors.muted)),
                                                   if (item['discount'] > 0) ...[
                                                     const SizedBox(height: 1),
-                                                    Text('Discount: −Rs. ${_getItemDiscount(item)} (${item['discount']}%)',
-                                                      style: TextStyle(fontSize: 9, color: AppColors.danger)),
+                                                    Text(
+                                                        'Discount: −Rs. ${_getItemDiscount(item)} (${item['discount']}%)',
+                                                        style: TextStyle(
+                                                            fontSize: 9,
+                                                            color: AppColors
+                                                                .danger)),
                                                   ],
                                                 ],
                                               ),
@@ -1618,20 +2010,33 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
                                               mainAxisSize: MainAxisSize.min,
                                               children: [
                                                 GestureDetector(
-                                                  onTap: () => _showItemSettings(originalIdx),
+                                                  onTap: () =>
+                                                      _showItemSettings(
+                                                          originalIdx),
                                                   child: Container(
-                                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                    padding: const EdgeInsets
+                                                        .symmetric(
+                                                        horizontal: 8,
+                                                        vertical: 4),
                                                     decoration: BoxDecoration(
-                                                      color: AppColors.gold.withOpacity(0.15),
-                                                      borderRadius: BorderRadius.circular(4),
+                                                      color: AppColors.gold
+                                                          .withOpacity(0.15),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              4),
                                                     ),
-                                                    child: Icon(Icons.edit, size: 12, color: AppColors.gold),
+                                                    child: Icon(Icons.edit,
+                                                        size: 12,
+                                                        color: AppColors.gold),
                                                   ),
                                                 ),
                                                 const SizedBox(width: 6),
                                                 GestureDetector(
-                                                  onTap: () => _removeItem(originalIdx),
-                                                  child: Icon(Icons.close, color: AppColors.danger, size: 16),
+                                                  onTap: () =>
+                                                      _removeItem(originalIdx),
+                                                  child: Icon(Icons.close,
+                                                      color: AppColors.danger,
+                                                      size: 16),
                                                 ),
                                               ],
                                             ),
@@ -1646,28 +2051,41 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
 
                                     // Group totals
                                     Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
                                       children: [
                                         Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
                                             Text('Subtotal: Rs. $groupSubtotal',
-                                              style: TextStyle(fontSize: 10, color: AppColors.muted)),
+                                                style: TextStyle(
+                                                    fontSize: 10,
+                                                    color: AppColors.muted)),
                                             if (groupDiscount > 0) ...[
                                               const SizedBox(height: 2),
-                                              Text('Discount: −Rs. $groupDiscount',
-                                                style: TextStyle(fontSize: 10, color: AppColors.danger)),
+                                              Text(
+                                                  'Discount: −Rs. $groupDiscount',
+                                                  style: TextStyle(
+                                                      fontSize: 10,
+                                                      color: AppColors.danger)),
                                             ],
                                           ],
                                         ),
                                         Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 12, vertical: 6),
                                           decoration: BoxDecoration(
-                                            color: AppColors.gold.withOpacity(0.1),
-                                            borderRadius: BorderRadius.circular(6),
+                                            color:
+                                                AppColors.gold.withOpacity(0.1),
+                                            borderRadius:
+                                                BorderRadius.circular(6),
                                           ),
                                           child: Text('Total: Rs. $groupTotal',
-                                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.gold)),
+                                              style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: AppColors.gold)),
                                         ),
                                       ],
                                     ),
@@ -1689,7 +2107,12 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('BILL DISCOUNT', style: TextStyle(fontSize: 10, color: AppColors.muted, letterSpacing: 1, fontWeight: FontWeight.bold)),
+                            Text('BILL DISCOUNT',
+                                style: TextStyle(
+                                    fontSize: 10,
+                                    color: AppColors.muted,
+                                    letterSpacing: 1,
+                                    fontWeight: FontWeight.bold)),
                             const SizedBox(height: 10),
                             Row(
                               children: [
@@ -1697,61 +2120,88 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
                                   child: TextField(
                                     controller: _overallDiscountCtrl,
                                     keyboardType: TextInputType.number,
-                                    style: TextStyle(color: AppColors.textColor, fontSize: 14),
+                                    style: TextStyle(
+                                        color: AppColors.textColor,
+                                        fontSize: 14),
                                     decoration: InputDecoration(
                                       hintText: '0',
-                                      hintStyle: TextStyle(color: AppColors.muted),
+                                      hintStyle:
+                                          TextStyle(color: AppColors.muted),
                                       filled: true,
                                       fillColor: AppColors.bg,
                                       suffixText: '%',
-                                      suffixStyle: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold),
+                                      suffixStyle: TextStyle(
+                                          color: AppColors.gold,
+                                          fontWeight: FontWeight.bold),
                                       border: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(8),
-                                        borderSide: BorderSide(color: AppColors.border),
+                                        borderSide:
+                                            BorderSide(color: AppColors.border),
                                       ),
                                       enabledBorder: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(8),
-                                        borderSide: BorderSide(color: AppColors.border),
+                                        borderSide:
+                                            BorderSide(color: AppColors.border),
                                       ),
                                       focusedBorder: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(8),
-                                        borderSide: BorderSide(color: AppColors.gold),
+                                        borderSide:
+                                            BorderSide(color: AppColors.gold),
                                       ),
-                                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                              horizontal: 12, vertical: 10),
                                     ),
                                     onChanged: (v) {
                                       final val = int.tryParse(v) ?? 0;
-                                      setState(() => _overallDiscount = val.clamp(0, 100));
+                                      setState(() =>
+                                          _overallDiscount = val.clamp(0, 100));
                                     },
                                   ),
                                 ),
                                 const SizedBox(width: 8),
-                                ...[5, 10, 15].map((p) => GestureDetector(
-                                  onTap: () {
-                                    if (_overallDiscount == p) {
-                                      _overallDiscountCtrl.clear();
-                                      setState(() => _overallDiscount = 0);
-                                    } else {
-                                      _overallDiscountCtrl.text = '$p';
-                                      setState(() => _overallDiscount = p);
-                                    }
-                                  },
-                                  child: Container(
-                                    margin: const EdgeInsets.only(left: 6),
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                                    decoration: BoxDecoration(
-                                      color: _overallDiscount == p ? AppColors.gold.withOpacity(0.15) : AppColors.bg,
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(
-                                        color: _overallDiscount == p ? AppColors.gold : AppColors.border,
-                                      ),
-                                    ),
-                                    child: Text('$p%', style: TextStyle(
-                                      fontSize: 11, fontWeight: FontWeight.w600,
-                                      color: _overallDiscount == p ? AppColors.gold : AppColors.muted,
-                                    )),
-                                  ),
-                                )).toList(),
+                                ...[5, 10, 15]
+                                    .map((p) => GestureDetector(
+                                          onTap: () {
+                                            if (_overallDiscount == p) {
+                                              _overallDiscountCtrl.clear();
+                                              setState(
+                                                  () => _overallDiscount = 0);
+                                            } else {
+                                              _overallDiscountCtrl.text = '$p';
+                                              setState(
+                                                  () => _overallDiscount = p);
+                                            }
+                                          },
+                                          child: Container(
+                                            margin:
+                                                const EdgeInsets.only(left: 6),
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 10, vertical: 10),
+                                            decoration: BoxDecoration(
+                                              color: _overallDiscount == p
+                                                  ? AppColors.gold
+                                                      .withOpacity(0.15)
+                                                  : AppColors.bg,
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                              border: Border.all(
+                                                color: _overallDiscount == p
+                                                    ? AppColors.gold
+                                                    : AppColors.border,
+                                              ),
+                                            ),
+                                            child: Text('$p%',
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: _overallDiscount == p
+                                                      ? AppColors.gold
+                                                      : AppColors.muted,
+                                                )),
+                                          ),
+                                        ))
+                                    .toList(),
                               ],
                             ),
                           ],
@@ -1770,27 +2220,46 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text('Subtotal', style: TextStyle(color: AppColors.muted, fontSize: 12)),
-                                Text('Rs. ${_totalSubtotal}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                                Text('Subtotal',
+                                    style: TextStyle(
+                                        color: AppColors.muted, fontSize: 12)),
+                                Text('Rs. ${_totalSubtotal}',
+                                    style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600)),
                               ],
                             ),
                             if (_totalItemDiscounts > 0) ...[
                               const SizedBox(height: 6),
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text('Item Discounts', style: TextStyle(color: AppColors.muted, fontSize: 12)),
-                                  Text('−Rs. ${_totalItemDiscounts}', style: TextStyle(fontSize: 12, color: AppColors.danger)),
+                                  Text('Item Discounts',
+                                      style: TextStyle(
+                                          color: AppColors.muted,
+                                          fontSize: 12)),
+                                  Text('−Rs. ${_totalItemDiscounts}',
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          color: AppColors.danger)),
                                 ],
                               ),
                             ],
                             if (_overallDiscount > 0) ...[
                               const SizedBox(height: 6),
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text('Bill Discount ($_overallDiscount%)', style: TextStyle(color: AppColors.muted, fontSize: 12)),
-                                  Text('−Rs. ${_overallDiscountAmt}', style: TextStyle(fontSize: 12, color: AppColors.danger)),
+                                  Text('Bill Discount ($_overallDiscount%)',
+                                      style: TextStyle(
+                                          color: AppColors.muted,
+                                          fontSize: 12)),
+                                  Text('−Rs. ${_overallDiscountAmt}',
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          color: AppColors.danger)),
                                 ],
                               ),
                             ],
@@ -1798,15 +2267,25 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text('GRAND TOTAL', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1, fontSize: 13)),
+                                const Text('GRAND TOTAL',
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: 1,
+                                        fontSize: 13)),
                                 Text('Rs. ${_grandTotal}',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppColors.goldLight)),
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 18,
+                                        color: AppColors.goldLight)),
                               ],
                             ),
                             const SizedBox(height: 16),
                             GoldButton(
                               label: 'Create Order',
-                              onTap: _selCustId != null && _selectedItems.isNotEmpty ? _submitOrder : () {},
+                              onTap: _selCustId != null &&
+                                      _selectedItems.isNotEmpty
+                                  ? _submitOrder
+                                  : () {},
                             ),
                           ],
                         ),
@@ -1828,14 +2307,16 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
     int qty = 1;
     int price = item.price;
     final sizeList = item.category == 'Kids' ? kidsSizes : allSizes;
-    final availableSizes = sizeList.where((s) => (item.sizes[s] ?? 0) > 0).toList();
+    final availableSizes =
+        sizeList.where((s) => (item.sizes[s] ?? 0) > 0).toList();
 
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
           backgroundColor: AppColors.card,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -1843,8 +2324,11 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('${item.emoji} ${item.name}', style: TextStyle(color: AppColors.textColor, fontSize: 16)),
-                    Text('Price: Rs. $price', style: TextStyle(color: AppColors.gold, fontSize: 12)),
+                    Text('${item.emoji} ${item.name}',
+                        style: TextStyle(
+                            color: AppColors.textColor, fontSize: 16)),
+                    Text('Price: Rs. $price',
+                        style: TextStyle(color: AppColors.gold, fontSize: 12)),
                   ],
                 ),
               ),
@@ -1869,16 +2353,19 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
                     style: TextStyle(color: AppColors.textColor),
                     hint: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Text('Select Size', style: TextStyle(color: AppColors.muted)),
+                      child: Text('Select Size',
+                          style: TextStyle(color: AppColors.muted)),
                     ),
                     items: availableSizes
                         .map((s) => DropdownMenuItem(
-                          value: s,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            child: Text('$s (${item.sizes[s] ?? 0} available)'),
-                          ),
-                        ))
+                              value: s,
+                              child: Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 12),
+                                child: Text(
+                                    '$s (${item.sizes[s] ?? 0} available)'),
+                              ),
+                            ))
                         .toList(),
                     onChanged: (s) => setState(() => selectedSize = s ?? ''),
                   ),
@@ -1892,28 +2379,41 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: AppColors.border),
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Quantity:', style: TextStyle(color: AppColors.textColor, fontWeight: FontWeight.w600)),
+                      Text('Quantity:',
+                          style: TextStyle(
+                              color: AppColors.textColor,
+                              fontWeight: FontWeight.w600)),
                       Row(
                         children: [
                           IconButton(
-                            icon: Icon(Icons.remove, color: AppColors.muted, size: 18),
-                            onPressed: () => setState(() => qty = (qty - 1).clamp(1, 99)),
-                            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                            icon: Icon(Icons.remove,
+                                color: AppColors.muted, size: 18),
+                            onPressed: () =>
+                                setState(() => qty = (qty - 1).clamp(1, 99)),
+                            constraints: const BoxConstraints(
+                                minWidth: 32, minHeight: 32),
                             padding: EdgeInsets.zero,
                           ),
                           SizedBox(
                             width: 40,
-                            child: Text('$qty', textAlign: TextAlign.center,
-                              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.gold)),
+                            child: Text('$qty',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.gold)),
                           ),
                           IconButton(
-                            icon: Icon(Icons.add, color: AppColors.gold, size: 18),
+                            icon: Icon(Icons.add,
+                                color: AppColors.gold, size: 18),
                             onPressed: () => setState(() => qty++),
-                            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                            constraints: const BoxConstraints(
+                                minWidth: 32, minHeight: 32),
                             padding: EdgeInsets.zero,
                           ),
                         ],
@@ -1938,11 +2438,14 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
                       hintStyle: TextStyle(color: AppColors.muted),
                       border: InputBorder.none,
                       prefixText: 'Rs. ',
-                      prefixStyle: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      prefixStyle: TextStyle(
+                          color: AppColors.gold, fontWeight: FontWeight.bold),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 10),
                     ),
                     controller: TextEditingController(text: '$price'),
-                    onChanged: (v) => setState(() => price = int.tryParse(v) ?? item.price),
+                    onChanged: (v) =>
+                        setState(() => price = int.tryParse(v) ?? item.price),
                   ),
                 ),
               ],
@@ -1958,11 +2461,14 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
             const SizedBox(width: 8),
             ActionButton(
               label: 'Add',
-              onTap: selectedSize.isEmpty ? () {} : () {
-                _addItem(item, selectedSize, qty, price);
-                Navigator.pop(context);
-              },
-              buttonColor: selectedSize.isEmpty ? AppColors.muted : AppColors.gold,
+              onTap: selectedSize.isEmpty
+                  ? () {}
+                  : () {
+                      _addItem(item, selectedSize, qty, price);
+                      Navigator.pop(context);
+                    },
+              buttonColor:
+                  selectedSize.isEmpty ? AppColors.muted : AppColors.gold,
             ),
           ],
         ),
@@ -1998,7 +2504,8 @@ class _ItemSettingsDialogState extends State<_ItemSettingsDialog> {
     return AlertDialog(
       backgroundColor: AppColors.card,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: Text('Item Settings', style: TextStyle(color: AppColors.textColor)),
+      title:
+          Text('Item Settings', style: TextStyle(color: AppColors.textColor)),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -2016,14 +2523,19 @@ class _ItemSettingsDialogState extends State<_ItemSettingsDialog> {
                 children: [
                   Row(
                     children: [
-                      Text(widget.item['item'].emoji, style: const TextStyle(fontSize: 18)),
+                      Text(widget.item['item'].emoji,
+                          style: const TextStyle(fontSize: 18)),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(widget.item['item'].name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                            Text('Size: ${widget.item['size']}', style: TextStyle(fontSize: 10, color: AppColors.muted)),
+                            Text(widget.item['item'].name,
+                                style: const TextStyle(
+                                    fontSize: 12, fontWeight: FontWeight.w600)),
+                            Text('Size: ${widget.item['size']}',
+                                style: TextStyle(
+                                    fontSize: 10, color: AppColors.muted)),
                           ],
                         ),
                       ),
@@ -2045,18 +2557,30 @@ class _ItemSettingsDialogState extends State<_ItemSettingsDialog> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('QUANTITY', style: TextStyle(fontSize: 10, color: AppColors.muted, letterSpacing: 1, fontWeight: FontWeight.bold)),
+                  Text('QUANTITY',
+                      style: TextStyle(
+                          fontSize: 10,
+                          color: AppColors.muted,
+                          letterSpacing: 1,
+                          fontWeight: FontWeight.bold)),
                   const SizedBox(height: 10),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       IconButton(
-                        icon: Icon(Icons.remove_circle_outline, color: AppColors.muted),
-                        onPressed: () => setState(() => _qty = (_qty - 1).clamp(1, 99)),
+                        icon: Icon(Icons.remove_circle_outline,
+                            color: AppColors.muted),
+                        onPressed: () =>
+                            setState(() => _qty = (_qty - 1).clamp(1, 99)),
                       ),
-                      Text('$_qty', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.gold)),
+                      Text('$_qty',
+                          style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.gold)),
                       IconButton(
-                        icon: Icon(Icons.add_circle_outline, color: AppColors.gold),
+                        icon: Icon(Icons.add_circle_outline,
+                            color: AppColors.gold),
                         onPressed: () => setState(() => _qty++),
                       ),
                     ],
@@ -2077,16 +2601,25 @@ class _ItemSettingsDialogState extends State<_ItemSettingsDialog> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('PRICE', style: TextStyle(fontSize: 10, color: AppColors.muted, letterSpacing: 1, fontWeight: FontWeight.bold)),
+                  Text('PRICE',
+                      style: TextStyle(
+                          fontSize: 10,
+                          color: AppColors.muted,
+                          letterSpacing: 1,
+                          fontWeight: FontWeight.bold)),
                   const SizedBox(height: 10),
                   TextField(
                     keyboardType: TextInputType.number,
-                    style: TextStyle(color: AppColors.textColor, fontSize: 14, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                        color: AppColors.textColor,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold),
                     decoration: InputDecoration(
                       filled: true,
                       fillColor: AppColors.card,
                       prefixText: 'Rs. ',
-                      prefixStyle: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold),
+                      prefixStyle: TextStyle(
+                          color: AppColors.gold, fontWeight: FontWeight.bold),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                         borderSide: BorderSide(color: AppColors.border),
@@ -2099,10 +2632,12 @@ class _ItemSettingsDialogState extends State<_ItemSettingsDialog> {
                         borderRadius: BorderRadius.circular(8),
                         borderSide: BorderSide(color: AppColors.gold),
                       ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 12),
                     ),
                     controller: TextEditingController(text: '$_price'),
-                    onChanged: (v) => setState(() => _price = int.tryParse(v) ?? widget.item['price']),
+                    onChanged: (v) => setState(
+                        () => _price = int.tryParse(v) ?? widget.item['price']),
                   ),
                 ],
               ),
@@ -2120,19 +2655,27 @@ class _ItemSettingsDialogState extends State<_ItemSettingsDialog> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('ITEM DISCOUNT', style: TextStyle(fontSize: 10, color: AppColors.muted, letterSpacing: 1, fontWeight: FontWeight.bold)),
+                  Text('ITEM DISCOUNT',
+                      style: TextStyle(
+                          fontSize: 10,
+                          color: AppColors.muted,
+                          letterSpacing: 1,
+                          fontWeight: FontWeight.bold)),
                   const SizedBox(height: 10),
                   Row(
                     children: [
                       Expanded(
                         child: TextField(
                           keyboardType: TextInputType.number,
-                          style: TextStyle(color: AppColors.textColor, fontSize: 14),
+                          style: TextStyle(
+                              color: AppColors.textColor, fontSize: 14),
                           decoration: InputDecoration(
                             filled: true,
                             fillColor: AppColors.card,
                             suffixText: '%',
-                            suffixStyle: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold),
+                            suffixStyle: TextStyle(
+                                color: AppColors.gold,
+                                fontWeight: FontWeight.bold),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
                               borderSide: BorderSide(color: AppColors.border),
@@ -2145,31 +2688,45 @@ class _ItemSettingsDialogState extends State<_ItemSettingsDialog> {
                               borderRadius: BorderRadius.circular(8),
                               borderSide: BorderSide(color: AppColors.gold),
                             ),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 12),
                           ),
                           controller: TextEditingController(text: '$_discount'),
-                          onChanged: (v) => setState(() => _discount = int.tryParse(v) ?? 0),
+                          onChanged: (v) =>
+                              setState(() => _discount = int.tryParse(v) ?? 0),
                         ),
                       ),
                       const SizedBox(width: 8),
-                      ...[5, 10, 15].map((p) => GestureDetector(
-                        onTap: () => setState(() => _discount = _discount == p ? 0 : p),
-                        child: Container(
-                          margin: const EdgeInsets.only(left: 4),
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: _discount == p ? AppColors.gold.withOpacity(0.15) : AppColors.card,
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(
-                              color: _discount == p ? AppColors.gold : AppColors.border,
-                            ),
-                          ),
-                          child: Text('$p%', style: TextStyle(
-                            fontSize: 10, fontWeight: FontWeight.w600,
-                            color: _discount == p ? AppColors.gold : AppColors.muted,
-                          )),
-                        ),
-                      )).toList(),
+                      ...[5, 10, 15]
+                          .map((p) => GestureDetector(
+                                onTap: () => setState(
+                                    () => _discount = _discount == p ? 0 : p),
+                                child: Container(
+                                  margin: const EdgeInsets.only(left: 4),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: _discount == p
+                                        ? AppColors.gold.withOpacity(0.15)
+                                        : AppColors.card,
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(
+                                      color: _discount == p
+                                          ? AppColors.gold
+                                          : AppColors.border,
+                                    ),
+                                  ),
+                                  child: Text('$p%',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w600,
+                                        color: _discount == p
+                                            ? AppColors.gold
+                                            : AppColors.muted,
+                                      )),
+                                ),
+                              ))
+                          .toList(),
                     ],
                   ),
                 ],
@@ -2201,7 +2758,7 @@ class _ItemSettingsDialogState extends State<_ItemSettingsDialog> {
 class _AddCustomerSheet extends StatefulWidget {
   final Function(Customer customer) onCustomerAdded;
   const _AddCustomerSheet({required this.onCustomerAdded});
-  
+
   @override
   State<_AddCustomerSheet> createState() => _AddCustomerSheetState();
 }
@@ -2216,21 +2773,25 @@ class _AddCustomerSheetState extends State<_AddCustomerSheet> {
   final svc = ApiService();
 
   Future<void> _pickPhoto() async {
-    final picked = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 80);
+    final picked = await ImagePicker()
+        .pickImage(source: ImageSource.gallery, imageQuality: 80);
     if (picked != null) setState(() => _photo = File(picked.path));
   }
 
   Future<void> _save() async {
     if (_name.text.isEmpty || _phone.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Name and Phone are required'), backgroundColor: AppColors.danger),
+        SnackBar(
+            content: Text('Name and Phone are required'),
+            backgroundColor: AppColors.danger),
       );
       return;
     }
     setState(() => _saving = true);
     try {
       String? photoUrl;
-      if (_photo != null) photoUrl = await svc.uploadPhoto(_photo!, 'customers');
+      if (_photo != null)
+        photoUrl = await svc.uploadPhoto(_photo!, 'customers');
       final newCustomer = Customer(
         id: '',
         name: _name.text,
@@ -2244,29 +2805,33 @@ class _AddCustomerSheetState extends State<_AddCustomerSheet> {
         ownerNote: '',
       );
       await svc.addCustomer(newCustomer);
-      
+
       // Wait a moment for the database to update, then get the fresh customer list
       await Future.delayed(Duration(milliseconds: 500));
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Customer added successfully ✓'), backgroundColor: AppColors.success, duration: Duration(seconds: 1)),
+          SnackBar(
+              content: Text('Customer added successfully ✓'),
+              backgroundColor: AppColors.success,
+              duration: Duration(seconds: 1)),
         );
-        
+
         // Get the newly added customer from the updated list
         final updatedCustomers = await svc.getCustomers();
         final addedCustomer = updatedCustomers.firstWhere(
           (c) => c.phone == _phone.text && c.name == _name.text,
           orElse: () => newCustomer,
         );
-        
+
         widget.onCustomerAdded(addedCustomer);
         Navigator.pop(context);
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.danger),
+          SnackBar(
+              content: Text('Error: $e'), backgroundColor: AppColors.danger),
         );
       }
     } finally {
@@ -2290,7 +2855,8 @@ class _AddCustomerSheetState extends State<_AddCustomerSheet> {
         color: AppColors.card,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 20),
+      padding: EdgeInsets.fromLTRB(
+          20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 20),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -2328,7 +2894,8 @@ class _AddCustomerSheetState extends State<_AddCustomerSheet> {
                     : Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.camera_alt_outlined, color: AppColors.gold, size: 24),
+                          Icon(Icons.camera_alt_outlined,
+                              color: AppColors.gold, size: 24),
                           Text('Photo',
                               style: TextStyle(
                                 fontSize: 10,
@@ -2340,10 +2907,23 @@ class _AddCustomerSheetState extends State<_AddCustomerSheet> {
               ),
             ),
             const SizedBox(height: 20),
-            GoldTextField(label: 'Name *', controller: _name, hint: 'Full name'),
-            GoldTextField(label: 'Phone *', controller: _phone, keyboardType: TextInputType.phone, hint: '07X XXX XXXX'),
-            GoldTextField(label: 'Email', controller: _email, keyboardType: TextInputType.emailAddress, hint: 'email@example.com'),
-            GoldTextField(label: 'Address', controller: _address, maxLines: 2, hint: 'Street, City'),
+            GoldTextField(
+                label: 'Name *', controller: _name, hint: 'Full name'),
+            GoldTextField(
+                label: 'Phone *',
+                controller: _phone,
+                keyboardType: TextInputType.phone,
+                hint: '07X XXX XXXX'),
+            GoldTextField(
+                label: 'Email',
+                controller: _email,
+                keyboardType: TextInputType.emailAddress,
+                hint: 'email@example.com'),
+            GoldTextField(
+                label: 'Address',
+                controller: _address,
+                maxLines: 2,
+                hint: 'Street, City'),
             const SizedBox(height: 16),
             _saving
                 ? CircularProgressIndicator(color: AppColors.gold)

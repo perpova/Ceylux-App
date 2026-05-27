@@ -25,7 +25,7 @@ class ApiService {
         final list = jsonDecode(r.body) as List;
         yield list.map((m) => StockItem.fromMap(Map<String, dynamic>.from(m))).toList();
       } catch (_) { yield []; }
-      await Future.delayed(const Duration(seconds: 3));
+      await Future.delayed(const Duration(milliseconds: 1500));
     }
   }
 
@@ -59,7 +59,7 @@ class ApiService {
         final list = jsonDecode(r.body) as List;
         yield list.map((m) => Customer.fromMap(Map<String, dynamic>.from(m))).toList();
       } catch (_) { yield []; }
-      await Future.delayed(const Duration(seconds: 3));
+      await Future.delayed(const Duration(milliseconds: 1500));
     }
   }
 
@@ -122,7 +122,7 @@ class ApiService {
         final list = jsonDecode(r.body) as List;
         yield list.map((m) => AppOrder.fromMap(Map<String, dynamic>.from(m))).toList();
       } catch (_) { yield []; }
-      await Future.delayed(const Duration(seconds: 3));
+      await Future.delayed(const Duration(milliseconds: 1500));
     }
   }
 

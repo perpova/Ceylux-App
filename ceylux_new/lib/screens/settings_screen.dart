@@ -34,7 +34,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late ThemeMode _currentThemeMode;
   bool _isInvoiceExpanded = false;
   bool _isTierExpanded = false;
-  
+
   final svc = ApiService();
   List<Tier> _tiers = [];
   bool _loadingTiers = false;
@@ -45,6 +45,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _loadUser();
     _currentThemeMode = themeNotifier.value;
     _loadTiers();
+    // Listen to theme changes and rebuild in real-time
+    themeNotifier.addListener(_onThemeChanged);
+  }
+
+  void _onThemeChanged() {
+    if (mounted) {
+      setState(() {
+        _currentThemeMode = themeNotifier.value;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    themeNotifier.removeListener(_onThemeChanged);
+    super.dispose();
   }
 
   Future<void> _loadTiers() async {
@@ -61,7 +77,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (mounted) {
         setState(() => _loadingTiers = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading tiers: $e'), backgroundColor: AppColors.danger),
+          SnackBar(
+              content: Text('Error loading tiers: $e'),
+              backgroundColor: AppColors.danger),
         );
       }
     }
@@ -72,7 +90,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {
       _userName = prefs.getString('userName') ?? 'Ceylux Associate';
       _profileImagePath = prefs.getString('profileImagePath');
-      _userRole = _userName.toLowerCase().contains('admin') ? 'Administrator' : 'Administrator';
+      _userRole = _userName.toLowerCase().contains('admin')
+          ? 'Administrator'
+          : 'Administrator';
     });
   }
 
@@ -83,18 +103,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
     int minSpent = 15000;
     double minRating = 2.0;
     int discount = 5;
-    int priority = (_tiers.isEmpty ? 1 : _tiers.map((t) => t.priority).reduce((a, b) => a > b ? a : b) + 1);
+    int priority = (_tiers.isEmpty
+        ? 1
+        : _tiers.map((t) => t.priority).reduce((a, b) => a > b ? a : b) + 1);
 
     showDialog(
       context: context,
       builder: (_) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
           backgroundColor: AppColors.card,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: Row(
             children: [
-              Text('✨ ', style: const TextStyle(fontSize: 24)),
-              Text('Add New Tier', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 20, color: AppColors.primary)),
+              Text('Add New Tier',
+                  style: GoogleFonts.outfit(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 20,
+                      color: AppColors.primary)),
             ],
           ),
           content: SingleChildScrollView(
@@ -109,20 +135,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     decoration: BoxDecoration(
                       color: AppColors.bg,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                      border:
+                          Border.all(color: AppColors.primary.withOpacity(0.3)),
                     ),
                     child: Row(
                       children: [
-                        Text(emoji.isEmpty ? '🎯' : emoji, style: const TextStyle(fontSize: 32)),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(name.isEmpty ? 'Tier Name' : name, 
-                                style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.primary)),
-                              Text('${discount}% OFF', 
-                                style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.gold, fontWeight: FontWeight.bold)),
+                              Text(name.isEmpty ? 'Tier Name' : name,
+                                  style: GoogleFonts.outfit(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                      color: AppColors.primary)),
+                              Text('${discount}% OFF',
+                                  style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 12,
+                                      color: AppColors.gold,
+                                      fontWeight: FontWeight.bold)),
                             ],
                           ),
                         ),
@@ -133,12 +165,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                   // Name & Emoji Fields
                   TextField(
-                    style: GoogleFonts.plusJakartaSans(color: AppColors.textColor, fontWeight: FontWeight.w600),
+                    style: GoogleFonts.plusJakartaSans(
+                        color: AppColors.textColor,
+                        fontWeight: FontWeight.w600),
                     decoration: InputDecoration(
                       labelText: 'Tier Name',
                       hintText: 'e.g., Silver, Gold',
                       prefixIcon: const Icon(Icons.label),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10)),
                       filled: true,
                       fillColor: AppColors.bg,
                     ),
@@ -146,12 +181,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const SizedBox(height: 12),
                   TextField(
-                    style: GoogleFonts.plusJakartaSans(color: AppColors.textColor, fontWeight: FontWeight.w600),
+                    style: GoogleFonts.plusJakartaSans(
+                        color: AppColors.textColor,
+                        fontWeight: FontWeight.w600),
                     decoration: InputDecoration(
                       labelText: 'Emoji',
                       hintText: '🥈 🥇 👑',
                       prefixIcon: const Icon(Icons.emoji_emotions),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10)),
                       filled: true,
                       fillColor: AppColors.bg,
                     ),
@@ -161,7 +199,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                   // Sliders in Cards
                   _buildSliderCard(
-                    icon: '🛍️',
+                    icon: '',
                     label: 'Minimum Orders',
                     value: minOrders,
                     maxValue: 100,
@@ -171,7 +209,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(height: 12),
 
                   _buildSliderCard(
-                    icon: '💰',
+                    icon: '',
                     label: 'Minimum Spent',
                     value: minSpent,
                     maxValue: 500000,
@@ -182,18 +220,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(height: 12),
 
                   _buildSliderCard(
-                    icon: '⭐',
+                    icon: '',
                     label: 'Minimum Rating',
                     value: minRating,
                     maxValue: 5,
                     divisions: 50,
-                    onChanged: (v) => setState(() => minRating = double.parse(v.toStringAsFixed(1))),
+                    onChanged: (v) => setState(
+                        () => minRating = double.parse(v.toStringAsFixed(1))),
                     isRating: true,
                   ),
                   const SizedBox(height: 12),
 
                   _buildSliderCard(
-                    icon: '🎁',
+                    icon: '',
                     label: 'Discount Percentage',
                     value: discount,
                     maxValue: 50,
@@ -208,13 +247,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: AppColors.muted, fontWeight: FontWeight.w600)),
+              child: Text('Cancel',
+                  style: GoogleFonts.plusJakartaSans(
+                      color: AppColors.muted, fontWeight: FontWeight.w600)),
             ),
             ElevatedButton(
               onPressed: () async {
                 if (name.isEmpty || emoji.isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: const Text('Please enter tier name and emoji'), backgroundColor: AppColors.danger, duration: const Duration(seconds: 2)),
+                    SnackBar(
+                        content: const Text('Please enter tier name and emoji'),
+                        backgroundColor: AppColors.danger,
+                        duration: const Duration(seconds: 2)),
                   );
                   return;
                 }
@@ -234,23 +278,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     Navigator.pop(context);
                     _loadTiers();
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('✓ Tier "${name}" added successfully!'), backgroundColor: AppColors.success, duration: const Duration(seconds: 2)),
+                      SnackBar(
+                          content: Text('✓ Tier "${name}" added successfully!'),
+                          backgroundColor: AppColors.success,
+                          duration: const Duration(seconds: 2)),
                     );
                   }
                 } catch (e) {
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.danger, duration: const Duration(seconds: 3)),
+                      SnackBar(
+                          content: Text('Error: $e'),
+                          backgroundColor: AppColors.danger,
+                          duration: const Duration(seconds: 3)),
                     );
                   }
                 }
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
               ),
-              child: Text('Add Tier', style: GoogleFonts.plusJakartaSans(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+              child: Text('Add Tier',
+                  style: GoogleFonts.plusJakartaSans(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14)),
             ),
           ],
         ),
@@ -271,11 +327,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
       builder: (_) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
           backgroundColor: AppColors.card,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: Row(
             children: [
               Text('${tier.emoji} ', style: const TextStyle(fontSize: 24)),
-              Text('Edit Tier', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 20, color: AppColors.primary)),
+              Text('Edit Tier',
+                  style: GoogleFonts.outfit(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 20,
+                      color: AppColors.primary)),
             ],
           ),
           content: SingleChildScrollView(
@@ -290,7 +351,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     decoration: BoxDecoration(
                       color: AppColors.bg,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                      border:
+                          Border.all(color: AppColors.primary.withOpacity(0.3)),
                     ),
                     child: Row(
                       children: [
@@ -300,10 +362,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(name, 
-                                style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.primary)),
-                              Text('${discount}% OFF', 
-                                style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.gold, fontWeight: FontWeight.bold)),
+                              Text(name,
+                                  style: GoogleFonts.outfit(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                      color: AppColors.primary)),
+                              Text('${discount}% OFF',
+                                  style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 12,
+                                      color: AppColors.gold,
+                                      fontWeight: FontWeight.bold)),
                             ],
                           ),
                         ),
@@ -314,12 +382,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                   // Name & Emoji Fields
                   TextField(
-                    style: GoogleFonts.plusJakartaSans(color: AppColors.textColor, fontWeight: FontWeight.w600),
+                    style: GoogleFonts.plusJakartaSans(
+                        color: AppColors.textColor,
+                        fontWeight: FontWeight.w600),
                     controller: TextEditingController(text: name),
                     decoration: InputDecoration(
                       labelText: 'Tier Name',
                       prefixIcon: const Icon(Icons.label),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10)),
                       filled: true,
                       fillColor: AppColors.bg,
                     ),
@@ -327,12 +398,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const SizedBox(height: 12),
                   TextField(
-                    style: GoogleFonts.plusJakartaSans(color: AppColors.textColor, fontWeight: FontWeight.w600),
+                    style: GoogleFonts.plusJakartaSans(
+                        color: AppColors.textColor,
+                        fontWeight: FontWeight.w600),
                     controller: TextEditingController(text: emoji),
                     decoration: InputDecoration(
                       labelText: 'Emoji',
                       prefixIcon: const Icon(Icons.emoji_emotions),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10)),
                       filled: true,
                       fillColor: AppColors.bg,
                     ),
@@ -368,7 +442,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     value: minRating,
                     maxValue: 5,
                     divisions: 50,
-                    onChanged: (v) => setState(() => minRating = double.parse(v.toStringAsFixed(1))),
+                    onChanged: (v) => setState(
+                        () => minRating = double.parse(v.toStringAsFixed(1))),
                     isRating: true,
                   ),
                   const SizedBox(height: 12),
@@ -389,13 +464,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: AppColors.muted, fontWeight: FontWeight.w600)),
+              child: Text('Cancel',
+                  style: GoogleFonts.plusJakartaSans(
+                      color: AppColors.muted, fontWeight: FontWeight.w600)),
             ),
             ElevatedButton(
               onPressed: () async {
                 if (name.isEmpty || emoji.isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: const Text('Please enter tier name and emoji'), backgroundColor: AppColors.danger, duration: const Duration(seconds: 2)),
+                    SnackBar(
+                        content: const Text('Please enter tier name and emoji'),
+                        backgroundColor: AppColors.danger,
+                        duration: const Duration(seconds: 2)),
                   );
                   return;
                 }
@@ -413,23 +493,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     Navigator.pop(context);
                     _loadTiers();
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('✓ Tier "${name}" updated successfully!'), backgroundColor: AppColors.success, duration: const Duration(seconds: 2)),
+                      SnackBar(
+                          content:
+                              Text('✓ Tier "${name}" updated successfully!'),
+                          backgroundColor: AppColors.success,
+                          duration: const Duration(seconds: 2)),
                     );
                   }
                 } catch (e) {
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.danger, duration: const Duration(seconds: 3)),
+                      SnackBar(
+                          content: Text('Error: $e'),
+                          backgroundColor: AppColors.danger,
+                          duration: const Duration(seconds: 3)),
                     );
                   }
                 }
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
               ),
-              child: Text('Save Changes', style: GoogleFonts.plusJakartaSans(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+              child: Text('Save Changes',
+                  style: GoogleFonts.plusJakartaSans(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14)),
             ),
           ],
         ),
@@ -443,13 +536,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
       builder: (_) => AlertDialog(
         backgroundColor: AppColors.card,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text('Delete Tier?', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: AppColors.danger)),
-        content: Text('Are you sure you want to delete ${tier.emoji} ${tier.name}?', 
-          style: GoogleFonts.plusJakartaSans(color: AppColors.textColor)),
+        title: Text('Delete Tier?',
+            style: GoogleFonts.outfit(
+                fontWeight: FontWeight.bold, color: AppColors.danger)),
+        content: Text(
+            'Are you sure you want to delete ${tier.emoji} ${tier.name}?',
+            style: GoogleFonts.plusJakartaSans(color: AppColors.textColor)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: AppColors.muted)),
+            child: Text('Cancel',
+                style: GoogleFonts.plusJakartaSans(color: AppColors.muted)),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -459,17 +556,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Navigator.pop(context);
                   _loadTiers();
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Tier deleted! ✓'), backgroundColor: AppColors.success),
+                    SnackBar(
+                        content: Text('Tier deleted! ✓'),
+                        backgroundColor: AppColors.success),
                   );
                 }
               } catch (e) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.danger),
+                  SnackBar(
+                      content: Text('Error: $e'),
+                      backgroundColor: AppColors.danger),
                 );
               }
             },
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
-            child: Text('Delete', style: GoogleFonts.plusJakartaSans(color: Colors.white, fontWeight: FontWeight.bold)),
+            child: Text('Delete',
+                style: GoogleFonts.plusJakartaSans(
+                    color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -502,7 +605,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _checkingUpdate = true);
     await Future.delayed(const Duration(milliseconds: 600));
     final updateInfo = await UpdateService().checkForUpdate();
-    
+
     if (!mounted) return;
     setState(() => _checkingUpdate = false);
 
@@ -510,20 +613,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
       showDialog(
         context: context,
         builder: (_) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           backgroundColor: AppColors.card,
           title: Text(
             'New Update Available',
-            style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: AppColors.textColor),
+            style: GoogleFonts.outfit(
+                fontWeight: FontWeight.bold, color: AppColors.textColor),
           ),
           content: Text(
             'Version ${updateInfo.latestVersion} is ready to install.\n\nNotes:\n${updateInfo.changelog ?? "Bug fixes and performance improvements."}',
-            style: GoogleFonts.plusJakartaSans(color: AppColors.muted, fontSize: 13, height: 1.4),
+            style: GoogleFonts.plusJakartaSans(
+                color: AppColors.muted, fontSize: 13, height: 1.4),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text('Close', style: GoogleFonts.plusJakartaSans(color: AppColors.muted, fontWeight: FontWeight.bold)),
+              child: Text('Close',
+                  style: GoogleFonts.plusJakartaSans(
+                      color: AppColors.muted, fontWeight: FontWeight.bold)),
             ),
             ElevatedButton(
               onPressed: () {
@@ -538,9 +646,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
               ),
-              child: Text('Update Now', style: GoogleFonts.plusJakartaSans(color: Colors.white, fontWeight: FontWeight.bold)),
+              child: Text('Update Now',
+                  style: GoogleFonts.plusJakartaSans(
+                      color: Colors.white, fontWeight: FontWeight.bold)),
             ),
           ],
         ),
@@ -550,17 +661,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
         SnackBar(
           content: Row(
             children: [
-              const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+              const Icon(Icons.check_circle_rounded,
+                  color: Colors.white, size: 20),
               const SizedBox(width: 10),
               Text(
                 'Your app is fully up-to-date!',
-                style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600, color: Colors.white),
+                style: GoogleFonts.plusJakartaSans(
+                    fontWeight: FontWeight.w600, color: Colors.white),
               ),
             ],
           ),
           backgroundColor: AppColors.success,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           duration: const Duration(seconds: 2),
         ),
       );
@@ -575,29 +689,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(
           'Sign Out?',
-          style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: AppColors.textColor),
+          style: GoogleFonts.outfit(
+              fontWeight: FontWeight.bold, color: AppColors.textColor),
         ),
         content: Text(
           'Are you sure you want to log out of your Ceylux Clothing account?',
-          style: GoogleFonts.plusJakartaSans(color: AppColors.muted, height: 1.4, fontSize: 13),
+          style: GoogleFonts.plusJakartaSans(
+              color: AppColors.muted, height: 1.4, fontSize: 13),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: AppColors.muted, fontWeight: FontWeight.w600)),
+            child: Text('Cancel',
+                style: GoogleFonts.plusJakartaSans(
+                    color: AppColors.muted, fontWeight: FontWeight.w600)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text('Log Out', style: GoogleFonts.plusJakartaSans(color: AppColors.danger, fontWeight: FontWeight.bold)),
+            child: Text('Log Out',
+                style: GoogleFonts.plusJakartaSans(
+                    color: AppColors.danger, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
     );
     if (ok != true) return;
-    
+
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
-    
+
     if (mounted) {
       Navigator.pushAndRemoveUntil(
         context,
@@ -607,7 +727,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  Future<void> _editInvoiceField(String fieldName, String key, String defaultValue) async {
+  Future<void> _editInvoiceField(
+      String fieldName, String key, String defaultValue) async {
     final prefs = await SharedPreferences.getInstance();
     final currentValue = prefs.getString(key) ?? defaultValue;
     final ctrl = TextEditingController(text: currentValue);
@@ -619,12 +740,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(
           'Edit $fieldName',
-          style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: AppColors.textColor),
+          style: GoogleFonts.outfit(
+              fontWeight: FontWeight.bold, color: AppColors.textColor),
         ),
         content: TextField(
           controller: ctrl,
           maxLines: fieldName.contains('Footer') ? 3 : 1,
-          style: GoogleFonts.plusJakartaSans(color: AppColors.textColor, fontSize: 13),
+          style: GoogleFonts.plusJakartaSans(
+              color: AppColors.textColor, fontSize: 13),
           decoration: InputDecoration(
             hintText: defaultValue,
             hintStyle: GoogleFonts.plusJakartaSans(color: AppColors.muted),
@@ -647,26 +770,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: AppColors.muted, fontWeight: FontWeight.w600)),
+            child: Text('Cancel',
+                style: GoogleFonts.plusJakartaSans(
+                    color: AppColors.muted, fontWeight: FontWeight.w600)),
           ),
           TextButton(
             onPressed: () async {
-              await prefs.setString(key, ctrl.text.isEmpty ? defaultValue : ctrl.text);
+              await prefs.setString(
+                  key, ctrl.text.isEmpty ? defaultValue : ctrl.text);
               if (mounted) {
                 Navigator.pop(context);
                 setState(() {});
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('$fieldName updated!', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600)),
+                    content: Text('$fieldName updated!',
+                        style: GoogleFonts.plusJakartaSans(
+                            fontWeight: FontWeight.w600)),
                     backgroundColor: AppColors.success,
                     behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
                     duration: const Duration(seconds: 2),
                   ),
                 );
               }
             },
-            child: Text('Save', style: GoogleFonts.plusJakartaSans(color: AppColors.gold, fontWeight: FontWeight.bold)),
+            child: Text('Save',
+                style: GoogleFonts.plusJakartaSans(
+                    color: AppColors.gold, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -677,21 +808,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
     try {
       final picker = ImagePicker();
       final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-      
+
       if (pickedFile != null) {
         final file = File(pickedFile.path);
         final bytes = await file.readAsBytes();
-        
+
         // Check file size (max 2MB)
         if (bytes.length > 2 * 1024 * 1024) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text('File is too large. Max 2MB allowed.',
-                  style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600)),
+                    style: GoogleFonts.plusJakartaSans(
+                        fontWeight: FontWeight.w600)),
                 backgroundColor: AppColors.danger,
                 behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
               ),
             );
           }
@@ -700,7 +833,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
         // Copy logo file to local app documents directory for persistence
         final docsDir = await getApplicationDocumentsDirectory();
-        final fileName = 'invoice_logo_${DateTime.now().millisecondsSinceEpoch}.jpg';
+        final fileName =
+            'invoice_logo_${DateTime.now().millisecondsSinceEpoch}.jpg';
         final localFile = File('${docsDir.path}/$fileName');
         await file.copy(localFile.path);
 
@@ -716,7 +850,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           } catch (_) {}
         }
         await prefs.setString('invoice_logo_path', localFile.path);
-        
+
         if (mounted) {
           setState(() {});
           ScaffoldMessenger.of(context).showSnackBar(
@@ -726,12 +860,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Icon(Icons.check_circle, color: Colors.white, size: 20),
                   const SizedBox(width: 10),
                   Text('Logo uploaded successfully!',
-                    style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600)),
+                      style: GoogleFonts.plusJakartaSans(
+                          fontWeight: FontWeight.w600)),
                 ],
               ),
               backgroundColor: AppColors.success,
               behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
               duration: const Duration(seconds: 2),
             ),
           );
@@ -742,7 +878,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error uploading logo: $e',
-              style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600)),
+                style:
+                    GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600)),
             backgroundColor: AppColors.danger,
             behavior: SnackBarBehavior.floating,
           ),
@@ -762,22 +899,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (result != null && result.files.single.path != null) {
         final filePath = result.files.single.path!;
         final file = File(filePath);
-        
+
         // Validate file exists and read it
         if (await file.exists()) {
           final content = await file.readAsString();
-          
+
           // Basic validation - check if it contains HTML
           if (content.contains('html') || content.contains('{{')) {
             // Copy template file to local app documents directory for persistence
             final docsDir = await getApplicationDocumentsDirectory();
-            final localFile = File('${docsDir.path}/uploaded_receipt_template.html');
+            final localFile =
+                File('${docsDir.path}/uploaded_receipt_template.html');
             await file.copy(localFile.path);
 
             // Save template file path to shared preferences
             final prefs = await SharedPreferences.getInstance();
             await prefs.setString('receipt_template_path', localFile.path);
-            
+
             if (mounted) {
               setState(() {});
               ScaffoldMessenger.of(context).showSnackBar(
@@ -787,14 +925,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       Icon(Icons.check_circle, color: Colors.white, size: 20),
                       const SizedBox(width: 10),
                       Expanded(
-                        child: Text('Template uploaded successfully!\nFile: ${result.files.single.name}',
-                          style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600)),
+                        child: Text(
+                            'Template uploaded successfully!\nFile: ${result.files.single.name}',
+                            style: GoogleFonts.plusJakartaSans(
+                                fontWeight: FontWeight.w600)),
                       ),
                     ],
                   ),
                   backgroundColor: AppColors.success,
                   behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
                   duration: const Duration(seconds: 3),
                 ),
               );
@@ -803,11 +944,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('Invalid template file. Must be HTML format with template variables.',
-                    style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600)),
+                  content: Text(
+                      'Invalid template file. Must be HTML format with template variables.',
+                      style: GoogleFonts.plusJakartaSans(
+                          fontWeight: FontWeight.w600)),
                   backgroundColor: AppColors.danger,
                   behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
                 ),
               );
             }
@@ -819,7 +963,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error uploading template: $e',
-              style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600)),
+                style:
+                    GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600)),
             backgroundColor: AppColors.danger,
             behavior: SnackBarBehavior.floating,
           ),
@@ -849,13 +994,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
       );
 
       final html = await InvoiceService.getHTMLReceipt(sampleOrder);
-      
+
       if (html == null || html.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Template not found. Please upload an HTML template first.',
-                style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600)),
+              content: Text(
+                  'Template not found. Please upload an HTML template first.',
+                  style:
+                      GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600)),
               backgroundColor: AppColors.danger,
               behavior: SnackBarBehavior.floating,
             ),
@@ -870,7 +1017,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           MaterialPageRoute(
             builder: (_) => Scaffold(
               appBar: AppBar(
-                title: Text('Preview Receipt', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+                title: Text('Preview Receipt',
+                    style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
                 backgroundColor: AppColors.primary,
                 elevation: 0,
               ),
@@ -886,7 +1034,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error previewing template: $e',
-              style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600)),
+                style:
+                    GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600)),
             backgroundColor: AppColors.danger,
             behavior: SnackBarBehavior.floating,
           ),
@@ -961,7 +1110,8 @@ Save as HTML file and upload in settings to use custom template.
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(
           'Receipt Template Guide',
-          style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: AppColors.textColor),
+          style: GoogleFonts.outfit(
+              fontWeight: FontWeight.bold, color: AppColors.textColor),
         ),
         content: SingleChildScrollView(
           child: Text(
@@ -976,7 +1126,9 @@ Save as HTML file and upload in settings to use custom template.
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Close', style: GoogleFonts.plusJakartaSans(color: AppColors.gold, fontWeight: FontWeight.bold)),
+            child: Text('Close',
+                style: GoogleFonts.plusJakartaSans(
+                    color: AppColors.gold, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -1010,70 +1162,76 @@ Save as HTML file and upload in settings to use custom template.
                   ),
                 ],
               ),
-            child: Row(
-              children: [
-                Container(
-                  width: 58,
-                  height: 58,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.18),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white.withOpacity(0.4), width: 1.5),
-                    image: _profileImagePath != null && File(_profileImagePath!).existsSync()
-                        ? DecorationImage(
-                            image: FileImage(File(_profileImagePath!)),
-                            fit: BoxFit.cover,
+              child: Row(
+                children: [
+                  Container(
+                    width: 58,
+                    height: 58,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.18),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                          color: Colors.white.withOpacity(0.4), width: 1.5),
+                      image: _profileImagePath != null &&
+                              File(_profileImagePath!).existsSync()
+                          ? DecorationImage(
+                              image: FileImage(File(_profileImagePath!)),
+                              fit: BoxFit.cover,
+                            )
+                          : null,
+                    ),
+                    child: _profileImagePath == null ||
+                            !File(_profileImagePath!).existsSync()
+                        ? Center(
+                            child: Text(
+                              _userName.isNotEmpty
+                                  ? _userName[0].toUpperCase()
+                                  : 'U',
+                              style: GoogleFonts.outfit(
+                                color: Colors.white,
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           )
                         : null,
                   ),
-                  child: _profileImagePath == null || !File(_profileImagePath!).existsSync()
-                      ? Center(
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _userName,
+                          style: GoogleFonts.outfit(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                           child: Text(
-                            _userName.isNotEmpty ? _userName[0].toUpperCase() : 'U',
-                            style: GoogleFonts.outfit(
-                              color: Colors.white,
-                              fontSize: 24,
+                            _userRole.toUpperCase(),
+                            style: GoogleFonts.plusJakartaSans(
+                              color: Colors.white.withOpacity(0.9),
+                              fontSize: 9,
                               fontWeight: FontWeight.bold,
+                              letterSpacing: 0.8,
                             ),
                           ),
-                        )
-                      : null,
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _userName,
-                        style: GoogleFonts.outfit(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
                         ),
-                      ),
-                      const SizedBox(height: 3),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          _userRole.toUpperCase(),
-                          style: GoogleFonts.plusJakartaSans(
-                            color: Colors.white.withOpacity(0.9),
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.8,
-                          ),
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 24),
@@ -1127,7 +1285,7 @@ Save as HTML file and upload in settings to use custom template.
           ),
           const SizedBox(height: 10),
           _buildExpandableSection(
-            title: 'MANAGE TIERS (Database)',
+            title: 'MANAGE TIERS',
             isExpanded: _isTierExpanded,
             onToggle: () => setState(() => _isTierExpanded = !_isTierExpanded),
             child: CeyluxCard(
@@ -1164,22 +1322,30 @@ Save as HTML file and upload in settings to use custom template.
                       ),
                       ElevatedButton.icon(
                         onPressed: _showAddTierDialog,
-                        icon: const Icon(Icons.add, size: 16, color: Colors.white),
-                        label: Text('Add Tier', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
+                        icon: const Icon(Icons.add,
+                            size: 16, color: Colors.white),
+                        label: Text('Add Tier',
+                            style: GoogleFonts.plusJakartaSans(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white)),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 12),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 20),
-                  
                   if (_loadingTiers)
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 20),
-                      child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+                      child: Center(
+                          child: CircularProgressIndicator(
+                              color: AppColors.primary)),
                     )
                   else if (_tiers.isEmpty)
                     Padding(
@@ -1187,7 +1353,8 @@ Save as HTML file and upload in settings to use custom template.
                       child: Center(
                         child: Text(
                           'No tiers yet. Create your first tier!',
-                          style: GoogleFonts.plusJakartaSans(color: AppColors.muted, fontSize: 12),
+                          style: GoogleFonts.plusJakartaSans(
+                              color: AppColors.muted, fontSize: 12),
                         ),
                       ),
                     )
@@ -1196,7 +1363,8 @@ Save as HTML file and upload in settings to use custom template.
                       shrinkWrap: true,
                       physics: NeverScrollableScrollPhysics(),
                       itemCount: _tiers.length,
-                      separatorBuilder: (_, __) => Divider(color: AppColors.border, height: 12),
+                      separatorBuilder: (_, __) =>
+                          Divider(color: AppColors.border, height: 12),
                       itemBuilder: (_, i) {
                         final tier = _tiers[i];
                         return GestureDetector(
@@ -1212,20 +1380,24 @@ Save as HTML file and upload in settings to use custom template.
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
                                     Expanded(
                                       child: Row(
                                         children: [
-                                          Text(tier.emoji, style: TextStyle(fontSize: 20)),
+                                          Text(tier.emoji,
+                                              style: TextStyle(fontSize: 20)),
                                           const SizedBox(width: 8),
                                           Expanded(
                                             child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
                                               children: [
                                                 Text(
                                                   tier.name,
-                                                  style: GoogleFonts.plusJakartaSans(
+                                                  style: GoogleFonts
+                                                      .plusJakartaSans(
                                                     fontSize: 13,
                                                     fontWeight: FontWeight.bold,
                                                     color: AppColors.textColor,
@@ -1234,16 +1406,24 @@ Save as HTML file and upload in settings to use custom template.
                                                 Row(
                                                   children: [
                                                     Container(
-                                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                                      padding: const EdgeInsets
+                                                          .symmetric(
+                                                          horizontal: 8,
+                                                          vertical: 2),
                                                       decoration: BoxDecoration(
-                                                        color: AppColors.gold.withOpacity(0.15),
-                                                        borderRadius: BorderRadius.circular(6),
+                                                        color: AppColors.gold
+                                                            .withOpacity(0.15),
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(6),
                                                       ),
                                                       child: Text(
                                                         '${tier.discountPercentage}% OFF',
-                                                        style: GoogleFonts.plusJakartaSans(
+                                                        style: GoogleFonts
+                                                            .plusJakartaSans(
                                                           fontSize: 10,
-                                                          fontWeight: FontWeight.bold,
+                                                          fontWeight:
+                                                              FontWeight.bold,
                                                           color: AppColors.gold,
                                                         ),
                                                       ),
@@ -1257,26 +1437,53 @@ Save as HTML file and upload in settings to use custom template.
                                       ),
                                     ),
                                     PopupMenuButton(
+                                      icon: Icon(Icons.more_vert,
+                                          color: AppColors.primary, size: 20),
+                                      color: AppColors.card,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        side:
+                                            BorderSide(color: AppColors.border),
+                                      ),
                                       itemBuilder: (_) => [
                                         PopupMenuItem(
                                           child: Row(
                                             children: [
-                                              Icon(Icons.edit, size: 16, color: AppColors.primary),
+                                              Icon(Icons.edit,
+                                                  size: 16,
+                                                  color: AppColors.primary),
                                               const SizedBox(width: 8),
-                                              Text('Edit'),
+                                              Text('Edit',
+                                                  style: GoogleFonts
+                                                      .plusJakartaSans(
+                                                    color: AppColors.textColor,
+                                                    fontWeight: FontWeight.w600,
+                                                  )),
                                             ],
                                           ),
-                                          onTap: () => Future.delayed(Duration(milliseconds: 100), () => _showEditTierDialog(tier)),
+                                          onTap: () => Future.delayed(
+                                              Duration(milliseconds: 100),
+                                              () => _showEditTierDialog(tier)),
                                         ),
                                         PopupMenuItem(
                                           child: Row(
                                             children: [
-                                              Icon(Icons.delete, size: 16, color: AppColors.danger),
+                                              Icon(Icons.delete,
+                                                  size: 16,
+                                                  color: AppColors.danger),
                                               const SizedBox(width: 8),
-                                              Text('Delete'),
+                                              Text('Delete',
+                                                  style: GoogleFonts
+                                                      .plusJakartaSans(
+                                                    color: AppColors.danger,
+                                                    fontWeight: FontWeight.w600,
+                                                  )),
                                             ],
                                           ),
-                                          onTap: () => Future.delayed(Duration(milliseconds: 100), () => _showDeleteTierDialog(tier)),
+                                          onTap: () => Future.delayed(
+                                              Duration(milliseconds: 100),
+                                              () =>
+                                                  _showDeleteTierDialog(tier)),
                                         ),
                                       ],
                                     ),
@@ -1288,19 +1495,26 @@ Save as HTML file and upload in settings to use custom template.
                                     Expanded(
                                       child: Text(
                                         '📦 ${tier.minOrders} orders',
-                                        style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.muted),
+                                        style: GoogleFonts.plusJakartaSans(
+                                            fontSize: 10,
+                                            color: AppColors.muted),
                                       ),
                                     ),
                                     Expanded(
                                       child: Text(
                                         '💰 Rs.${NumberFormat('#,###').format(tier.minSpent)}',
-                                        style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.muted, fontWeight: FontWeight.w600),
+                                        style: GoogleFonts.plusJakartaSans(
+                                            fontSize: 10,
+                                            color: AppColors.muted,
+                                            fontWeight: FontWeight.w600),
                                       ),
                                     ),
                                     Expanded(
                                       child: Text(
                                         '⭐ ${tier.minRating}/5',
-                                        style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.muted),
+                                        style: GoogleFonts.plusJakartaSans(
+                                            fontSize: 10,
+                                            color: AppColors.muted),
                                       ),
                                     ),
                                   ],
@@ -1321,388 +1535,484 @@ Save as HTML file and upload in settings to use custom template.
           _buildExpandableSection(
             title: 'INVOICE & RECEIPTS',
             isExpanded: _isInvoiceExpanded,
-            onToggle: () => setState(() => _isInvoiceExpanded = !_isInvoiceExpanded),
+            onToggle: () =>
+                setState(() => _isInvoiceExpanded = !_isInvoiceExpanded),
             child: CeyluxCard(
               padding: const EdgeInsets.all(16),
               child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Logo Upload
-                GestureDetector(
-                  onTap: _pickLogoImage,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Logo for PDF',
-                        style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textColor)),
-                      const SizedBox(height: 8),
-                      FutureBuilder<String?>(
-                        future: SharedPreferences.getInstance()
-                            .then((p) => p.getString('invoice_logo_path')),
-                        builder: (_, snap) {
-                          final logoPath = snap.data;
-                          final hasLogo = logoPath != null && logoPath.isNotEmpty && File(logoPath).existsSync();
-                          
-                          return Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                            decoration: BoxDecoration(
-                              color: AppColors.bg,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: AppColors.border),
-                            ),
-                            child: Row(
-                              children: [
-                                if (hasLogo)
-                                  Container(
-                                    width: 40,
-                                    height: 40,
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(color: AppColors.border),
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Logo Upload
+                  GestureDetector(
+                    onTap: _pickLogoImage,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Logo for PDF',
+                            style: GoogleFonts.plusJakartaSans(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textColor)),
+                        const SizedBox(height: 8),
+                        FutureBuilder<String?>(
+                          future: SharedPreferences.getInstance()
+                              .then((p) => p.getString('invoice_logo_path')),
+                          builder: (_, snap) {
+                            final logoPath = snap.data;
+                            final hasLogo = logoPath != null &&
+                                logoPath.isNotEmpty &&
+                                File(logoPath).existsSync();
+
+                            return Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: AppColors.bg,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: AppColors.border),
+                              ),
+                              child: Row(
+                                children: [
+                                  if (hasLogo)
+                                    Container(
+                                      width: 40,
+                                      height: 40,
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(6),
+                                        border:
+                                            Border.all(color: AppColors.border),
+                                      ),
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(6),
+                                        child: Image.file(File(logoPath!),
+                                            fit: BoxFit.cover),
+                                      ),
+                                    )
+                                  else
+                                    Container(
+                                      width: 40,
+                                      height: 40,
+                                      decoration: BoxDecoration(
+                                        color:
+                                            AppColors.border.withOpacity(0.5),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Icon(Icons.image_outlined,
+                                          color: AppColors.muted, size: 20),
                                     ),
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(6),
-                                      child: Image.file(File(logoPath!), fit: BoxFit.cover),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          hasLogo
+                                              ? 'Logo uploaded ✓'
+                                              : 'Click to upload logo',
+                                          style: GoogleFonts.plusJakartaSans(
+                                            fontSize: 12,
+                                            color: hasLogo
+                                                ? AppColors.success
+                                                : AppColors.muted,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          'PNG or JPG (max 2MB)',
+                                          style: GoogleFonts.plusJakartaSans(
+                                            fontSize: 10,
+                                            color: AppColors.muted,
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                  )
-                                else
-                                  Container(
-                                    width: 40,
-                                    height: 40,
-                                    decoration: BoxDecoration(
-                                      color: AppColors.border.withOpacity(0.5),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Icon(Icons.image_outlined, color: AppColors.muted, size: 20),
                                   ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                  if (hasLogo)
+                                    GestureDetector(
+                                      onTap: () async {
+                                        final prefs = await SharedPreferences
+                                            .getInstance();
+                                        final path = prefs
+                                            .getString('invoice_logo_path');
+                                        if (path != null && path.isNotEmpty) {
+                                          try {
+                                            final file = File(path);
+                                            if (await file.exists()) {
+                                              await file.delete();
+                                            }
+                                          } catch (_) {}
+                                        }
+                                        await prefs.remove('invoice_logo_path');
+                                        setState(() {});
+                                      },
+                                      child: Icon(Icons.close,
+                                          size: 20, color: AppColors.danger),
+                                    )
+                                  else
+                                    Icon(Icons.upload_file,
+                                        size: 20, color: AppColors.gold),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Divider(color: AppColors.border, height: 1),
+                  const SizedBox(height: 14),
+
+                  // Receipt Template Upload
+                  GestureDetector(
+                    onTap: _pickTemplateFile,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Receipt Template (HTML)',
+                            style: GoogleFonts.plusJakartaSans(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textColor)),
+                        const SizedBox(height: 8),
+                        FutureBuilder<String?>(
+                          future: SharedPreferences.getInstance().then(
+                              (p) => p.getString('receipt_template_path')),
+                          builder: (_, snap) {
+                            final templatePath = snap.data;
+                            final hasTemplate = templatePath != null &&
+                                templatePath.isNotEmpty &&
+                                File(templatePath).existsSync();
+
+                            return Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: AppColors.bg,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: AppColors.border),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
                                     children: [
-                                      Text(
-                                        hasLogo ? 'Logo uploaded ✓' : 'Click to upload logo',
+                                      if (hasTemplate)
+                                        Container(
+                                          width: 40,
+                                          height: 40,
+                                          decoration: BoxDecoration(
+                                            color: AppColors.primary
+                                                .withOpacity(0.1),
+                                            borderRadius:
+                                                BorderRadius.circular(6),
+                                          ),
+                                          child: Icon(Icons.code,
+                                              color: AppColors.primary,
+                                              size: 20),
+                                        )
+                                      else
+                                        Container(
+                                          width: 40,
+                                          height: 40,
+                                          decoration: BoxDecoration(
+                                            color: AppColors.border
+                                                .withOpacity(0.5),
+                                            borderRadius:
+                                                BorderRadius.circular(6),
+                                          ),
+                                          child: Icon(Icons.file_present,
+                                              color: AppColors.muted, size: 20),
+                                        ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              hasTemplate
+                                                  ? 'Template uploaded ✓'
+                                                  : 'Click to upload template',
+                                              style:
+                                                  GoogleFonts.plusJakartaSans(
+                                                fontSize: 12,
+                                                color: hasTemplate
+                                                    ? AppColors.success
+                                                    : AppColors.muted,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              hasTemplate
+                                                  ? templatePath!
+                                                      .split('/')
+                                                      .last
+                                                  : 'HTML files only',
+                                              style:
+                                                  GoogleFonts.plusJakartaSans(
+                                                fontSize: 10,
+                                                color: AppColors.muted,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      if (hasTemplate)
+                                        GestureDetector(
+                                          onTap: () async {
+                                            final prefs =
+                                                await SharedPreferences
+                                                    .getInstance();
+                                            final path = prefs.getString(
+                                                'receipt_template_path');
+                                            if (path != null &&
+                                                path.isNotEmpty) {
+                                              try {
+                                                final file = File(path);
+                                                if (await file.exists()) {
+                                                  await file.delete();
+                                                }
+                                              } catch (_) {}
+                                            }
+                                            await prefs.remove(
+                                                'receipt_template_path');
+                                            setState(() {});
+                                          },
+                                          child: Icon(Icons.close,
+                                              size: 20,
+                                              color: AppColors.danger),
+                                        )
+                                      else
+                                        Icon(Icons.upload_file,
+                                            size: 20, color: AppColors.gold),
+                                    ],
+                                  ),
+                                  if (hasTemplate) ...[
+                                    const SizedBox(height: 12),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: GestureDetector(
+                                            onTap: _previewHTMLReceipt,
+                                            child: Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      vertical: 8),
+                                              decoration: BoxDecoration(
+                                                color: AppColors.primary
+                                                    .withOpacity(0.1),
+                                                borderRadius:
+                                                    BorderRadius.circular(6),
+                                                border: Border.all(
+                                                    color: AppColors.primary,
+                                                    width: 0.5),
+                                              ),
+                                              child: Row(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
+                                                children: [
+                                                  Icon(Icons.preview,
+                                                      size: 14,
+                                                      color: AppColors.primary),
+                                                  const SizedBox(width: 6),
+                                                  Text(
+                                                    'Preview',
+                                                    style: GoogleFonts
+                                                        .plusJakartaSans(
+                                                      fontSize: 11,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      color: AppColors.primary,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ] else ...[
+                                    const SizedBox(height: 10),
+                                    GestureDetector(
+                                      onTap: _showTemplateGuide,
+                                      child: Text(
+                                        'View template guide',
                                         style: GoogleFonts.plusJakartaSans(
-                                          fontSize: 12,
-                                          color: hasLogo ? AppColors.success : AppColors.muted,
+                                          fontSize: 10,
+                                          color: AppColors.gold,
                                           fontWeight: FontWeight.w600,
                                         ),
                                       ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        'PNG or JPG (max 2MB)',
-                                        style: GoogleFonts.plusJakartaSans(
-                                          fontSize: 10,
-                                          color: AppColors.muted,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                if (hasLogo)
-                                  GestureDetector(
-                                    onTap: () async {
-                                      final prefs = await SharedPreferences.getInstance();
-                                      final path = prefs.getString('invoice_logo_path');
-                                      if (path != null && path.isNotEmpty) {
-                                        try {
-                                          final file = File(path);
-                                          if (await file.exists()) {
-                                            await file.delete();
-                                          }
-                                        } catch (_) {}
-                                      }
-                                      await prefs.remove('invoice_logo_path');
-                                      setState(() {});
-                                    },
-                                    child: Icon(Icons.close, size: 20, color: AppColors.danger),
-                                  )
-                                else
-                                  Icon(Icons.upload_file, size: 20, color: AppColors.gold),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Divider(color: AppColors.border, height: 1),
-                const SizedBox(height: 14),
-
-                // Receipt Template Upload
-                GestureDetector(
-                  onTap: _pickTemplateFile,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Receipt Template (HTML)',
-                        style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textColor)),
-                      const SizedBox(height: 8),
-                      FutureBuilder<String?>(
-                        future: SharedPreferences.getInstance()
-                            .then((p) => p.getString('receipt_template_path')),
-                        builder: (_, snap) {
-                          final templatePath = snap.data;
-                          final hasTemplate = templatePath != null && templatePath.isNotEmpty && File(templatePath).existsSync();
-                          
-                          return Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                            decoration: BoxDecoration(
-                              color: AppColors.bg,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: AppColors.border),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    if (hasTemplate)
-                                      Container(
-                                        width: 40,
-                                        height: 40,
-                                        decoration: BoxDecoration(
-                                          color: AppColors.primary.withOpacity(0.1),
-                                          borderRadius: BorderRadius.circular(6),
-                                        ),
-                                        child: Icon(Icons.code, color: AppColors.primary, size: 20),
-                                      )
-                                    else
-                                      Container(
-                                        width: 40,
-                                        height: 40,
-                                        decoration: BoxDecoration(
-                                          color: AppColors.border.withOpacity(0.5),
-                                          borderRadius: BorderRadius.circular(6),
-                                        ),
-                                        child: Icon(Icons.file_present, color: AppColors.muted, size: 20),
-                                      ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            hasTemplate ? 'Template uploaded ✓' : 'Click to upload template',
-                                            style: GoogleFonts.plusJakartaSans(
-                                              fontSize: 12,
-                                              color: hasTemplate ? AppColors.success : AppColors.muted,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 2),
-                                          Text(
-                                            hasTemplate ? templatePath!.split('/').last : 'HTML files only',
-                                            style: GoogleFonts.plusJakartaSans(
-                                              fontSize: 10,
-                                              color: AppColors.muted,
-                                            ),
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ],
-                                      ),
                                     ),
-                                    if (hasTemplate)
-                                      GestureDetector(
-                                        onTap: () async {
-                                          final prefs = await SharedPreferences.getInstance();
-                                          final path = prefs.getString('receipt_template_path');
-                                          if (path != null && path.isNotEmpty) {
-                                            try {
-                                              final file = File(path);
-                                              if (await file.exists()) {
-                                                await file.delete();
-                                              }
-                                            } catch (_) {}
-                                          }
-                                          await prefs.remove('receipt_template_path');
-                                          setState(() {});
-                                        },
-                                        child: Icon(Icons.close, size: 20, color: AppColors.danger),
-                                      )
-                                    else
-                                      Icon(Icons.upload_file, size: 20, color: AppColors.gold),
-                                  ],
-                                ),
-                                if (hasTemplate) ...[
-                                  const SizedBox(height: 12),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: GestureDetector(
-                                          onTap: _previewHTMLReceipt,
-                                          child: Container(
-                                            padding: const EdgeInsets.symmetric(vertical: 8),
-                                            decoration: BoxDecoration(
-                                              color: AppColors.primary.withOpacity(0.1),
-                                              borderRadius: BorderRadius.circular(6),
-                                              border: Border.all(color: AppColors.primary, width: 0.5),
-                                            ),
-                                            child: Row(
-                                              mainAxisAlignment: MainAxisAlignment.center,
-                                              children: [
-                                                Icon(Icons.preview, size: 14, color: AppColors.primary),
-                                                const SizedBox(width: 6),
-                                                Text('Preview', 
-                                                  style: GoogleFonts.plusJakartaSans(
-                                                    fontSize: 11, 
-                                                    fontWeight: FontWeight.w600,
-                                                    color: AppColors.primary,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
+                                  ]
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Divider(color: AppColors.border, height: 1),
+                  const SizedBox(height: 14),
+                  GestureDetector(
+                    onTap: () => _editInvoiceField('Invoice Header',
+                        'invoice_header', 'CEYLUX Fashion Boutique'),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Invoice Header',
+                            style: GoogleFonts.plusJakartaSans(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textColor)),
+                        const SizedBox(height: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: AppColors.bg,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: AppColors.border),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: FutureBuilder<String?>(
+                                  future: SharedPreferences.getInstance().then(
+                                      (p) =>
+                                          p.getString('invoice_header') ??
+                                          'CEYLUX Fashion Boutique'),
+                                  builder: (_, snap) => Text(
+                                    snap.data ?? 'CEYLUX Fashion Boutique',
+                                    style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 12,
+                                        color: AppColors.textColor),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                ] else ...[
-                                  const SizedBox(height: 10),
-                                  GestureDetector(
-                                    onTap: _showTemplateGuide,
-                                    child: Text(
-                                      'View template guide',
-                                      style: GoogleFonts.plusJakartaSans(
-                                        fontSize: 10,
-                                        color: AppColors.gold,
-                                        fontWeight: FontWeight.w600,
-                                      ),
+                                ),
+                              ),
+                              Icon(Icons.edit,
+                                  size: 16, color: AppColors.muted),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Divider(color: AppColors.border, height: 1),
+                  const SizedBox(height: 14),
+                  GestureDetector(
+                    onTap: () => _editInvoiceField(
+                        'Contact Info', 'invoice_contact', '+94 123 456 789'),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Contact Information',
+                            style: GoogleFonts.plusJakartaSans(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textColor)),
+                        const SizedBox(height: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: AppColors.bg,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: AppColors.border),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: FutureBuilder<String?>(
+                                  future: SharedPreferences.getInstance().then(
+                                      (p) =>
+                                          p.getString('invoice_contact') ?? ''),
+                                  builder: (_, snap) => Text(
+                                    snap.data ?? 'No contact info set',
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 12,
+                                      color: snap.data?.isEmpty ?? true
+                                          ? AppColors.muted
+                                          : AppColors.textColor,
                                     ),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                ]
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Divider(color: AppColors.border, height: 1),
-                const SizedBox(height: 14),
-                GestureDetector(
-                  onTap: () => _editInvoiceField('Invoice Header', 'invoice_header', 'CEYLUX Fashion Boutique'),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Invoice Header',
-                        style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textColor)),
-                      const SizedBox(height: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: AppColors.bg,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: AppColors.border),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: FutureBuilder<String?>(
-                                future: SharedPreferences.getInstance()
-                                    .then((p) => p.getString('invoice_header') ?? 'CEYLUX Fashion Boutique'),
-                                builder: (_, snap) => Text(
-                                  snap.data ?? 'CEYLUX Fashion Boutique',
-                                  style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textColor),
-                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
-                            ),
-                            Icon(Icons.edit, size: 16, color: AppColors.muted),
-                          ],
+                              Icon(Icons.edit,
+                                  size: 16, color: AppColors.muted),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 14),
-                Divider(color: AppColors.border, height: 1),
-                const SizedBox(height: 14),
-                GestureDetector(
-                  onTap: () => _editInvoiceField('Contact Info', 'invoice_contact', '+94 123 456 789'),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Contact Information',
-                        style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textColor)),
-                      const SizedBox(height: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: AppColors.bg,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: AppColors.border),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: FutureBuilder<String?>(
-                                future: SharedPreferences.getInstance()
-                                    .then((p) => p.getString('invoice_contact') ?? ''),
-                                builder: (_, snap) => Text(
-                                  snap.data ?? 'No contact info set',
-                                  style: GoogleFonts.plusJakartaSans(
-                                    fontSize: 12,
-                                    color: snap.data?.isEmpty ?? true ? AppColors.muted : AppColors.textColor,
+                  const SizedBox(height: 14),
+                  Divider(color: AppColors.border, height: 1),
+                  const SizedBox(height: 14),
+                  GestureDetector(
+                    onTap: () => _editInvoiceField(
+                        'Invoice Footer',
+                        'invoice_footer',
+                        'Thank you for shopping with CEYLUX!'),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Invoice Footer',
+                            style: GoogleFonts.plusJakartaSans(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textColor)),
+                        const SizedBox(height: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: AppColors.bg,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: AppColors.border),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: FutureBuilder<String?>(
+                                  future: SharedPreferences.getInstance().then(
+                                      (p) =>
+                                          p.getString('invoice_footer') ??
+                                          'Thank you for shopping with CEYLUX!'),
+                                  builder: (_, snap) => Text(
+                                    snap.data ??
+                                        'Thank you for shopping with CEYLUX!',
+                                    style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 12,
+                                        color: AppColors.textColor),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
-                            ),
-                            Icon(Icons.edit, size: 16, color: AppColors.muted),
-                          ],
+                              Icon(Icons.edit,
+                                  size: 16, color: AppColors.muted),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 14),
-                Divider(color: AppColors.border, height: 1),
-                const SizedBox(height: 14),
-                GestureDetector(
-                  onTap: () => _editInvoiceField('Invoice Footer', 'invoice_footer', 'Thank you for shopping with CEYLUX!'),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Invoice Footer',
-                        style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textColor)),
-                      const SizedBox(height: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: AppColors.bg,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: AppColors.border),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: FutureBuilder<String?>(
-                                future: SharedPreferences.getInstance()
-                                    .then((p) => p.getString('invoice_footer') ?? 'Thank you for shopping with CEYLUX!'),
-                                builder: (_, snap) => Text(
-                                  snap.data ?? 'Thank you for shopping with CEYLUX!',
-                                  style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textColor),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ),
-                            Icon(Icons.edit, size: 16, color: AppColors.muted),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
-        ),
           const SizedBox(height: 24),
 
           // System Section - Regular (non-expandable)
@@ -1726,11 +2036,13 @@ Save as HTML file and upload in settings to use custom template.
                   title: 'Database Connector',
                   subtitle: 'MySQL API Server synced',
                   trailing: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: AppColors.success.withOpacity(0.12),
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: AppColors.success.withOpacity(0.3)),
+                      border:
+                          Border.all(color: AppColors.success.withOpacity(0.3)),
                     ),
                     child: Text(
                       'ONLINE',
@@ -1775,9 +2087,11 @@ Save as HTML file and upload in settings to use custom template.
                       ? const SizedBox(
                           width: 18,
                           height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: AppColors.primary),
                         )
-                      : Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.muted),
+                      : Icon(Icons.arrow_forward_ios_rounded,
+                          size: 14, color: AppColors.muted),
                 ),
               ],
             ),
@@ -1909,7 +2223,9 @@ Save as HTML file and upload in settings to use custom template.
                     style: GoogleFonts.plusJakartaSans(
                       fontWeight: FontWeight.bold,
                       fontSize: 13,
-                      color: title.contains('Sign Out') ? AppColors.danger : AppColors.textColor,
+                      color: title.contains('Sign Out')
+                          ? AppColors.danger
+                          : AppColors.textColor,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -1976,7 +2292,7 @@ Save as HTML file and upload in settings to use custom template.
           ],
         ),
         const SizedBox(height: 12),
-        
+
         // Orders threshold
         _buildThresholdInput(
           label: 'Minimum Orders',
@@ -2012,7 +2328,8 @@ Save as HTML file and upload in settings to use custom template.
               children: [
                 Expanded(
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 10),
                     decoration: BoxDecoration(
                       color: AppColors.bg,
                       borderRadius: BorderRadius.circular(8),
@@ -2020,7 +2337,8 @@ Save as HTML file and upload in settings to use custom template.
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.star_rounded, color: AppColors.gold, size: 18),
+                        Icon(Icons.star_rounded,
+                            color: AppColors.gold, size: 18),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Slider(
@@ -2039,11 +2357,13 @@ Save as HTML file and upload in settings to use custom template.
                 ),
                 const SizedBox(width: 12),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
                     color: AppColors.primary.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                    border:
+                        Border.all(color: AppColors.primary.withOpacity(0.3)),
                   ),
                   child: Text(
                     '${ratingValue.toStringAsFixed(1)}/5.0',
@@ -2112,7 +2432,8 @@ Save as HTML file and upload in settings to use custom template.
                   onChanged: onChanged,
                   decoration: InputDecoration(
                     border: InputBorder.none,
-                    hintStyle: GoogleFonts.plusJakartaSans(color: AppColors.muted),
+                    hintStyle:
+                        GoogleFonts.plusJakartaSans(color: AppColors.muted),
                   ),
                 ),
               ),
@@ -2176,7 +2497,8 @@ Save as HTML file and upload in settings to use custom template.
                 right: BorderSide(color: AppColors.border),
                 bottom: BorderSide(color: AppColors.border),
               ),
-              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
+              borderRadius:
+                  const BorderRadius.vertical(bottom: Radius.circular(12)),
             ),
             child: child,
           ),
@@ -2224,17 +2546,26 @@ Save as HTML file and upload in settings to use custom template.
                   children: [
                     Text(icon, style: const TextStyle(fontSize: 18)),
                     const SizedBox(width: 8),
-                    Text(label, style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.muted, fontWeight: FontWeight.w600)),
+                    Text(label,
+                        style: GoogleFonts.plusJakartaSans(
+                            fontSize: 12,
+                            color: AppColors.muted,
+                            fontWeight: FontWeight.w600)),
                   ],
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: AppColors.primary.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: Text(displayValue, style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.primary, fontWeight: FontWeight.bold)),
+                child: Text(displayValue,
+                    style: GoogleFonts.plusJakartaSans(
+                        fontSize: 13,
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.bold)),
               ),
             ],
           ),
