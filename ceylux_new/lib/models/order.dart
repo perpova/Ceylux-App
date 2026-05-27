@@ -30,10 +30,11 @@ class AppOrder {
   final int total;
   final String status;
   final String date;
-  final int discountPercentage;
+  final int discountPercentage; // Bill discount percentage
+  final int loyaltyDiscount; // Loyalty discount percentage (from customer tier)
 
   AppOrder({required this.dbId, required this.id, required this.customerId, required this.customerName,
-    this.customerAddress, this.customerPhone, required this.items, required this.total, required this.status, required this.date, this.discountPercentage = 0});
+    this.customerAddress, this.customerPhone, required this.items, required this.total, required this.status, required this.date, this.discountPercentage = 0, this.loyaltyDiscount = 0});
 
   static int _toInt(dynamic v) {
     if (v == null) return 0;
@@ -75,6 +76,7 @@ class AppOrder {
           ? m['date'].toString().substring(0, 10)
           : m['date']?.toString() ?? '',
       discountPercentage: _toInt(m['discount_percentage']),
+      loyaltyDiscount: _toInt(m['loyalty_discount']),
     );
   }
 
@@ -84,11 +86,11 @@ class AppOrder {
     'customer_address': customerAddress,
     'customer_phone': customerPhone,
     'items': items.map((e) => e.toMap()).toList(),
-    'total': total, 'status': status, 'date': date, 'discount_percentage': discountPercentage,
+    'total': total, 'status': status, 'date': date, 'discount_percentage': discountPercentage, 'loyalty_discount': loyaltyDiscount,
   };
 
   AppOrder copyWith({String? status}) => AppOrder(
     dbId: dbId,
     id: id, customerId: customerId, customerName: customerName,
-    items: items, total: total, status: status ?? this.status, date: date, discountPercentage: discountPercentage);
+    items: items, total: total, status: status ?? this.status, date: date, discountPercentage: discountPercentage, loyaltyDiscount: loyaltyDiscount);
 }

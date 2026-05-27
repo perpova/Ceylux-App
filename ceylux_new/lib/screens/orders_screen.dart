@@ -8,6 +8,7 @@ import '../services/invoice_service.dart';
 import '../models/order.dart';
 import '../models/customer.dart';
 import '../models/stock_item.dart';
+import '../models/tier.dart';
 import '../utils/theme.dart';
 import '../widgets/common_widgets.dart';
 
@@ -488,7 +489,10 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
       // Apply bill discount percentage to the amount after item discounts
       int billDiscountAmount =
           ((subtotal - itemDiscounts) * widget.order.discountPercentage ~/ 100);
-      int newTotal = subtotal - itemDiscounts - billDiscountAmount;
+      // Apply loyalty discount to the amount after item and bill discounts
+      int afterBillDiscount = subtotal - itemDiscounts - billDiscountAmount;
+      int loyaltyDiscountAmount = (afterBillDiscount * widget.order.loyaltyDiscount ~/ 100);
+      int newTotal = subtotal - itemDiscounts - billDiscountAmount - loyaltyDiscountAmount;
 
       final updatedOrder = AppOrder(
         dbId: widget.order.dbId,
@@ -502,6 +506,7 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
         status: widget.order.status,
         date: widget.order.date,
         discountPercentage: widget.order.discountPercentage,
+        loyaltyDiscount: widget.order.loyaltyDiscount,
       );
 
       await svc.updateOrder(widget.order.dbId, updatedOrder);
@@ -550,8 +555,12 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
   int get _billDiscountAmount => ((_totalSubtotal - _totalItemDiscounts) *
       widget.order.discountPercentage ~/
       100);
-  int get _totalAmount =>
+  int get _afterBillDiscount =>
       _totalSubtotal - _totalItemDiscounts - _billDiscountAmount;
+  int get _loyaltyDiscountAmount =>
+      (_afterBillDiscount * widget.order.loyaltyDiscount ~/ 100);
+  int get _totalAmount =>
+      _totalSubtotal - _totalItemDiscounts - _billDiscountAmount - _loyaltyDiscountAmount;
 
   @override
   Widget build(BuildContext context) {
@@ -904,6 +913,22 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
                 ],
               ),
             ],
+            if (widget.order.loyaltyDiscount > 0) ...[
+              const SizedBox(height: 6),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Loyalty Discount (${widget.order.loyaltyDiscount}%)',
+                      style: TextStyle(fontSize: 12, color: AppColors.danger)),
+                  Text(
+                      '−Rs. ${NumberFormat('#,###').format(_loyaltyDiscountAmount)}',
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.danger,
+                          fontWeight: FontWeight.w600)),
+                ],
+              ),
+            ],
             const SizedBox(height: 8),
             Divider(color: AppColors.border, height: 1),
             const SizedBox(height: 8),
@@ -1248,14 +1273,48 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
 
   int _overallDiscount = 0;
   final _overallDiscountCtrl = TextEditingController();
+  
+  int _loyaltyDiscount = 0;
+  final _loyaltyDiscountCtrl = TextEditingController();
 
+  List<Tier> _tiers = [];
   final svc = ApiService();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTiers();
+  }
+
+  Future<void> _loadTiers() async {
+    try {
+      final tiers = await svc.getTiers();
+      if (mounted) {
+        setState(() => _tiers = tiers);
+      }
+    } catch (_) {}
+  }
+
+  int _getCustomerLoyaltyDiscount(Customer c) {
+    if (_tiers.isEmpty) return 0;
+    final sortedTiers = List<Tier>.from(_tiers)
+      ..sort((a, b) => b.discountPercentage.compareTo(a.discountPercentage));
+    for (final tier in sortedTiers) {
+      if (c.totalOrders >= tier.minOrders &&
+          c.totalSpent >= tier.minSpent &&
+          c.ownerRating >= tier.minRating) {
+        return tier.discountPercentage;
+      }
+    }
+    return 0;
+  }
 
   @override
   void dispose() {
     _customerSearchCtrl.dispose();
     _itemSearchCtrl.dispose();
     _overallDiscountCtrl.dispose();
+    _loyaltyDiscountCtrl.dispose();
     super.dispose();
   }
 
@@ -1291,11 +1350,14 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
   }
 
   void _selectCustomer(Customer customer) {
+    final loyaltyDisc = _getCustomerLoyaltyDiscount(customer);
     setState(() {
       _selCustId = customer.id;
       _selCustName = customer.name;
       _selCustAddress = customer.address;
       _selCustPhone = customer.phone;
+      _loyaltyDiscount = loyaltyDisc;
+      _loyaltyDiscountCtrl.text = '$loyaltyDisc';
       _customerSearchCtrl.clear();
       _customerSearch = '';
       _filteredCustomers = _customers;
@@ -1308,6 +1370,8 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
       _selCustName = null;
       _selCustAddress = null;
       _selCustPhone = null;
+      _loyaltyDiscount = 0;
+      _loyaltyDiscountCtrl.clear();
       _customerSearchCtrl.clear();
       _customerSearch = '';
       _filteredCustomers = _customers;
@@ -1392,8 +1456,12 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
       _selectedItems.fold<int>(0, (a, b) => a + _getItemDiscount(b));
   int get _overallDiscountAmt =>
       ((_totalSubtotal - _totalItemDiscounts) * _overallDiscount ~/ 100);
-  int get _grandTotal =>
+  int get _afterBillDiscount =>
       _totalSubtotal - _totalItemDiscounts - _overallDiscountAmt;
+  int get _loyaltyDiscountAmt =>
+      (_afterBillDiscount * _loyaltyDiscount ~/ 100);
+  int get _grandTotal =>
+      _totalSubtotal - _totalItemDiscounts - _overallDiscountAmt - _loyaltyDiscountAmt;
 
   // Group items by item ID (same item, different sizes)
   Map<String, List<Map<String, dynamic>>> _groupItemsByName() {
@@ -1434,8 +1502,9 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
       status: 'Pending',
       date: DateFormat('yyyy-MM-dd').format(now),
       discountPercentage: _overallDiscount,
+      loyaltyDiscount: _loyaltyDiscount,
     );
-    print('DEBUG: Creating order with discountPercentage: $_overallDiscount');
+    print('DEBUG: Creating order with discountPercentage: $_overallDiscount, loyaltyDiscount: $_loyaltyDiscount');
     print('DEBUG: Order toMap: ${o.toMap()}');
     await svc.addOrder(o);
     if (mounted) Navigator.pop(context);
@@ -1680,11 +1749,13 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
                                                             .start,
                                                     children: [
                                                       Text(c.name,
-                                                          style: const TextStyle(
+                                                          style: TextStyle(
                                                               fontSize: 12,
                                                               fontWeight:
                                                                   FontWeight
-                                                                      .w600)),
+                                                                      .w600,
+                                                              color: AppColors
+                                                                  .textColor)),
                                                       Text(c.phone,
                                                           style: TextStyle(
                                                               fontSize: 10,
@@ -1843,12 +1914,13 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
                                                                     .start,
                                                             children: [
                                                               Text(item.name,
-                                                                  style: const TextStyle(
+                                                                  style: TextStyle(
                                                                       fontSize:
                                                                           12,
                                                                       fontWeight:
                                                                           FontWeight
-                                                                              .w600)),
+                                                                              .w600,
+                                                                      color: AppColors.textColor)),
                                                               Text(
                                                                   'Rs. ${item.price}',
                                                                   style: TextStyle(
@@ -1950,10 +2022,12 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
                                             const SizedBox(width: 8),
                                             Expanded(
                                               child: Text(stockItem.name,
-                                                  style: const TextStyle(
+                                                  style: TextStyle(
                                                       fontSize: 13,
                                                       fontWeight:
-                                                          FontWeight.bold)),
+                                                          FontWeight.bold,
+                                                      color: AppColors
+                                                          .textColor)),
                                             ),
                                           ],
                                         ),
@@ -2210,6 +2284,117 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
 
                     const SizedBox(height: 16),
 
+                    // ── Loyalty Discount Section ────────────────────────
+                    if (_selectedItems.isNotEmpty)
+                      Container(
+                        color: AppColors.card,
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('LOYALTY DISCOUNT',
+                                style: TextStyle(
+                                    fontSize: 10,
+                                    color: AppColors.muted,
+                                    letterSpacing: 1,
+                                    fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TextField(
+                                    controller: _loyaltyDiscountCtrl,
+                                    keyboardType: TextInputType.number,
+                                    style: TextStyle(
+                                        color: AppColors.textColor,
+                                        fontSize: 14),
+                                    decoration: InputDecoration(
+                                      hintText: '0',
+                                      hintStyle:
+                                          TextStyle(color: AppColors.muted),
+                                      filled: true,
+                                      fillColor: AppColors.bg,
+                                      suffixText: '%',
+                                      suffixStyle: TextStyle(
+                                          color: AppColors.gold,
+                                          fontWeight: FontWeight.bold),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                        borderSide:
+                                            BorderSide(color: AppColors.border),
+                                      ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                        borderSide:
+                                            BorderSide(color: AppColors.border),
+                                      ),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                        borderSide:
+                                            BorderSide(color: AppColors.gold),
+                                      ),
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                              horizontal: 12, vertical: 10),
+                                    ),
+                                    onChanged: (v) {
+                                      final val = int.tryParse(v) ?? 0;
+                                      setState(() =>
+                                          _loyaltyDiscount = val.clamp(0, 100));
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                ...[5, 10, 15]
+                                    .map((p) => GestureDetector(
+                                          onTap: () {
+                                            if (_loyaltyDiscount == p) {
+                                              _loyaltyDiscountCtrl.clear();
+                                              setState(
+                                                  () => _loyaltyDiscount = 0);
+                                            } else {
+                                              _loyaltyDiscountCtrl.text = '$p';
+                                              setState(
+                                                  () => _loyaltyDiscount = p);
+                                            }
+                                          },
+                                          child: Container(
+                                            margin:
+                                                const EdgeInsets.only(left: 6),
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 10, vertical: 10),
+                                            decoration: BoxDecoration(
+                                              color: _loyaltyDiscount == p
+                                                  ? AppColors.gold
+                                                      .withOpacity(0.15)
+                                                  : AppColors.bg,
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                              border: Border.all(
+                                                color: _loyaltyDiscount == p
+                                                    ? AppColors.gold
+                                                    : AppColors.border,
+                                              ),
+                                            ),
+                                            child: Text('$p%',
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: _loyaltyDiscount == p
+                                                      ? AppColors.gold
+                                                      : AppColors.muted,
+                                                )),
+                                          ),
+                                        ))
+                                    .toList(),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+
+                    const SizedBox(height: 16),
+
                     // ── Total Section ───────────────────────────────────
                     if (_selectedItems.isNotEmpty)
                       Container(
@@ -2224,9 +2409,10 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
                                     style: TextStyle(
                                         color: AppColors.muted, fontSize: 12)),
                                 Text('Rs. ${_totalSubtotal}',
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                         fontSize: 12,
-                                        fontWeight: FontWeight.w600)),
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.textColor)),
                               ],
                             ),
                             if (_totalItemDiscounts > 0) ...[
@@ -2263,15 +2449,33 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
                                 ],
                               ),
                             ],
+                            if (_loyaltyDiscount > 0) ...[
+                              const SizedBox(height: 6),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text('Loyalty Discount ($_loyaltyDiscount%)',
+                                      style: TextStyle(
+                                          color: AppColors.muted,
+                                          fontSize: 12)),
+                                  Text('−Rs. ${_loyaltyDiscountAmt}',
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          color: AppColors.danger)),
+                                ],
+                              ),
+                            ],
                             const Divider(),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text('GRAND TOTAL',
+                                Text('GRAND TOTAL',
                                     style: TextStyle(
                                         fontWeight: FontWeight.bold,
                                         letterSpacing: 1,
-                                        fontSize: 13)),
+                                        fontSize: 13,
+                                        color: AppColors.textColor)),
                                 Text('Rs. ${_grandTotal}',
                                     style: TextStyle(
                                         fontWeight: FontWeight.bold,
@@ -2363,7 +2567,9 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
                                 padding:
                                     const EdgeInsets.symmetric(horizontal: 12),
                                 child: Text(
-                                    '$s (${item.sizes[s] ?? 0} available)'),
+                                    '$s (${item.sizes[s] ?? 0} available)',
+                                    style: TextStyle(
+                                        color: AppColors.textColor)),
                               ),
                             ))
                         .toList(),
@@ -2531,8 +2737,9 @@ class _ItemSettingsDialogState extends State<_ItemSettingsDialog> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(widget.item['item'].name,
-                                style: const TextStyle(
-                                    fontSize: 12, fontWeight: FontWeight.w600)),
+                                style: TextStyle(
+                                    fontSize: 12, fontWeight: FontWeight.w600,
+                                    color: AppColors.textColor)),
                             Text('Size: ${widget.item['size']}',
                                 style: TextStyle(
                                     fontSize: 10, color: AppColors.muted)),

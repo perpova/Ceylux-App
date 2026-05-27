@@ -104,11 +104,13 @@ async function initDB() {
         items JSON,
         total DECIMAL(10,2) DEFAULT 0.00,
         discount_percentage INT DEFAULT 0,
+        loyalty_discount INT DEFAULT 0,
         status VARCHAR(50) DEFAULT 'Pending',
         date VARCHAR(50),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
 
     // 5. tiers table
     await pool.query(`
@@ -345,10 +347,10 @@ app.get('/orders', async (req, res) => {
 
 app.post('/orders', async (req, res) => {
   try {
-    const { order_ref, customer_id, customer_name, customer_address, customer_phone, items, total, status, date, discount_percentage } = req.body;
+    const { order_ref, customer_id, customer_name, customer_address, customer_phone, items, total, status, date, discount_percentage, loyalty_discount } = req.body;
     const [result] = await pool.query(
-      'INSERT INTO orders (order_ref, customer_id, customer_name, customer_address, customer_phone, items, total, status, date, discount_percentage) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [order_ref, customer_id, customer_name, customer_address, customer_phone, JSON.stringify(items), total, status, date, discount_percentage || 0]
+      'INSERT INTO orders (order_ref, customer_id, customer_name, customer_address, customer_phone, items, total, status, date, discount_percentage, loyalty_discount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [order_ref, customer_id, customer_name, customer_address, customer_phone, JSON.stringify(items), total, status, date, discount_percentage || 0, loyalty_discount || 0]
     );
     const [rows] = await pool.query('SELECT * FROM orders WHERE id = ?', [result.insertId]);
 
@@ -379,10 +381,10 @@ app.put('/orders/:id/status', async (req, res) => {
 
 app.put('/orders/:id', async (req, res) => {
   try {
-    const { order_ref, customer_id, customer_name, customer_address, customer_phone, items, total, status, date, discount_percentage } = req.body;
+    const { order_ref, customer_id, customer_name, customer_address, customer_phone, items, total, status, date, discount_percentage, loyalty_discount } = req.body;
     await pool.query(
-      'UPDATE orders SET order_ref = ?, customer_id = ?, customer_name = ?, customer_address = ?, customer_phone = ?, items = ?, total = ?, status = ?, date = ?, discount_percentage = ? WHERE id = ? OR order_ref = ?',
-      [order_ref, customer_id, customer_name, customer_address, customer_phone, JSON.stringify(items), total, status, date, discount_percentage || 0, req.params.id, req.params.id]
+      'UPDATE orders SET order_ref = ?, customer_id = ?, customer_name = ?, customer_address = ?, customer_phone = ?, items = ?, total = ?, status = ?, date = ?, discount_percentage = ?, loyalty_discount = ? WHERE id = ? OR order_ref = ?',
+      [order_ref, customer_id, customer_name, customer_address, customer_phone, JSON.stringify(items), total, status, date, discount_percentage || 0, loyalty_discount || 0, req.params.id, req.params.id]
     );
     const [rows] = await pool.query('SELECT * FROM orders WHERE id = ? OR order_ref = ?', [req.params.id, req.params.id]);
     res.json(rows[0]);

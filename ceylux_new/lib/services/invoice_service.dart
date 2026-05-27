@@ -459,10 +459,16 @@ class InvoiceService {
                 {{/ITEM_DISCOUNTS}}
                 {{#BILL_DISCOUNT}}
                 <div class="summary-row discount">
-                    <span class="label">Discount ({{BILL_DISCOUNT_PERCENT}}%):</span>
+                    <span class="label">Bill Discount ({{BILL_DISCOUNT_PERCENT}}%):</span>
                     <span class="value">- Rs. {{BILL_DISCOUNT}}</span>
                 </div>
                 {{/BILL_DISCOUNT}}
+                {{#LOYALTY_DISCOUNT}}
+                <div class="summary-row discount">
+                    <span class="label">Loyalty Discount ({{LOYALTY_DISCOUNT_PERCENT}}%):</span>
+                    <span class="value">- Rs. {{LOYALTY_DISCOUNT}}</span>
+                </div>
+                {{/LOYALTY_DISCOUNT}}
                 <div class="summary-row total">
                     <span class="label">TOTAL</span>
                     <span class="value">Rs. {{TOTAL}}</span>
@@ -554,7 +560,9 @@ class InvoiceService {
     int subtotal = order.items.fold<int>(0, (sum, item) => sum + item.subtotal);
     int itemDiscounts = order.items.fold<int>(0, (sum, item) => sum + item.discountAmount);
     int billDiscountAmount = ((subtotal - itemDiscounts) * order.discountPercentage) ~/ 100;
-    int totalDiscount = itemDiscounts + billDiscountAmount;
+    int afterBillDiscount = subtotal - itemDiscounts - billDiscountAmount;
+    int loyaltyDiscountAmount = (afterBillDiscount * order.loyaltyDiscount) ~/ 100;
+    int totalDiscount = itemDiscounts + billDiscountAmount + loyaltyDiscountAmount;
     int calculatedTotal = subtotal - totalDiscount;
     
     // Generate items HTML rows with size info included
@@ -599,6 +607,16 @@ class InvoiceService {
       html = html.replaceAll('{{BILL_DISCOUNT_PERCENT}}', '${order.discountPercentage}');
     } else {
       html = html.replaceAll(RegExp(r'\{\{#BILL_DISCOUNT\}\}.*?\{\{/BILL_DISCOUNT\}\}', dotAll: true), '');
+    }
+    
+    // Handle loyalty discount conditional block
+    if (loyaltyDiscountAmount > 0) {
+      html = html.replaceAll('{{#LOYALTY_DISCOUNT}}', '');
+      html = html.replaceAll('{{/LOYALTY_DISCOUNT}}', '');
+      html = html.replaceAll('{{LOYALTY_DISCOUNT}}', NumberFormat('#,###').format(loyaltyDiscountAmount));
+      html = html.replaceAll('{{LOYALTY_DISCOUNT_PERCENT}}', '${order.loyaltyDiscount}');
+    } else {
+      html = html.replaceAll(RegExp(r'\{\{#LOYALTY_DISCOUNT\}\}.*?\{\{/LOYALTY_DISCOUNT\}\}', dotAll: true), '');
     }
     
     html = html.replaceAll('{{TOTAL}}', NumberFormat('#,###').format(calculatedTotal));
