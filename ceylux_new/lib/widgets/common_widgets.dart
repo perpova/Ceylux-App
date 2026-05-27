@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:lottie/lottie.dart';
 import '../utils/theme.dart';
 
 // ── Primary Button ─────────────────────────────────────────────────────────

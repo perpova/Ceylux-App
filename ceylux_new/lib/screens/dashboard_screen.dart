@@ -7,6 +7,7 @@ import '../models/customer.dart';
 import '../models/order.dart';
 import '../utils/theme.dart';
 import '../widgets/common_widgets.dart';
+import '../widgets/animation_widgets.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -203,6 +204,30 @@ class _DashboardScreenState extends State<DashboardScreen>
                       return StreamBuilder<List<Customer>>(
                         stream: svc.customersStream(),
                         builder: (context, custSnap) {
+                          // Check for errors
+                          if (stockSnap.hasError || orderSnap.hasError || custSnap.hasError) {
+                            return SizedBox(
+                              height: 250,
+                              child: ErrorAnimation(
+                                title: 'Network Error',
+                                message: 'Failed to load dashboard data',
+                                onRetry: () {},
+                                size: 120,
+                              ),
+                            );
+                          }
+
+                          // Check for loading
+                          if (!stockSnap.hasData || !orderSnap.hasData || !custSnap.hasData) {
+                            return SizedBox(
+                              height: 250,
+                              child: const LoadingAnimation(
+                                message: 'Loading dashboard...',
+                                size: 120,
+                              ),
+                            );
+                          }
+
                           final stock = stockSnap.data ?? [];
                           final orders = orderSnap.data ?? [];
                           final customers = custSnap.data ?? [];
@@ -257,6 +282,19 @@ class _DashboardScreenState extends State<DashboardScreen>
               StreamBuilder<List<StockItem>>(
                 stream: svc.stockStream(),
                 builder: (context, snap) {
+                  // Error handling
+                  if (snap.hasError) {
+                    return Container(
+                      margin: const EdgeInsets.symmetric(vertical: 12),
+                      child: ErrorAnimation(
+                        title: 'Network Error',
+                        message: 'Failed to load stock alerts',
+                        onRetry: () {},
+                        size: 100,
+                      ),
+                    );
+                  }
+
                   final lowItems = (snap.data ?? [])
                       .where((s) => s.isLowStock || s.isOutOfStock)
                       .toList();
@@ -344,6 +382,19 @@ class _DashboardScreenState extends State<DashboardScreen>
               StreamBuilder<List<AppOrder>>(
                 stream: svc.ordersStream(),
                 builder: (context, snap) {
+                  // Error handling
+                  if (snap.hasError) {
+                    return Container(
+                      margin: const EdgeInsets.symmetric(vertical: 12),
+                      child: ErrorAnimation(
+                        title: 'Network Error',
+                        message: 'Failed to load recent orders',
+                        onRetry: () {},
+                        size: 100,
+                      ),
+                    );
+                  }
+
                   final orders = (snap.data ?? []).take(3).toList();
 
                   final emptyWidget = Center(
@@ -432,6 +483,19 @@ class _DashboardScreenState extends State<DashboardScreen>
               StreamBuilder<List<Customer>>(
                 stream: svc.customersStream(),
                 builder: (context, snap) {
+                  // Error handling
+                  if (snap.hasError) {
+                    return Container(
+                      margin: const EdgeInsets.symmetric(vertical: 12),
+                      child: ErrorAnimation(
+                        title: 'Network Error',
+                        message: 'Failed to load top customers',
+                        onRetry: () {},
+                        size: 100,
+                      ),
+                    );
+                  }
+
                   final customers = [...(snap.data ?? [])]
                     ..sort((a, b) => b.totalSpent.compareTo(a.totalSpent));
 
@@ -521,7 +585,7 @@ class _DashboardScreenState extends State<DashboardScreen>
         ),
         // Floating Arrow Icon with Shimmer
         Positioned(
-          bottom: 80,
+          bottom: 10,
           right: 20,
           child: GestureDetector(
             onTap: _onArrowTap,
@@ -532,8 +596,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                 return Transform.rotate(
                   angle: _rotationController.value * 3.14159265359,
                   child: Container(
-                    width: 56,
-                    height: 56,
+                    width: 44,
+                    height: 44,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: RadialGradient(
@@ -562,7 +626,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                         Icons.arrow_downward_rounded,
                         color: AppColors.gold
                             .withOpacity(0.7 + _shimmerController.value * 0.3),
-                        size: 28,
+                        size: 20,
                       ),
                     ),
                   ),

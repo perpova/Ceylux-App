@@ -1952,14 +1952,6 @@ Save as HTML file and upload in settings to use custom template.
                               ),
                             ),
                             const SizedBox(height: 4),
-                            Text(
-                              'Tiers are saved to database',
-                              style: GoogleFonts.plusJakartaSans(
-                                fontSize: 10,
-                                color: AppColors.success,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
                           ],
                         ),
                       ),

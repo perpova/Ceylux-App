@@ -9,6 +9,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:html/parser.dart' as html_parser;
 import 'package:html/dom.dart' as dom;
 import '../models/order.dart';
+import '../models/customer.dart';
+import '../models/tier.dart';
+import './api_service.dart';
+import 'package:http/http.dart' as http;
 
 class InvoiceService {
   static const String defaultTemplate = r'''<!DOCTYPE html>
@@ -1367,6 +1371,379 @@ class InvoiceService {
     final file = File('${tempDir.path}/CEYLUX_Invoice_${order.id}.pdf');
     await file.writeAsBytes(bytes);
     return file;
+  }
+
+  static Future<void> sendGenericEmail({
+    required String recipientEmail,
+    required String subject,
+    required String bodyHtml,
+    File? attachment,
+  }) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final gmailEmail = prefs.getString('gmail_email')?.trim();
+      final gmailAppPassword = prefs.getString('gmail_app_password')?.trim();
+
+      if (gmailEmail == null || gmailEmail.isEmpty || gmailAppPassword == null || gmailAppPassword.isEmpty) {
+        print('ℹ️ Gmail SMTP settings are not configured in App Settings.');
+        return;
+      }
+
+      final request = http.MultipartRequest('POST', Uri.parse('${ApiService.baseUrl}/email/send'));
+      request.fields['senderEmail'] = gmailEmail;
+      request.fields['senderPassword'] = gmailAppPassword;
+      request.fields['recipientEmail'] = recipientEmail;
+      request.fields['subject'] = subject;
+      request.fields['html'] = bodyHtml;
+      request.fields['text'] = 'Please view this email in an HTML-compatible client.';
+
+      if (attachment != null) {
+        request.files.add(await http.MultipartFile.fromPath('pdf', attachment.path));
+      }
+
+      final response = await request.send();
+      if (response.statusCode == 200) {
+        print('✓ Automated email sent successfully to $recipientEmail! Subject: $subject');
+      } else {
+        final body = await response.stream.bytesToString();
+        print('❌ Failed to send automated email: ${response.statusCode} - $body');
+      }
+    } catch (e) {
+      print('❌ Error in sendGenericEmail: $e');
+    }
+  }
+
+  static Future<void> sendWelcomeEmail(Customer customer) async {
+    try {
+      final recipientEmail = customer.email.trim();
+      if (recipientEmail.isEmpty) return;
+
+      final contact = await _getContactInfo();
+
+      String bodyHtml = '''
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f4f8; margin: 0; padding: 20px; color: #1a1a2e; }
+    .card { max-width: 600px; margin: 0 auto; background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 8px 30px rgba(0,0,0,0.08); }
+    .header { background: linear-gradient(135deg, #0c4a6e 0%, #0f5d7d 100%); color: white; padding: 40px 30px; text-align: center; }
+    .header h1 { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: 1px; }
+    .content { padding: 30px; line-height: 1.6; }
+    .welcome-text { font-size: 16px; font-weight: 600; color: #0c4a6e; margin-bottom: 20px; }
+    .footer { background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 20px; text-align: center; font-size: 12px; color: #64748b; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <h1>Welcome to Ceylux Premium Clothing! 🌟</h1>
+    </div>
+    <div class="content">
+      <div class="welcome-text">Dear ${customer.name},</div>
+      <p>Thank you for registering with Ceylux! We are absolutely thrilled to welcome you to our exclusive fashion circle.</p>
+      <p>As a registered customer, you are automatically enrolled in our <strong>Loyalty Rewards Program</strong>. Every order you place contributes to unlocking premium lifetime discount tiers!</p>
+      
+      <table style="width: 100%; border-collapse: collapse; margin: 25px 0;">
+        <tr>
+          <td style="width: 33.33%; padding: 0 6px 0 0; vertical-align: top;">
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 8px; text-align: center; min-height: 75px;">
+              <div style="font-size: 9px; text-transform: uppercase; color: #64748b; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 6px;">Loyalty Tier</div>
+              <div style="font-size: 14px; font-weight: 700; color: #d97706; line-height: 1.2;">Registered Customer</div>
+            </div>
+          </td>
+          <td style="width: 33.33%; padding: 0 6px; vertical-align: top;">
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 8px; text-align: center; min-height: 75px;">
+              <div style="font-size: 9px; text-transform: uppercase; color: #64748b; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 6px;">Discount Rate</div>
+              <div style="font-size: 14px; font-weight: 700; color: #0c4a6e; line-height: 1.2;">0% OFF</div>
+            </div>
+          </td>
+          <td style="width: 33.33%; padding: 0 0 0 6px; vertical-align: top;">
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 8px; text-align: center; min-height: 75px;">
+              <div style="font-size: 9px; text-transform: uppercase; color: #64748b; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 6px;">Total Spent</div>
+              <div style="font-size: 14px; font-weight: 700; color: #0c4a6e; line-height: 1.2;">Rs. 0</div>
+            </div>
+          </td>
+        </tr>
+      </table>
+      
+      <p>Our boutique collections represent premium quality, custom fits, and timeless elegance. We look forward to styling you soon!</p>
+    </div>
+    <div class="footer">
+      <p>&copy; Ceylux Clothing. All rights reserved.</p>
+      <p>Questions? Contact us at $contact</p>
+    </div>
+  </div>
+</body>
+</html>
+''';
+
+      await sendGenericEmail(
+        recipientEmail: recipientEmail,
+        subject: 'Welcome to Ceylux Circle! 🌟',
+        bodyHtml: bodyHtml,
+      );
+    } catch (e) {
+      print('❌ Error in sendWelcomeEmail: $e');
+    }
+  }
+
+  static Future<void> sendLoyaltyEmail(Customer customer, Tier tier) async {
+    try {
+      final recipientEmail = customer.email.trim();
+      if (recipientEmail.isEmpty) return;
+
+      final contact = await _getContactInfo();
+      final formattedSpent = NumberFormat('#,###').format(customer.totalSpent);
+
+      String bodyHtml = '''
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f4f8; margin: 0; padding: 20px; color: #1a1a2e; }
+    .card { max-width: 600px; margin: 0 auto; background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 8px 30px rgba(0,0,0,0.08); }
+    .header { background: linear-gradient(135deg, #d97706 0%, #b45309 100%); color: white; padding: 40px 30px; text-align: center; }
+    .header h1 { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: 1px; }
+    .content { padding: 30px; line-height: 1.6; }
+    .congratulations-text { font-size: 16px; font-weight: 600; color: #b45309; margin-bottom: 20px; }
+    .footer { background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 20px; text-align: center; font-size: 12px; color: #64748b; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <h1>Loyalty Tier Achievement! 🏆</h1>
+    </div>
+    <div class="content">
+      <div class="congratulations-text">Congratulations, ${customer.name}!</div>
+      <p>We are incredibly proud to celebrate your fashion journey with us. Based on your active purchases, you have successfully unlocked a premium loyalty tier!</p>
+      
+      <table style="width: 100%; border-collapse: collapse; margin: 25px 0;">
+        <tr>
+          <td style="width: 50%; padding: 0 6px 12px 0; vertical-align: top;">
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 8px; text-align: center; min-height: 65px;">
+              <div style="font-size: 9px; text-transform: uppercase; color: #64748b; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 6px;">Unlocked Tier</div>
+              <div style="font-size: 14px; font-weight: 700; color: #d97706; line-height: 1.2;">${tier.emoji} ${tier.name}</div>
+            </div>
+          </td>
+          <td style="width: 50%; padding: 0 0 12px 6px; vertical-align: top;">
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 8px; text-align: center; min-height: 65px;">
+              <div style="font-size: 9px; text-transform: uppercase; color: #64748b; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 6px;">Discount Rate</div>
+              <div style="font-size: 14px; font-weight: 700; color: #0c4a6e; line-height: 1.2;">${tier.discountPercentage}% OFF</div>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td style="width: 50%; padding: 0 6px 0 0; vertical-align: top;">
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 8px; text-align: center; min-height: 65px;">
+              <div style="font-size: 9px; text-transform: uppercase; color: #64748b; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 6px;">Total Spent</div>
+              <div style="font-size: 14px; font-weight: 700; color: #0c4a6e; line-height: 1.2;">Rs. $formattedSpent</div>
+            </div>
+          </td>
+          <td style="width: 50%; padding: 0 0 0 6px; vertical-align: top;">
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 8px; text-align: center; min-height: 65px;">
+              <div style="font-size: 9px; text-transform: uppercase; color: #64748b; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 6px;">Total Orders</div>
+              <div style="font-size: 14px; font-weight: 700; color: #0c4a6e; line-height: 1.2;">${customer.totalOrders}</div>
+            </div>
+          </td>
+        </tr>
+      </table>
+      
+      <p>This premium lifetime discount is now linked to your profile and will be automatically applied to all your future orders. Thank you for choosing Ceylux!</p>
+    </div>
+    <div class="footer">
+      <p>&copy; Ceylux Clothing. All rights reserved.</p>
+      <p>Questions? Contact us at $contact</p>
+    </div>
+  </div>
+</body>
+</html>
+''';
+
+      await sendGenericEmail(
+        recipientEmail: recipientEmail,
+        subject: 'Ceylux Loyalty Achievement: Unlocked ${tier.emoji} ${tier.name}! 🏆',
+        bodyHtml: bodyHtml,
+      );
+    } catch (e) {
+      print('❌ Error in sendLoyaltyEmail: $e');
+    }
+  }
+
+  static Future<void> sendStatusUpdateEmail(AppOrder order, String status) async {
+    try {
+      final selectedCustomer = await ApiService().getCustomers().then(
+            (list) => list.where((c) => c.id == order.customerId).firstOrNull,
+          );
+      final recipientEmail = selectedCustomer?.email?.trim();
+      if (recipientEmail == null || recipientEmail.isEmpty) return;
+
+      final contact = await _getContactInfo();
+      final formattedTotal = NumberFormat('#,###').format(order.total);
+
+      String statusMessage = '';
+      String statusClass = '';
+      if (status == 'Processing') {
+        statusMessage = 'Our boutique team is carefully preparing your order for shipment. We will keep you updated!';
+        statusClass = 'status-processing';
+      } else if (status == 'Delivered') {
+        statusMessage = 'Your package has been successfully delivered. We have attached the final PDF invoice to this email for your records.';
+        statusClass = 'status-delivered';
+      } else {
+        statusMessage = 'Your order is currently pending verification.';
+        statusClass = '';
+      }
+
+      String bodyHtml = '''
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f4f8; margin: 0; padding: 20px; color: #1a1a2e; }
+    .card { max-width: 600px; margin: 0 auto; background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 8px 30px rgba(0,0,0,0.08); }
+    .header { background: linear-gradient(135deg, #0c4a6e 0%, #0f5d7d 100%); color: white; padding: 40px 30px; text-align: center; }
+    .header h1 { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: 1px; }
+    .content { padding: 30px; line-height: 1.6; }
+    .status-badge { display: inline-block; padding: 8px 16px; border-radius: 8px; font-weight: 700; color: white; background: #0c4a6e; font-size: 14px; margin-bottom: 20px; }
+    .status-processing { background: #d97706; }
+    .status-delivered { background: #16a34a; }
+    .order-details { margin: 20px 0; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; }
+    .detail-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; }
+    .detail-label { color: #64748b; font-weight: 600; }
+    .detail-value { color: #1a1a2e; font-weight: 700; }
+    .footer { background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 20px; text-align: center; font-size: 12px; color: #64748b; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <h1>Order Status Update</h1>
+    </div>
+    <div class="content">
+      <p>Dear ${order.customerName},</p>
+      <p>Great news! The status of your order <strong>#${order.id}</strong> has been updated:</p>
+      
+      <div class="status-badge $statusClass">$status</div>
+      
+      <p>$statusMessage</p>
+      
+      <div class="order-details">
+        <div class="detail-row">
+          <span class="detail-label">Order Total:</span>
+          <span class="detail-value">Rs. $formattedTotal</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Delivery Method:</span>
+          <span class="detail-value">${order.deliveryMethodName ?? 'Not selected'}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Payment Method:</span>
+          <span class="detail-value">${order.paymentMethodName ?? 'Not selected'}</span>
+        </div>
+      </div>
+      
+      <p>Thank you for shopping with Ceylux!</p>
+    </div>
+    <div class="footer">
+      <p>&copy; Ceylux Clothing. All rights reserved.</p>
+      <p>Questions? Contact us at $contact</p>
+    </div>
+  </div>
+</body>
+</html>
+''';
+
+      File? pdfFile;
+      if (status == 'Delivered') {
+        pdfFile = await generateInvoicePDFFile(order);
+      }
+
+      await sendGenericEmail(
+        recipientEmail: recipientEmail,
+        subject: 'Order #${order.id} Status: $status - Ceylux',
+        bodyHtml: bodyHtml,
+        attachment: pdfFile,
+      );
+    } catch (e) {
+      print('❌ Error in sendStatusUpdateEmail: $e');
+    }
+  }
+
+  static Future<void> sendInitialInvoiceEmail(AppOrder order) async {
+    try {
+      final selectedCustomer = await ApiService().getCustomers().then(
+            (list) => list.where((c) => c.id == order.customerId).firstOrNull,
+          );
+      final recipientEmail = selectedCustomer?.email?.trim();
+      if (recipientEmail == null || recipientEmail.isEmpty) return;
+
+      final contact = await _getContactInfo();
+      final formattedTotal = NumberFormat('#,###').format(order.total);
+
+      String bodyHtml = '''
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f4f8; margin: 0; padding: 20px; color: #1a1a2e; }
+    .card { max-width: 600px; margin: 0 auto; background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 8px 30px rgba(0,0,0,0.08); }
+    .header { background: linear-gradient(135deg, #0c4a6e 0%, #0f5d7d 100%); color: white; padding: 40px 30px; text-align: center; }
+    .header h1 { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: 1px; }
+    .content { padding: 30px; line-height: 1.6; }
+    .order-details { margin: 20px 0; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; }
+    .detail-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; }
+    .detail-label { color: #64748b; font-weight: 600; }
+    .detail-value { color: #1a1a2e; font-weight: 700; }
+    .footer { background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 20px; text-align: center; font-size: 12px; color: #64748b; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <h1>Invoice for Order #${order.id}</h1>
+    </div>
+    <div class="content">
+      <p>Dear ${order.customerName},</p>
+      <p>Thank you for your order with Ceylux! We have generated your invoice and attached the PDF copy to this email.</p>
+      
+      <div class="order-details">
+        <div class="detail-row">
+          <span class="detail-label">Order Total:</span>
+          <span class="detail-value">Rs. $formattedTotal</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Delivery Method:</span>
+          <span class="detail-value">${order.deliveryMethodName ?? 'Not selected'}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Payment Method:</span>
+          <span class="detail-value">${order.paymentMethodName ?? 'Not selected'}</span>
+        </div>
+      </div>
+      
+      <p>We appreciate your business and hope to style you again soon!</p>
+    </div>
+    <div class="footer">
+      <p>&copy; Ceylux Clothing. All rights reserved.</p>
+      <p>Questions? Contact us at $contact</p>
+    </div>
+  </div>
+</body>
+</html>
+''';
+
+      final pdfFile = await generateInvoicePDFFile(order);
+
+      await sendGenericEmail(
+        recipientEmail: recipientEmail,
+        subject: 'Invoice for Order #${order.id} - Ceylux',
+        bodyHtml: bodyHtml,
+        attachment: pdfFile,
+      );
+    } catch (e) {
+      print('❌ Error in sendInitialInvoiceEmail: $e');
+    }
   }
 }
 

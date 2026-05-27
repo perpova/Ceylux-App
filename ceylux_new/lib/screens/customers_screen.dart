@@ -9,6 +9,8 @@ import '../models/customer.dart';
 import '../models/tier.dart';
 import '../utils/theme.dart';
 import '../widgets/common_widgets.dart';
+import '../widgets/animation_widgets.dart';
+import '../services/invoice_service.dart';
 
 // Rating helpers
 class _RatingInfo {
@@ -292,9 +294,16 @@ class _CustomersScreenState extends State<CustomersScreen> {
           child: StreamBuilder<List<Customer>>(
             stream: svc.customersStream(),
             builder: (context, snap) {
-              if (!snap.hasData)
-                return Center(
-                    child: CircularProgressIndicator(color: AppColors.primary));
+              if (!snap.hasData) {
+                return const LoadingAnimation(message: 'Loading customers...');
+              }
+              if (snap.hasError) {
+                return ErrorAnimation(
+                  title: 'Failed to Load Customers',
+                  message: snap.error.toString(),
+                  onRetry: () {},
+                );
+              }
 
               var customers = snap.data ?? [];
 
@@ -335,19 +344,11 @@ class _CustomersScreenState extends State<CustomersScreen> {
               }
 
               if (customers.isEmpty) {
-                return Center(
-                    child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                      Icon(Icons.people_outline,
-                          size: 48, color: AppColors.muted),
-                      const SizedBox(height: 12),
-                      Text('No customers found',
-                          style: GoogleFonts.outfit(
-                              fontSize: 18,
-                              color: AppColors.muted,
-                              fontWeight: FontWeight.bold)),
-                    ]));
+                return NoDataAnimation(
+                  message: _search.isNotEmpty
+                      ? 'No customers found for "$_search"'
+                      : 'No customers yet',
+                );
               }
 
               return ListView.builder(
@@ -565,6 +566,7 @@ class _CustomerDetailSheetState extends State<_CustomerDetailSheet> {
 
   List<Tier> _tiers = [];
   bool _loadingTiers = false;
+  bool _deleting = false;
 
   @override
   void initState() {
@@ -704,6 +706,64 @@ class _CustomerDetailSheetState extends State<_CustomerDetailSheet> {
           duration: Duration(seconds: 1)));
   }
 
+  Future<void> _deleteCustomer() async {
+    final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            backgroundColor: AppColors.card,
+            title: Text('Delete Customer',
+                style: GoogleFonts.outfit(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textColor)),
+            content: Text(
+              'Are you sure you want to remove ${widget.customer.name}? This action cannot be undone.',
+              style: GoogleFonts.plusJakartaSans(
+                  fontSize: 14, color: AppColors.textColor),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: Text('Cancel',
+                    style: GoogleFonts.plusJakartaSans(
+                        color: AppColors.muted,
+                        fontWeight: FontWeight.bold)),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: Text('Delete',
+                    style: GoogleFonts.plusJakartaSans(
+                        color: AppColors.danger,
+                        fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+
+    if (!confirmed) return;
+
+    setState(() => _deleting = true);
+    try {
+      await svc.deleteCustomer(widget.customer.id);
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('✓ ${widget.customer.name} removed',
+                style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+            backgroundColor: AppColors.success,
+            duration: const Duration(seconds: 2)));
+      }
+    } catch (e) {
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: AppColors.danger));
+    } finally {
+      if (mounted) setState(() => _deleting = false);
+    }
+  }
+
   Future<void> _changePhoto() async {
     final source = await _pickSource();
     if (source == null) return;
@@ -812,6 +872,14 @@ class _CustomerDetailSheetState extends State<_CustomerDetailSheet> {
                     decoration: BoxDecoration(
                         color: AppColors.border,
                         borderRadius: BorderRadius.circular(2))),
+              ),
+            ),
+            GestureDetector(
+              onTap: _deleting ? null : _deleteCustomer,
+              child: Icon(
+                Icons.delete_outline,
+                size: 20,
+                color: _deleting ? AppColors.muted : AppColors.danger,
               ),
             ),
           ],
@@ -1979,7 +2047,7 @@ class _AddCustomerSheetState extends State<_AddCustomerSheet> {
       String? photoUrl;
       if (_photo != null)
         photoUrl = await svc.uploadPhoto(_photo!, 'customers');
-      await svc.addCustomer(Customer(
+      final newCustomer = Customer(
         id: '',
         name: _name.text,
         phone: _phone.text,
@@ -1990,7 +2058,11 @@ class _AddCustomerSheetState extends State<_AddCustomerSheet> {
         photoUrl: photoUrl,
         ownerRating: 0,
         ownerNote: '',
-      ));
+      );
+      await svc.addCustomer(newCustomer);
+      
+      // Trigger welcome email asynchronously
+      InvoiceService.sendWelcomeEmail(newCustomer);
       if (mounted) {
         Navigator.pop(context);
         await Future.delayed(const Duration(milliseconds: 500));

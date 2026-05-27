@@ -17,6 +17,7 @@ import 'screens/notifications_screen.dart';
 import 'screens/settings_screen.dart';
 import 'services/api_service.dart';
 import 'widgets/profile_dialog.dart';
+import 'utils/stock_alerts_manager.dart';
 
 // Global theme notifier for reactively switching between System, Light, and Dark modes
 final themeNotifier = ValueNotifier<ThemeMode>(ThemeMode.system);
@@ -24,6 +25,7 @@ final themeNotifier = ValueNotifier<ThemeMode>(ThemeMode.system);
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await ApiService().seedInitialData();
+  await StockAlertsManager.loadReadAlerts();
 
   // Load saved theme preference
   final prefs = await SharedPreferences.getInstance();
@@ -687,13 +689,23 @@ class _HomeShellState extends State<HomeShell> {
             StreamBuilder<List<StockItem>>(
               stream: ApiService().stockStream(),
               builder: (context, snap) {
-                final low = (snap.data ?? []).where((i) => i.isLowStock || i.isOutOfStock).length;
-                if (low == 0) return const SizedBox.shrink();
-                return Positioned(top: 6, right: 6,
-                  child: Container(width: 16, height: 16,
-                    decoration: const BoxDecoration(color: AppColors.danger, shape: BoxShape.circle),
-                    child: Center(child: Text('$low',
-                      style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white)))));
+                final allItems = snap.data ?? [];
+                return ValueListenableBuilder<Map<String, int>>(
+                  valueListenable: StockAlertsManager.readAlertsNotifier,
+                  builder: (context, readAlerts, _) {
+                    final low = allItems.where((i) {
+                      if (!i.isLowStock && !i.isOutOfStock) return false;
+                      final readQty = readAlerts[i.id];
+                      return readQty != i.totalQty;
+                    }).length;
+                    if (low == 0) return const SizedBox.shrink();
+                    return Positioned(top: 6, right: 6,
+                      child: Container(width: 16, height: 16,
+                        decoration: const BoxDecoration(color: AppColors.danger, shape: BoxShape.circle),
+                        child: Center(child: Text('$low',
+                          style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white)))));
+                  },
+                );
               },
             ),
           ]),

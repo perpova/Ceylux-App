@@ -392,18 +392,62 @@ app.get('/orders', async (req, res) => {
 app.post('/orders', async (req, res) => {
   try {
     const { order_ref, customer_id, customer_name, customer_address, customer_phone, items, total, status, date, discount_percentage, loyalty_discount, delivery_method_id, delivery_method_name, payment_proof_url, delivery_notes, payment_method_id, payment_method_name } = req.body;
-    const [result] = await pool.query(
-      'INSERT INTO orders (order_ref, customer_id, customer_name, customer_address, customer_phone, items, total, status, date, discount_percentage, loyalty_discount, delivery_method_id, delivery_method_name, payment_proof_url, delivery_notes, payment_method_id, payment_method_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [order_ref, customer_id, customer_name, customer_address, customer_phone, JSON.stringify(items), total, status, date, discount_percentage || 0, loyalty_discount || 0, delivery_method_id || null, delivery_method_name || null, payment_proof_url || null, delivery_notes || null, payment_method_id || null, payment_method_name || null]
-    );
-    const [rows] = await pool.query('SELECT * FROM orders WHERE id = ?', [result.insertId]);
+    
+    const conn = await pool.getConnection();
+    try {
+      await conn.beginTransaction();
 
-    await pool.query(
-      'UPDATE customers SET total_orders = total_orders + 1, total_spent = total_spent + ? WHERE id = ?',
-      [total, customer_id]
-    );
+      const [result] = await conn.query(
+        'INSERT INTO orders (order_ref, customer_id, customer_name, customer_address, customer_phone, items, total, status, date, discount_percentage, loyalty_discount, delivery_method_id, delivery_method_name, payment_proof_url, delivery_notes, payment_method_id, payment_method_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [order_ref, customer_id, customer_name, customer_address, customer_phone, JSON.stringify(items), total, status, date, discount_percentage || 0, loyalty_discount || 0, delivery_method_id || null, delivery_method_name || null, payment_proof_url || null, delivery_notes || null, payment_method_id || null, payment_method_name || null]
+      );
 
-    res.json(rows[0]);
+      await conn.query(
+        'UPDATE customers SET total_orders = total_orders + 1, total_spent = total_spent + ? WHERE id = ?',
+        [total, customer_id]
+      );
+
+      // Decrease stock levels for each item
+      const parsedItems = typeof items === 'string' ? JSON.parse(items) : items;
+      if (Array.isArray(parsedItems)) {
+        for (const orderItem of parsedItems) {
+          const { name, size, qty } = orderItem;
+          if (name && size && qty) {
+            const [stockRows] = await conn.query(
+              'SELECT id, sizes FROM stock WHERE name = ?',
+              [name]
+            );
+            if (stockRows.length > 0) {
+              const stockItem = stockRows[0];
+              let sizesMap = {};
+              try {
+                sizesMap = typeof stockItem.sizes === 'string' ? JSON.parse(stockItem.sizes) : stockItem.sizes;
+              } catch (_) {
+                sizesMap = stockItem.sizes || {};
+              }
+
+              if (sizesMap && sizesMap[size] !== undefined) {
+                sizesMap[size] = Math.max(0, sizesMap[size] - parseInt(qty));
+                await conn.query(
+                  'UPDATE stock SET sizes = ? WHERE id = ?',
+                  [JSON.stringify(sizesMap), stockItem.id]
+                );
+              }
+            }
+          }
+        }
+      }
+
+      await conn.commit();
+
+      const [rows] = await pool.query('SELECT * FROM orders WHERE id = ?', [result.insertId]);
+      res.json(rows[0]);
+    } catch (err) {
+      await conn.rollback();
+      throw err;
+    } finally {
+      conn.release();
+    }
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -426,12 +470,99 @@ app.put('/orders/:id/status', async (req, res) => {
 app.put('/orders/:id', async (req, res) => {
   try {
     const { order_ref, customer_id, customer_name, customer_address, customer_phone, items, total, status, date, discount_percentage, loyalty_discount, delivery_method_id, delivery_method_name, payment_proof_url, delivery_notes, payment_method_id, payment_method_name } = req.body;
-    await pool.query(
-      'UPDATE orders SET order_ref = ?, customer_id = ?, customer_name = ?, customer_address = ?, customer_phone = ?, items = ?, total = ?, status = ?, date = ?, discount_percentage = ?, loyalty_discount = ?, delivery_method_id = ?, delivery_method_name = ?, payment_proof_url = ?, delivery_notes = ?, payment_method_id = ?, payment_method_name = ? WHERE id = ? OR order_ref = ?',
-      [order_ref, customer_id, customer_name, customer_address, customer_phone, JSON.stringify(items), total, status, date, discount_percentage || 0, loyalty_discount || 0, delivery_method_id || null, delivery_method_name || null, payment_proof_url || null, delivery_notes || null, payment_method_id || null, payment_method_name || null, req.params.id, req.params.id]
-    );
-    const [rows] = await pool.query('SELECT * FROM orders WHERE id = ? OR order_ref = ?', [req.params.id, req.params.id]);
-    res.json(rows[0]);
+    
+    const conn = await pool.getConnection();
+    try {
+      await conn.beginTransaction();
+
+      // 1. Fetch old order details to restore stock
+      const [oldOrderRows] = await conn.query(
+        'SELECT items FROM orders WHERE id = ? OR order_ref = ?',
+        [req.params.id, req.params.id]
+      );
+
+      if (oldOrderRows.length > 0) {
+        const oldOrder = oldOrderRows[0];
+        const oldItems = typeof oldOrder.items === 'string' ? JSON.parse(oldOrder.items) : oldOrder.items;
+
+        // Restore stock levels from old items
+        if (Array.isArray(oldItems)) {
+          for (const orderItem of oldItems) {
+            const { name, size, qty } = orderItem;
+            if (name && size && qty) {
+              const [stockRows] = await conn.query(
+                'SELECT id, sizes FROM stock WHERE name = ?',
+                [name]
+              );
+              if (stockRows.length > 0) {
+                const stockItem = stockRows[0];
+                let sizesMap = {};
+                try {
+                  sizesMap = typeof stockItem.sizes === 'string' ? JSON.parse(stockItem.sizes) : stockItem.sizes;
+                } catch (_) {
+                  sizesMap = stockItem.sizes || {};
+                }
+
+                if (sizesMap && sizesMap[size] !== undefined) {
+                  sizesMap[size] = sizesMap[size] + parseInt(qty);
+                  await conn.query(
+                    'UPDATE stock SET sizes = ? WHERE id = ?',
+                    [JSON.stringify(sizesMap), stockItem.id]
+                  );
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // 2. Update the order in DB
+      await conn.query(
+        'UPDATE orders SET order_ref = ?, customer_id = ?, customer_name = ?, customer_address = ?, customer_phone = ?, items = ?, total = ?, status = ?, date = ?, discount_percentage = ?, loyalty_discount = ?, delivery_method_id = ?, delivery_method_name = ?, payment_proof_url = ?, delivery_notes = ?, payment_method_id = ?, payment_method_name = ? WHERE id = ? OR order_ref = ?',
+        [order_ref, customer_id, customer_name, customer_address, customer_phone, JSON.stringify(items), total, status, date, discount_percentage || 0, loyalty_discount || 0, delivery_method_id || null, delivery_method_name || null, payment_proof_url || null, delivery_notes || null, payment_method_id || null, payment_method_name || null, req.params.id, req.params.id]
+      );
+
+      // 3. Deduct stock levels for new items
+      const newItems = typeof items === 'string' ? JSON.parse(items) : items;
+      if (Array.isArray(newItems)) {
+        for (const orderItem of newItems) {
+          const { name, size, qty } = orderItem;
+          if (name && size && qty) {
+            const [stockRows] = await conn.query(
+              'SELECT id, sizes FROM stock WHERE name = ?',
+              [name]
+            );
+            if (stockRows.length > 0) {
+              const stockItem = stockRows[0];
+              let sizesMap = {};
+              try {
+                sizesMap = typeof stockItem.sizes === 'string' ? JSON.parse(stockItem.sizes) : stockItem.sizes;
+              } catch (_) {
+                sizesMap = stockItem.sizes || {};
+              }
+
+              if (sizesMap && sizesMap[size] !== undefined) {
+                sizesMap[size] = Math.max(0, sizesMap[size] - parseInt(qty));
+                await conn.query(
+                  'UPDATE stock SET sizes = ? WHERE id = ?',
+                  [JSON.stringify(sizesMap), stockItem.id]
+                );
+              }
+            }
+          }
+        }
+      }
+
+      await conn.commit();
+
+      const [rows] = await pool.query('SELECT * FROM orders WHERE id = ? OR order_ref = ?', [req.params.id, req.params.id]);
+      res.json(rows[0]);
+    } catch (err) {
+      await conn.rollback();
+      throw err;
+    } finally {
+      conn.release();
+    }
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -439,8 +570,62 @@ app.put('/orders/:id', async (req, res) => {
 
 app.delete('/orders/:id', async (req, res) => {
   try {
-    await pool.query('DELETE FROM orders WHERE id = ? OR order_ref = ?', [req.params.id, req.params.id]);
-    res.json({ success: true });
+    const conn = await pool.getConnection();
+    try {
+      await conn.beginTransaction();
+
+      // 1. Fetch order details before deleting
+      const [orderRows] = await conn.query(
+        'SELECT items FROM orders WHERE id = ? OR order_ref = ?',
+        [req.params.id, req.params.id]
+      );
+
+      if (orderRows.length > 0) {
+        const order = orderRows[0];
+        const parsedItems = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
+        
+        // 2. Restore stock levels
+        if (Array.isArray(parsedItems)) {
+          for (const orderItem of parsedItems) {
+            const { name, size, qty } = orderItem;
+            if (name && size && qty) {
+              const [stockRows] = await conn.query(
+                'SELECT id, sizes FROM stock WHERE name = ?',
+                [name]
+              );
+              if (stockRows.length > 0) {
+                const stockItem = stockRows[0];
+                let sizesMap = {};
+                try {
+                  sizesMap = typeof stockItem.sizes === 'string' ? JSON.parse(stockItem.sizes) : stockItem.sizes;
+                } catch (_) {
+                  sizesMap = stockItem.sizes || {};
+                }
+
+                if (sizesMap && sizesMap[size] !== undefined) {
+                  sizesMap[size] = sizesMap[size] + parseInt(qty);
+                  await conn.query(
+                    'UPDATE stock SET sizes = ? WHERE id = ?',
+                    [JSON.stringify(sizesMap), stockItem.id]
+                  );
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // 3. Delete order
+      await conn.query('DELETE FROM orders WHERE id = ? OR order_ref = ?', [req.params.id, req.params.id]);
+
+      await conn.commit();
+      res.json({ success: true });
+    } catch (err) {
+      await conn.rollback();
+      throw err;
+    } finally {
+      conn.release();
+    }
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -502,6 +687,67 @@ app.post('/orders/send-invoice-email', upload.single('pdf'), async (req, res) =>
     res.status(500).json({ error: error.message });
   }
 });
+
+app.post('/email/send', upload.single('pdf'), async (req, res) => {
+  try {
+    const { senderEmail, senderPassword, recipientEmail, subject, text, html } = req.body;
+    const file = req.file;
+
+    if (!senderEmail || !senderPassword || !recipientEmail || !subject) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: senderEmail,
+        pass: senderPassword,
+      },
+    });
+
+    const mailOptions = {
+      from: `"Ceylux Clothing" <${senderEmail}>`,
+      to: recipientEmail,
+      subject: subject,
+      text: text || '',
+    };
+
+    if (html) {
+      mailOptions.html = html;
+    }
+
+    if (file) {
+      mailOptions.attachments = [
+        {
+          filename: file.originalname || 'Ceylux_Attachment.pdf',
+          path: file.path,
+          contentType: file.mimetype || 'application/pdf',
+        },
+      ];
+    }
+
+    await transporter.sendMail(mailOptions);
+
+    if (file) {
+      try {
+        fs.unlinkSync(file.path);
+      } catch (e) {
+        console.error('Failed to delete temp file:', e);
+      }
+    }
+
+    res.json({ success: true, message: 'Email sent successfully!' });
+  } catch (error) {
+    console.error('Generic email sending error:', error);
+    if (req.file && req.file.path) {
+      try {
+        fs.unlinkSync(req.file.path);
+      } catch (_) {}
+    }
+    res.status(500).json({ error: error.message });
+  }
+});
+
 
 
 // ── TIERS ──────────────────────────────────────────────────────────────────

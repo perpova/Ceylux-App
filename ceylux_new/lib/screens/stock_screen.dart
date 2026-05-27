@@ -7,6 +7,7 @@ import '../services/api_service.dart';
 import '../models/stock_item.dart';
 import '../utils/theme.dart';
 import '../widgets/common_widgets.dart';
+import '../widgets/animation_widgets.dart';
 
 class StockScreen extends StatefulWidget {
   const StockScreen({super.key});
@@ -105,7 +106,16 @@ class _StockScreenState extends State<StockScreen> {
           child: StreamBuilder<List<StockItem>>(
             stream: svc.stockStream(),
             builder: (context, snap) {
-              if (!snap.hasData) return Center(child: CircularProgressIndicator(color: AppColors.primary));
+              if (!snap.hasData) {
+                return const LoadingAnimation(message: 'Loading inventory...');
+              }
+              if (snap.hasError) {
+                return ErrorAnimation(
+                  title: 'Failed to Load Stock',
+                  message: snap.error.toString(),
+                  onRetry: () {},
+                );
+              }
               final items = (snap.data ?? []).where((item) {
                 // Month filter based on _selectedMonth
                 bool matchMonth = true;
@@ -125,13 +135,13 @@ class _StockScreenState extends State<StockScreen> {
               }).toList();
 
               if (items.isEmpty) {
-                return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  const Text('📦', style: TextStyle(fontSize: 48)),
-                  const SizedBox(height: 12),
-                  Text('No items found', style: GoogleFonts.outfit(fontSize: 18, color: AppColors.muted, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  GoldButton(label: '+ Add Item', onTap: () => _showForm(context, null)),
-                ]));
+                return NoDataAnimation(
+                  message: _search.isNotEmpty 
+                      ? 'No items found for "$_search"'
+                      : 'No stock items yet',
+                  actionLabel: 'Add Item',
+                  onAction: () => _showForm(context, null),
+                );
               }
 
               return ListView.builder(

@@ -14,6 +14,7 @@ import '../models/delivery_method.dart';
 import '../models/payment_method.dart';
 import '../utils/theme.dart';
 import '../widgets/common_widgets.dart';
+import '../widgets/animation_widgets.dart';
 
 class OrdersScreen extends StatefulWidget {
   const OrdersScreen({super.key});
@@ -237,16 +238,29 @@ class _OrdersScreenState extends State<OrdersScreen> {
             stream: svc.ordersStream(),
             builder: (context, snap) {
               if (snap.connectionState == ConnectionState.waiting) {
-                return Center(
-                    child: CircularProgressIndicator(color: AppColors.gold));
+                return const LoadingAnimation(message: 'Loading orders...');
+              }
+              if (snap.hasError) {
+                return ErrorAnimation(
+                  title: 'Failed to Load Orders',
+                  message: snap.error.toString(),
+                  onRetry: () {},
+                );
               }
               final orders = _applySearchAndSort(snap.data ?? []);
               if (orders.isEmpty) {
-                return Center(
-                    child: Text(
-                  _searchQuery.isNotEmpty ? 'No orders found' : 'No orders',
-                  style: TextStyle(color: AppColors.muted),
-                ));
+                return NoDataAnimation(
+                  message: _searchQuery.isNotEmpty 
+                      ? 'No orders found for "$_searchQuery"'
+                      : 'No orders yet',
+                  actionLabel: _searchQuery.isNotEmpty ? 'Clear Search' : null,
+                  onAction: _searchQuery.isNotEmpty
+                      ? () {
+                          _searchCtrl.clear();
+                          setState(() => _searchQuery = '');
+                        }
+                      : null,
+                );
               }
               return ListView.builder(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
@@ -1236,8 +1250,14 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
                             child: ActionButton(
                               label: s,
                               onTap: () async {
-                                await svc.updateOrderStatus(
-                                    widget.order.dbId, s);
+                                final sStatus = s;
+                                if (widget.order.status != sStatus) {
+                                  svc.updateOrderStatus(widget.order.dbId, sStatus).then((_) {
+                                    InvoiceService.sendStatusUpdateEmail(widget.order, sStatus);
+                                  }).catchError((err) {
+                                    print('❌ Failed to update order status: $err');
+                                  });
+                                }
                                 if (context.mounted) Navigator.pop(context);
                               },
                               buttonColor: widget.order.status == s
@@ -2255,6 +2275,7 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
       context: context,
       builder: (context) => _ItemSettingsDialog(
         item: item,
+        selectedItems: _selectedItems,
         onSave: (qty, price, discount) {
           _updateItem(index, qty: qty, price: price, discount: discount);
           Navigator.pop(context);
@@ -2365,38 +2386,42 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
       print('DEBUG: Order toMap: ${o.toMap()}');
       await svc.addOrder(o);
 
-      // Automatically trigger email if SMTP settings and customer email exist
+      // Fetch updated customer details asynchronously to check and notify of loyalty status progress
       try {
-        final selectedCustomer = _customers.where((c) => c.id == _selCustId).firstOrNull;
-        final recipientEmail = selectedCustomer?.email?.trim();
-        if (recipientEmail != null && recipientEmail.isNotEmpty) {
-          final prefs = await SharedPreferences.getInstance();
-          final gmailEmail = prefs.getString('gmail_email')?.trim();
-          final gmailAppPassword = prefs.getString('gmail_app_password')?.trim();
+        svc.getCustomers().then((updatedCustomers) {
+          final updatedCustomer = updatedCustomers.where((c) => c.id == _selCustId).firstOrNull;
+          if (updatedCustomer != null && updatedCustomer.email.trim().isNotEmpty) {
+            svc.getTiers().then((tiers) {
+              if (tiers.isNotEmpty) {
+                final sortedTiers = List<Tier>.from(tiers)
+                  ..sort((a, b) => b.discountPercentage.compareTo(a.discountPercentage));
+                
+                Tier? earnedTier;
+                for (final tier in sortedTiers) {
+                  if (updatedCustomer.totalOrders >= tier.minOrders &&
+                      updatedCustomer.totalSpent >= tier.minSpent &&
+                      updatedCustomer.ownerRating >= tier.minRating) {
+                    earnedTier = tier;
+                    break;
+                  }
+                }
 
-          if (gmailEmail != null && gmailEmail.isNotEmpty && gmailAppPassword != null && gmailAppPassword.isNotEmpty) {
-            // Generate invoice PDF
-            InvoiceService.generateInvoicePDFFile(o).then((pdfFile) {
-              // Send email
-              svc.sendInvoiceEmail(
-                pdfFile: pdfFile,
-                senderEmail: gmailEmail,
-                senderPassword: gmailAppPassword,
-                recipientEmail: recipientEmail,
-                orderId: o.id,
-              ).then((_) {
-                print('✓ Automated invoice email sent successfully!');
-              }).catchError((err) {
-                print('❌ Automated invoice email sending error: $err');
-              });
-            }).catchError((err) {
-              print('❌ Automated invoice PDF generation error: $err');
+                if (earnedTier != null) {
+                  // Trigger Loyalty congrats email asynchronously
+                  InvoiceService.sendLoyaltyEmail(updatedCustomer, earnedTier);
+                }
+              }
             });
           }
-        }
+        }).catchError((err) {
+          print('❌ Failed fetching updated customer for loyalty check: $err');
+        });
       } catch (e) {
-        print('❌ Automated invoice email setup failed: $e');
+        print('❌ Failed checking loyalty tier achievement: $e');
       }
+
+      // Automatically trigger initial invoice email asynchronously
+      InvoiceService.sendInitialInvoiceEmail(o);
 
       if (mounted) {
         Navigator.pop(context);
@@ -3536,8 +3561,14 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
     int qty = 1;
     int price = item.price;
     final sizeList = item.category == 'Kids' ? kidsSizes : allSizes;
-    final availableSizes =
-        sizeList.where((s) => (item.sizes[s] ?? 0) > 0).toList();
+    
+    // Filter available sizes based on total stock minus what is already in the cart
+    final availableSizes = sizeList.where((s) {
+      final alreadyInCart = _selectedItems
+          .where((cartItem) => cartItem['item'].id == item.id && cartItem['size'] == s)
+          .fold<int>(0, (sum, cartItem) => sum + (cartItem['qty'] as int));
+      return (item.sizes[s] ?? 0) - alreadyInCart > 0;
+    }).toList();
 
     showDialog(
       context: context,
@@ -3586,19 +3617,29 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
                           style: TextStyle(color: AppColors.muted)),
                     ),
                     items: availableSizes
-                        .map((s) => DropdownMenuItem(
-                              value: s,
-                              child: Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 12),
-                                child: Text(
-                                    '$s (${item.sizes[s] ?? 0} available)',
-                                    style: TextStyle(
-                                        color: AppColors.textColor)),
-                              ),
-                            ))
+                        .map((s) {
+                          final alreadyInCart = _selectedItems
+                              .where((cartItem) => cartItem['item'].id == item.id && cartItem['size'] == s)
+                              .fold<int>(0, (sum, cartItem) => sum + (cartItem['qty'] as int));
+                          final remaining = (item.sizes[s] ?? 0) - alreadyInCart;
+                          
+                          return DropdownMenuItem(
+                            value: s,
+                            child: Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 12),
+                              child: Text(
+                                  '$s ($remaining available)',
+                                  style: TextStyle(
+                                      color: AppColors.textColor)),
+                            ),
+                          );
+                        })
                         .toList(),
-                    onChanged: (s) => setState(() => selectedSize = s ?? ''),
+                    onChanged: (s) => setState(() {
+                      selectedSize = s ?? '';
+                      qty = 1;
+                    }),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -3642,7 +3683,17 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
                           IconButton(
                             icon: Icon(Icons.add,
                                 color: AppColors.gold, size: 18),
-                            onPressed: () => setState(() => qty++),
+                            onPressed: selectedSize.isEmpty
+                                ? null
+                                : () {
+                                    final alreadyInCart = _selectedItems
+                                        .where((cartItem) => cartItem['item'].id == item.id && cartItem['size'] == selectedSize)
+                                        .fold<int>(0, (sum, cartItem) => sum + (cartItem['qty'] as int));
+                                    final maxQty = (item.sizes[selectedSize] ?? 0) - alreadyInCart;
+                                    if (qty < maxQty) {
+                                      setState(() => qty++);
+                                    }
+                                  },
                             constraints: const BoxConstraints(
                                 minWidth: 32, minHeight: 32),
                             padding: EdgeInsets.zero,
@@ -3711,8 +3762,9 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
 // ── Item Settings Dialog ──────────────────────────────────────────────────────
 class _ItemSettingsDialog extends StatefulWidget {
   final Map<String, dynamic> item;
+  final List<Map<String, dynamic>> selectedItems;
   final Function(int, int, int) onSave;
-  const _ItemSettingsDialog({required this.item, required this.onSave});
+  const _ItemSettingsDialog({required this.item, required this.selectedItems, required this.onSave});
   @override
   State<_ItemSettingsDialog> createState() => _ItemSettingsDialogState();
 }
@@ -3813,7 +3865,18 @@ class _ItemSettingsDialogState extends State<_ItemSettingsDialog> {
                       IconButton(
                         icon: Icon(Icons.add_circle_outline,
                             color: AppColors.gold),
-                        onPressed: () => setState(() => _qty++),
+                        onPressed: () {
+                          // Find total stock of this item and size
+                          final totalStock = widget.item['item'].sizes[widget.item['size']] ?? 0;
+                          // Sum up what other items in the cart are using
+                          final alreadyInCartOther = widget.selectedItems
+                              .where((cartItem) => cartItem != widget.item && cartItem['item'].id == widget.item['item'].id && cartItem['size'] == widget.item['size'])
+                              .fold<int>(0, (sum, cartItem) => sum + (cartItem['qty'] as int));
+                          final maxQty = totalStock - alreadyInCartOther;
+                          if (_qty < maxQty) {
+                            setState(() => _qty++);
+                          }
+                        },
                       ),
                     ],
                   ),
@@ -4055,6 +4118,9 @@ class _AddCustomerSheetState extends State<_AddCustomerSheet> {
           (c) => c.phone == _phone.text && c.name == _name.text,
           orElse: () => newCustomer,
         );
+
+        // Send Welcome email asynchronously
+        InvoiceService.sendWelcomeEmail(addedCustomer);
 
         widget.onCustomerAdded(addedCustomer);
         Navigator.pop(context);
