@@ -446,6 +446,64 @@ app.delete('/orders/:id', async (req, res) => {
   }
 });
 
+// ── EMAIL SENDING ENDPOINT ──────────────────────────────────────────────────
+const nodemailer = require('nodemailer');
+
+app.post('/orders/send-invoice-email', upload.single('pdf'), async (req, res) => {
+  try {
+    const { senderEmail, senderPassword, recipientEmail, orderId } = req.body;
+    const file = req.file;
+
+    if (!senderEmail || !senderPassword || !recipientEmail || !orderId || !file) {
+      return res.status(400).json({ error: 'Missing required fields or PDF attachment' });
+    }
+
+    // Create transporter dynamically using Gmail SMTP
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: senderEmail,
+        pass: senderPassword,
+      },
+    });
+
+    const mailOptions = {
+      from: `"Ceylux Clothing" <${senderEmail}>`,
+      to: recipientEmail,
+      subject: `Invoice for Order #${orderId} - Ceylux`,
+      text: `Dear Customer,\n\nPlease find attached the PDF invoice for your order #${orderId}.\n\nThank you for shopping with Ceylux!\n\nBest regards,\nCeylux Clothing`,
+      attachments: [
+        {
+          filename: `Ceylux_Invoice_${orderId}.pdf`,
+          path: file.path,
+          contentType: 'application/pdf',
+        },
+      ],
+    };
+
+    await transporter.sendMail(mailOptions);
+
+    // Clean up temporary uploaded file from server
+    try {
+      fs.unlinkSync(file.path);
+    } catch (e) {
+      console.error('Failed to delete temp PDF file:', e);
+    }
+
+    res.json({ success: true, message: 'Email sent successfully!' });
+  } catch (error) {
+    console.error('Email sending error:', error);
+    // Try cleaning up the file if it exists
+    if (req.file && req.file.path) {
+      try {
+        fs.unlinkSync(req.file.path);
+      } catch (_) {}
+    }
+    res.status(500).json({ error: error.message });
+  }
+});
+
+
 // ── TIERS ──────────────────────────────────────────────────────────────────
 app.get('/tiers', async (req, res) => {
   try {

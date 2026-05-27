@@ -419,6 +419,11 @@ class InvoiceService {
                 <div class="address">{{CUSTOMER_ADDRESS}}</div>
                 <div class="phone">{{CUSTOMER_PHONE}}</div>
             </div>
+            <div class="bill-to-section" style="text-align: center;">
+                <h3>Delivery & Payment:</h3>
+                <div class="address" style="font-weight: 600;">Delivery: {{DELIVERY_METHOD}}</div>
+                <div class="address" style="font-weight: 600;">Payment: {{PAYMENT_METHOD}}</div>
+            </div>
             <div class="bill-to-section" style="text-align: right;">
                 <h3>Status:</h3>
                 <div style="background: linear-gradient(135deg, #86BDDA 0%, #5BA3C7 100%); color: white; padding: 8px 16px; border-radius: 6px; display: inline-block; font-weight: bold; font-size: 12px;">{{STATUS}}</div>
@@ -491,7 +496,7 @@ class InvoiceService {
                 </div>
                 <div class="footer-col">
                     <h4>Questions?</h4>
-                    <p>Email: {{CONTACT_INFO}}</p>
+                    <p>Mobile: {{CONTACT_INFO}}</p>
                 </div>
             </div>
             
@@ -580,6 +585,9 @@ class InvoiceService {
     String html = htmlTemplate;
     html = html.replaceAll('{{LOGO}}', 'LOGO');
     html = html.replaceAll('{{HEADER}}', header ?? 'CEYLUX Fashion Boutique');
+    html = html.replaceAll('{{DELIVERY_METHOD}}', order.deliveryMethodName ?? 'Not selected');
+    html = html.replaceAll('{{PAYMENT_METHOD}}', order.paymentMethodName ?? 'Not selected');
+    html = html.replaceAll('Email: {{CONTACT_INFO}}', 'Mobile: {{CONTACT_INFO}}');
     html = html.replaceAll('{{CONTACT_INFO}}', contact ?? '');
     html = html.replaceAll('{{INVOICE_ID}}', order.id);
     html = html.replaceAll('{{DATE}}', order.date);
@@ -1345,6 +1353,20 @@ class InvoiceService {
         text: 'Receipt from CEYLUX for order ${order.id}',
       );
     } catch (_) {}
+  }
+
+  static Future<File> generateInvoicePDFFile(AppOrder order) async {
+    final template = await _getTemplate() ?? defaultTemplate;
+    final html = await _generateHTMLFromTemplate(template, order);
+    final logoBitmap = await _getLogoBitmap();
+    
+    final pdf = _generatePDF(order, html, logoBitmap: logoBitmap);
+    final bytes = await pdf.save();
+    
+    final tempDir = await getTemporaryDirectory();
+    final file = File('${tempDir.path}/CEYLUX_Invoice_${order.id}.pdf');
+    await file.writeAsBytes(bytes);
+    return file;
   }
 }
 

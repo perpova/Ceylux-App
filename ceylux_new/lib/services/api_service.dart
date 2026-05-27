@@ -359,4 +359,26 @@ class ApiService {
       throw Exception('Failed to delete payment method: ${response.statusCode} - ${response.body}');
     }
   }
+
+  Future<void> sendInvoiceEmail({
+    required File pdfFile,
+    required String senderEmail,
+    required String senderPassword,
+    required String recipientEmail,
+    required String orderId,
+  }) async {
+    final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/orders/send-invoice-email'));
+    request.files.add(await http.MultipartFile.fromPath('pdf', pdfFile.path));
+    request.fields['senderEmail'] = senderEmail;
+    request.fields['senderPassword'] = senderPassword;
+    request.fields['recipientEmail'] = recipientEmail;
+    request.fields['orderId'] = orderId;
+
+    final response = await request.send();
+    if (response.statusCode != 200) {
+      final body = await response.stream.bytesToString();
+      throw Exception('Failed to send email: ${response.statusCode} - $body');
+    }
+  }
 }
+

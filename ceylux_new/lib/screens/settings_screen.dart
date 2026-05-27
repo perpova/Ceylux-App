@@ -37,6 +37,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _isInvoiceExpanded = false;
   bool _isTierExpanded = false;
   bool _isDeliveryExpanded = false;
+  bool _isEmailExpanded = false;
+  final _gmailEmailController = TextEditingController();
+  final _gmailAppPasswordController = TextEditingController();
+  bool _obscureAppPassword = true;
 
   final svc = ApiService();
   List<Tier> _tiers = [];
@@ -51,12 +55,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     _loadUser();
+    _loadEmailSettings();
     _currentThemeMode = themeNotifier.value;
     _loadTiers();
     _loadDeliveryMethods();
     _loadPaymentMethods();
     // Listen to theme changes and rebuild in real-time
     themeNotifier.addListener(_onThemeChanged);
+  }
+
+  Future<void> _loadEmailSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _gmailEmailController.text = prefs.getString('gmail_email') ?? '';
+        _gmailAppPasswordController.text = prefs.getString('gmail_app_password') ?? '';
+      });
+    }
   }
 
   void _onThemeChanged() {
@@ -70,6 +85,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   void dispose() {
     themeNotifier.removeListener(_onThemeChanged);
+    _gmailEmailController.dispose();
+    _gmailAppPasswordController.dispose();
     super.dispose();
   }
 
@@ -2146,7 +2163,7 @@ Save as HTML file and upload in settings to use custom template.
           ),
           const SizedBox(height: 24),
           Text(
-            'DELIVERY METHODS',
+            'DELIVERY METHODS CONFIGURATION',
             style: GoogleFonts.plusJakartaSans(
               fontSize: 11,
               fontWeight: FontWeight.bold,
@@ -2344,7 +2361,7 @@ Save as HTML file and upload in settings to use custom template.
           ),
           const SizedBox(height: 24),
           Text(
-            'PAYMENT METHODS',
+            'PAYMENT METHODS CONFIGURATION',
             style: GoogleFonts.plusJakartaSans(
               fontSize: 11,
               fontWeight: FontWeight.bold,
@@ -2543,7 +2560,7 @@ Save as HTML file and upload in settings to use custom template.
           ),
           const SizedBox(height: 24),
           Text(
-            'INVOICE & RECEIPTS',
+            'INVOICE & RECEIPTS CONFIGURATION',
             style: GoogleFonts.plusJakartaSans(
               fontSize: 11,
               fontWeight: FontWeight.bold,
@@ -3036,6 +3053,26 @@ Save as HTML file and upload in settings to use custom template.
             ),
           ),
           const SizedBox(height: 24),
+          Text(
+            'EMAIL CONFIGURATION',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: AppColors.muted,
+              letterSpacing: 1.0,
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          // Email Settings - Expandable
+          _buildExpandableSection(
+            title: 'GMAIL SMTP CONFIGURATION',
+            isExpanded: _isEmailExpanded,
+            onToggle: () =>
+                setState(() => _isEmailExpanded = !_isEmailExpanded),
+            child: _buildEmailSettingsCard(),
+          ),
+          const SizedBox(height: 24),
 
           // System Section - Regular (non-expandable)
           Text(
@@ -3145,6 +3182,202 @@ Save as HTML file and upload in settings to use custom template.
                 color: AppColors.danger,
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmailSettingsCard() {
+    return CeyluxCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Informative Help Box
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.gold.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AppColors.gold.withOpacity(0.25)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.info_outline, color: AppColors.gold, size: 16),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Google App Password Required',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.gold,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Standard Google account passwords cannot be used. You must generate a 16-character "App Password" under your Google Account settings -> Security. Make sure 2-Factor Authentication is enabled.',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 10.5,
+                    height: 1.4,
+                    color: AppColors.muted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Gmail Address field
+          Text(
+            'Gmail Address',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textColor,
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _gmailEmailController,
+            style: GoogleFonts.plusJakartaSans(color: AppColors.textColor, fontSize: 13),
+            decoration: InputDecoration(
+              hintText: 'yourname@gmail.com',
+              hintStyle: GoogleFonts.plusJakartaSans(color: AppColors.muted, fontSize: 13),
+              prefixIcon: Icon(Icons.email_outlined, size: 18, color: AppColors.muted),
+              filled: true,
+              fillColor: AppColors.bg,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: AppColors.border),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: AppColors.border),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: AppColors.gold),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Gmail App Password field
+          Text(
+            'App Password',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textColor,
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _gmailAppPasswordController,
+            obscureText: _obscureAppPassword,
+            style: GoogleFonts.plusJakartaSans(color: AppColors.textColor, fontSize: 13),
+            decoration: InputDecoration(
+              hintText: '16-character Google App Password',
+              hintStyle: GoogleFonts.plusJakartaSans(color: AppColors.muted, fontSize: 13),
+              prefixIcon: Icon(Icons.vpn_key_outlined, size: 18, color: AppColors.muted),
+              suffixIcon: GestureDetector(
+                onTap: () => setState(() => _obscureAppPassword = !_obscureAppPassword),
+                child: Icon(
+                  _obscureAppPassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                  size: 18,
+                  color: AppColors.muted,
+                ),
+              ),
+              filled: true,
+              fillColor: AppColors.bg,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: AppColors.border),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: AppColors.border),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: AppColors.gold),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Save Button
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () async {
+                    final email = _gmailEmailController.text.trim();
+                    final password = _gmailAppPasswordController.text.trim();
+
+                    if (email.isNotEmpty && !email.contains('@')) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Please enter a valid Gmail address',
+                              style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600)),
+                          backgroundColor: AppColors.danger,
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                      );
+                      return;
+                    }
+
+                    final prefs = await SharedPreferences.getInstance();
+                    await prefs.setString('gmail_email', email);
+                    await prefs.setString('gmail_app_password', password);
+
+                    if (mounted) {
+                      FocusScope.of(context).unfocus();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Row(
+                            children: [
+                              Icon(Icons.check_circle_outline, color: Colors.white, size: 20),
+                              const SizedBox(width: 8),
+                              Text('Email settings saved successfully!',
+                                  style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                          backgroundColor: AppColors.success,
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                      );
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    elevation: 1,
+                  ),
+                  child: Text(
+                    'Save Email Settings',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),

@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:image_picker/image_picker.dart';
@@ -749,6 +750,12 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
         date: widget.order.date,
         discountPercentage: widget.order.discountPercentage,
         loyaltyDiscount: widget.order.loyaltyDiscount,
+        deliveryMethodId: widget.order.deliveryMethodId,
+        deliveryMethodName: widget.order.deliveryMethodName,
+        paymentProofUrl: widget.order.paymentProofUrl,
+        deliveryNotes: widget.order.deliveryNotes,
+        paymentMethodId: widget.order.paymentMethodId,
+        paymentMethodName: widget.order.paymentMethodName,
       );
 
       await svc.updateOrder(widget.order.dbId, updatedOrder);
@@ -1991,10 +1998,26 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
   List<Tier> _tiers = [];
   final svc = ApiService();
 
+  // Delivery method fields
+  String? _selectedDeliveryMethodId;
+  String? _selectedDeliveryMethodName;
+  File? _paymentProofImage;
+  List<DeliveryMethod> _deliveryMethods = [];
+  bool _loadingDeliveryMethods = false;
+  bool _uploadingProof = false;
+
+  // Payment method fields
+  String? _selectedPaymentMethodId;
+  String? _selectedPaymentMethodName;
+  List<PaymentMethod> _paymentMethods = [];
+  bool _loadingPaymentMethods = false;
+
   @override
   void initState() {
     super.initState();
     _loadTiers();
+    _loadDeliveryMethods();
+    _loadPaymentMethods();
   }
 
   Future<void> _loadTiers() async {
@@ -2004,6 +2027,116 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
         setState(() => _tiers = tiers);
       }
     } catch (_) {}
+  }
+
+  Future<void> _loadDeliveryMethods() async {
+    setState(() => _loadingDeliveryMethods = true);
+    try {
+      final methods = await svc.getDeliveryMethods();
+      if (mounted) {
+        setState(() {
+          _deliveryMethods = methods;
+          _loadingDeliveryMethods = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingDeliveryMethods = false);
+    }
+  }
+
+  Future<void> _loadPaymentMethods() async {
+    setState(() => _loadingPaymentMethods = true);
+    try {
+      final methods = await svc.getPaymentMethods();
+      if (mounted) {
+        setState(() {
+          _paymentMethods = methods;
+          _loadingPaymentMethods = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingPaymentMethods = false);
+    }
+  }
+
+  Future<void> _pickPaymentProof() async {
+    final picked = await ImagePicker()
+        .pickImage(source: ImageSource.gallery, imageQuality: 85);
+    if (picked != null) {
+      setState(() => _paymentProofImage = File(picked.path));
+    }
+  }
+
+  Widget _buildProofSelectionWidget() {
+    if (_paymentProofImage != null) {
+      return Stack(
+        alignment: Alignment.topRight,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.file(
+              _paymentProofImage!,
+              height: 120,
+              width: double.infinity,
+              fit: BoxFit.cover,
+            ),
+          ),
+          Positioned(
+            top: 8,
+            right: 8,
+            child: GestureDetector(
+              onTap: () => setState(() => _paymentProofImage = null),
+              child: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: const BoxDecoration(
+                  color: Colors.black54,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.close, color: Colors.white, size: 18),
+              ),
+            ),
+          ),
+        ],
+      );
+    } else {
+      return Container(
+        padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+        decoration: BoxDecoration(
+          color: AppColors.bg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: AppColors.border,
+            width: 1.5,
+          ),
+        ),
+        child: Column(
+          children: [
+            Icon(
+              Icons.cloud_upload_outlined,
+              size: 32,
+              color: AppColors.muted,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Upload Payment Proof (Optional)',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textColor,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              'Bank transfer screenshot, cheque photo, etc.',
+              style: TextStyle(
+                fontSize: 10,
+                color: AppColors.muted,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
   }
 
   int _getCustomerLoyaltyDiscount(Customer c) {
@@ -2191,34 +2324,95 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
   Future<void> _submitOrder() async {
     if (_selCustId == null || _selectedItems.isEmpty) return;
 
-    final now = DateTime.now();
-    final orderId = 'ORD-${now.millisecondsSinceEpoch.toString().substring(7)}';
-    final o = AppOrder(
-      dbId: '',
-      id: orderId,
-      customerId: _selCustId!,
-      customerName: _selCustName ?? '',
-      customerAddress: _selCustAddress,
-      customerPhone: _selCustPhone,
-      items: _selectedItems
-          .map((i) => OrderItem(
-                name: i['item'].name,
-                qty: i['qty'],
-                price: i['price'],
-                size: i['size'],
-                discount: i['discount'] ?? 0,
-              ))
-          .toList(),
-      total: _grandTotal,
-      status: 'Pending',
-      date: DateFormat('yyyy-MM-dd').format(now),
-      discountPercentage: _overallDiscount,
-      loyaltyDiscount: _loyaltyDiscount,
-    );
-    print('DEBUG: Creating order with discountPercentage: $_overallDiscount, loyaltyDiscount: $_loyaltyDiscount');
-    print('DEBUG: Order toMap: ${o.toMap()}');
-    await svc.addOrder(o);
-    if (mounted) Navigator.pop(context);
+    setState(() => _uploadingProof = true);
+
+    try {
+      String? proofUrl;
+      if (_paymentProofImage != null) {
+        proofUrl = await svc.uploadPaymentProof(_paymentProofImage!);
+      }
+
+      final now = DateTime.now();
+      final orderId = 'ORD-${now.millisecondsSinceEpoch.toString().substring(7)}';
+      final o = AppOrder(
+        dbId: '',
+        id: orderId,
+        customerId: _selCustId!,
+        customerName: _selCustName ?? '',
+        customerAddress: _selCustAddress,
+        customerPhone: _selCustPhone,
+        items: _selectedItems
+            .map((i) => OrderItem(
+                  name: i['item'].name,
+                  qty: i['qty'],
+                  price: i['price'],
+                  size: i['size'],
+                  discount: i['discount'] ?? 0,
+                ))
+            .toList(),
+        total: _grandTotal,
+        status: 'Pending',
+        date: DateFormat('yyyy-MM-dd').format(now),
+        discountPercentage: _overallDiscount,
+        loyaltyDiscount: _loyaltyDiscount,
+        deliveryMethodId: _selectedDeliveryMethodId,
+        deliveryMethodName: _selectedDeliveryMethodName,
+        paymentMethodId: _selectedPaymentMethodId,
+        paymentMethodName: _selectedPaymentMethodName,
+        paymentProofUrl: proofUrl,
+      );
+      print('DEBUG: Creating order with discountPercentage: $_overallDiscount, loyaltyDiscount: $_loyaltyDiscount');
+      print('DEBUG: Order toMap: ${o.toMap()}');
+      await svc.addOrder(o);
+
+      // Automatically trigger email if SMTP settings and customer email exist
+      try {
+        final selectedCustomer = _customers.where((c) => c.id == _selCustId).firstOrNull;
+        final recipientEmail = selectedCustomer?.email?.trim();
+        if (recipientEmail != null && recipientEmail.isNotEmpty) {
+          final prefs = await SharedPreferences.getInstance();
+          final gmailEmail = prefs.getString('gmail_email')?.trim();
+          final gmailAppPassword = prefs.getString('gmail_app_password')?.trim();
+
+          if (gmailEmail != null && gmailEmail.isNotEmpty && gmailAppPassword != null && gmailAppPassword.isNotEmpty) {
+            // Generate invoice PDF
+            InvoiceService.generateInvoicePDFFile(o).then((pdfFile) {
+              // Send email
+              svc.sendInvoiceEmail(
+                pdfFile: pdfFile,
+                senderEmail: gmailEmail,
+                senderPassword: gmailAppPassword,
+                recipientEmail: recipientEmail,
+                orderId: o.id,
+              ).then((_) {
+                print('✓ Automated invoice email sent successfully!');
+              }).catchError((err) {
+                print('❌ Automated invoice email sending error: $err');
+              });
+            }).catchError((err) {
+              print('❌ Automated invoice PDF generation error: $err');
+            });
+          }
+        }
+      } catch (e) {
+        print('❌ Automated invoice email setup failed: $e');
+      }
+
+      if (mounted) {
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      print('❌ Failed to create order: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to submit order: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _uploadingProof = false);
+      }
+    }
   }
 
   @override
@@ -3194,14 +3388,134 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
                                         color: AppColors.goldLight)),
                               ],
                             ),
+                             // ── Delivery & Payment Selection ──
                             const SizedBox(height: 16),
-                            GoldButton(
-                              label: 'Create Order',
-                              onTap: _selCustId != null &&
-                                      _selectedItems.isNotEmpty
-                                  ? _submitOrder
-                                  : () {},
+                            const Divider(),
+                            const SizedBox(height: 12),
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text('DELIVERY & PAYMENT',
+                                  style: TextStyle(
+                                      fontSize: 10,
+                                      color: AppColors.muted,
+                                      letterSpacing: 1,
+                                      fontWeight: FontWeight.bold)),
                             ),
+                            const SizedBox(height: 12),
+                            
+                            // Delivery Method Dropdown
+                            _loadingDeliveryMethods
+                                ? const Center(child: Padding(
+                                    padding: EdgeInsets.all(8.0),
+                                    child: CircularProgressIndicator(color: AppColors.gold),
+                                  ))
+                                : Container(
+                                    decoration: BoxDecoration(
+                                      color: AppColors.bg,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: AppColors.border),
+                                    ),
+                                    child: DropdownButtonHideUnderline(
+                                      child: DropdownButton<String>(
+                                        value: _selectedDeliveryMethodId,
+                                        isExpanded: true,
+                                        dropdownColor: AppColors.card,
+                                        style: TextStyle(color: AppColors.textColor),
+                                        hint: Padding(
+                                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                                          child: Text('Select Delivery Method',
+                                              style: TextStyle(color: AppColors.muted, fontSize: 13)),
+                                        ),
+                                        items: _deliveryMethods
+                                            .map((dm) => DropdownMenuItem(
+                                                  value: dm.id,
+                                                  child: Padding(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                                                    child: Text(dm.name,
+                                                        style: TextStyle(color: AppColors.textColor, fontSize: 13)),
+                                                  ),
+                                                ))
+                                            .toList(),
+                                        onChanged: (id) {
+                                          if (id != null) {
+                                            final dm = _deliveryMethods.firstWhere((element) => element.id == id);
+                                            setState(() {
+                                              _selectedDeliveryMethodId = id;
+                                              _selectedDeliveryMethodName = dm.name;
+                                            });
+                                          }
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                            const SizedBox(height: 12),
+
+                            // Payment Method Dropdown
+                            _loadingPaymentMethods
+                                ? const Center(child: Padding(
+                                    padding: EdgeInsets.all(8.0),
+                                    child: CircularProgressIndicator(color: AppColors.gold),
+                                  ))
+                                : Container(
+                                    decoration: BoxDecoration(
+                                      color: AppColors.bg,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: AppColors.border),
+                                    ),
+                                    child: DropdownButtonHideUnderline(
+                                      child: DropdownButton<String>(
+                                        value: _selectedPaymentMethodId,
+                                        isExpanded: true,
+                                        dropdownColor: AppColors.card,
+                                        style: TextStyle(color: AppColors.textColor),
+                                        hint: Padding(
+                                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                                          child: Text('Select Payment Method',
+                                              style: TextStyle(color: AppColors.muted, fontSize: 13)),
+                                        ),
+                                        items: _paymentMethods
+                                            .map((pm) => DropdownMenuItem(
+                                                  value: pm.id,
+                                                  child: Padding(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                                                    child: Text(pm.name,
+                                                        style: TextStyle(color: AppColors.textColor, fontSize: 13)),
+                                                  ),
+                                                ))
+                                            .toList(),
+                                        onChanged: (id) {
+                                          if (id != null) {
+                                            final pm = _paymentMethods.firstWhere((element) => element.id == id);
+                                            setState(() {
+                                              _selectedPaymentMethodId = id;
+                                              _selectedPaymentMethodName = pm.name;
+                                            });
+                                          }
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                            const SizedBox(height: 12),
+
+                            // Payment Proof Selection Card
+                            GestureDetector(
+                              onTap: _paymentProofImage == null ? _pickPaymentProof : null,
+                              child: _buildProofSelectionWidget(),
+                            ),
+
+                            const SizedBox(height: 16),
+                            _uploadingProof
+                                ? const Center(child: Padding(
+                                    padding: EdgeInsets.all(12.0),
+                                    child: CircularProgressIndicator(color: AppColors.gold),
+                                  ))
+                                : GoldButton(
+                                    label: 'Create Order',
+                                    onTap: _selCustId != null &&
+                                            _selectedItems.isNotEmpty
+                                        ? _submitOrder
+                                        : () {},
+                                  ),
                           ],
                         ),
                       ),
