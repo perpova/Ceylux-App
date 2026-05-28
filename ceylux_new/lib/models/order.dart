@@ -38,10 +38,11 @@ class AppOrder {
   final String? deliveryNotes;
   final String? paymentMethodId;
   final String? paymentMethodName;
+  final bool isPaid;
 
   AppOrder({required this.dbId, required this.id, required this.customerId, required this.customerName,
     this.customerAddress, this.customerPhone, required this.items, required this.total, required this.status, required this.date, this.discountPercentage = 0, this.loyaltyDiscount = 0,
-    this.deliveryMethodId, this.deliveryMethodName, this.paymentProofUrl, this.deliveryNotes, this.paymentMethodId, this.paymentMethodName});
+    this.deliveryMethodId, this.deliveryMethodName, this.paymentProofUrl, this.deliveryNotes, this.paymentMethodId, this.paymentMethodName, this.isPaid = false});
 
   static int _toInt(dynamic v) {
     if (v == null) return 0;
@@ -90,6 +91,7 @@ class AppOrder {
       deliveryNotes: m['delivery_notes']?.toString(),
       paymentMethodId: m['payment_method_id']?.toString(),
       paymentMethodName: m['payment_method_name']?.toString(),
+      isPaid: m['is_paid'] == 1 || m['is_paid'] == true || m['is_paid'] == 'true',
     );
   }
 
@@ -106,16 +108,39 @@ class AppOrder {
     'delivery_notes': deliveryNotes,
     'payment_method_id': paymentMethodId,
     'payment_method_name': paymentMethodName,
+    'is_paid': isPaid ? 1 : 0,
   };
 
-  AppOrder copyWith({String? status, String? deliveryMethodId, String? deliveryMethodName, String? paymentProofUrl, String? deliveryNotes, String? paymentMethodId, String? paymentMethodName}) => AppOrder(
+  AppOrder copyWith({
+    String? status,
+    String? customerAddress,
+    String? customerPhone,
+    String? deliveryMethodId,
+    String? deliveryMethodName,
+    String? paymentProofUrl,
+    String? deliveryNotes,
+    String? paymentMethodId,
+    String? paymentMethodName,
+    bool? isPaid,
+  }) => AppOrder(
     dbId: dbId,
-    id: id, customerId: customerId, customerName: customerName,
-    items: items, total: total, status: status ?? this.status, date: date, discountPercentage: discountPercentage, loyaltyDiscount: loyaltyDiscount,
+    id: id,
+    customerId: customerId,
+    customerName: customerName,
+    customerAddress: customerAddress ?? this.customerAddress,
+    customerPhone: customerPhone ?? this.customerPhone,
+    items: items,
+    total: total,
+    status: status ?? this.status,
+    date: date,
+    discountPercentage: discountPercentage,
+    loyaltyDiscount: loyaltyDiscount,
     deliveryMethodId: deliveryMethodId ?? this.deliveryMethodId,
     deliveryMethodName: deliveryMethodName ?? this.deliveryMethodName,
     paymentProofUrl: paymentProofUrl ?? this.paymentProofUrl,
     deliveryNotes: deliveryNotes ?? this.deliveryNotes,
     paymentMethodId: paymentMethodId ?? this.paymentMethodId,
-    paymentMethodName: paymentMethodName ?? this.paymentMethodName);
+    paymentMethodName: paymentMethodName ?? this.paymentMethodName,
+    isPaid: isPaid ?? this.isPaid,
+  );
 }

@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:lottie/lottie.dart';
 import '../services/api_service.dart';
 import '../services/invoice_service.dart';
 import '../models/order.dart';
@@ -17,17 +18,36 @@ import '../widgets/common_widgets.dart';
 import '../widgets/animation_widgets.dart';
 
 class OrdersScreen extends StatefulWidget {
-  const OrdersScreen({super.key});
+  final bool filterPending;
+  
+  const OrdersScreen({super.key, this.filterPending = false});
+  
   @override
   State<OrdersScreen> createState() => _OrdersScreenState();
 }
 
 class _OrdersScreenState extends State<OrdersScreen> {
-  String _filter = 'All';
+  late String _filter;
   String _sortBy = 'Recent';
   String _searchQuery = '';
   final _searchCtrl = TextEditingController();
   final svc = ApiService();
+
+  @override
+  void initState() {
+    super.initState();
+    _filter = widget.filterPending ? 'Pending' : 'All';
+  }
+
+  @override
+  void didUpdateWidget(covariant OrdersScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.filterPending != oldWidget.filterPending) {
+      setState(() {
+        _filter = widget.filterPending ? 'Pending' : 'All';
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -811,6 +831,156 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
     }
   }
 
+  Future<void> _showStatusAnimation(String status) async {
+    String animationAsset;
+    String title;
+    String message;
+
+    if (status == 'Delivered') {
+      animationAsset = 'assets/animations/Deliverd.json';
+      title = 'Order Delivered! ✓';
+      message = 'Order marked as delivered successfully';
+    } else if (status == 'Processing') {
+      animationAsset = 'assets/animations/processing.json';
+      title = 'Processing Order ⏳';
+      message = 'Order is being processed';
+    } else {
+      animationAsset = 'assets/animations/processing.json';
+      title = 'Order Updated ✓';
+      message = 'Order status updated successfully';
+    }
+
+    if (context.mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          backgroundColor: AppColors.card,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 200,
+                  height: 180,
+                  child: GestureDetector(
+                    onTap: () {}, // Prevent dismissing by tapping
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.bg,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Lottie.asset(
+                            animationAsset,
+                            repeat: true,
+                            reverse: false,
+                            fit: BoxFit.contain,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textColor,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.muted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      // Auto-dismiss after 2.5 seconds
+      await Future.delayed(const Duration(milliseconds: 2500));
+      if (context.mounted) {
+        Navigator.of(context).pop();
+      }
+    }
+  }
+
+  // ── Downloading Animation Popup ──────────────────────────────────────────
+  Future<void> _showDownloadingAnimation() async {
+    if (context.mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        useRootNavigator: true,
+        builder: (context) => AlertDialog(
+          backgroundColor: AppColors.card,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 200,
+                  height: 180,
+                  child: GestureDetector(
+                    onTap: () {}, // Prevent dismissing by tapping
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.bg,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Lottie.asset(
+                            'assets/animations/downloading.json',
+                            repeat: true,
+                            reverse: false,
+                            fit: BoxFit.contain,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Downloading PDF...',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textColor,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Creating PDF and saving to downloads',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.muted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+  }
+
   int get _totalSubtotal =>
       _editableItems.fold<int>(0, (sum, item) => sum + item.subtotal);
   int get _totalItemDiscounts => _editableItems.fold<int>(
@@ -875,6 +1045,25 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
                   children: [
                     StatusBadge(status: widget.order.status),
                     const SizedBox(width: 8),
+                    if (widget.order.isPaid) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppColors.success.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: AppColors.success.withValues(alpha: 0.4)),
+                        ),
+                        child: Text(
+                          '● PAID',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AppColors.success,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
                     if (!_isEditMode) ...[
                       GestureDetector(
                         onTap: () {
@@ -1252,6 +1441,10 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
                               onTap: () async {
                                 final sStatus = s;
                                 if (widget.order.status != sStatus) {
+                                  // Show animation
+                                  await _showStatusAnimation(sStatus);
+                                  
+                                  // Update status
                                   svc.updateOrderStatus(widget.order.dbId, sStatus).then((_) {
                                     InvoiceService.sendStatusUpdateEmail(widget.order, sStatus);
                                   }).catchError((err) {
@@ -1392,6 +1585,104 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
                         icon: Icons.picture_as_pdf,
                         buttonColor: AppColors.gold,
                         onTap: () async {
+                          final startTime = DateTime.now();
+                          // Show downloading animation
+                          _showDownloadingAnimation();
+
+                          try {
+                            await InvoiceService.downloadInvoice(widget.order);
+
+                            final elapsed = DateTime.now().difference(startTime);
+                            const minDuration = Duration(milliseconds: 1500);
+                            if (elapsed < minDuration) {
+                              await Future.delayed(minDuration - elapsed);
+                            }
+
+                            if (context.mounted) {
+                              Navigator.of(context, rootNavigator: true).pop();
+                              // Brief delay for a smooth transition
+                              await Future.delayed(const Duration(milliseconds: 300));
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Row(
+                                      children: [
+                                        const Icon(Icons.download_done,
+                                            color: Colors.white, size: 20),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const Text(
+                                                'PDF downloaded!',
+                                                style: TextStyle(
+                                                    fontWeight: FontWeight.w600,
+                                                    fontSize: 11),
+                                              ),
+                                              Text(
+                                                'Check Downloads folder',
+                                                style: TextStyle(
+                                                    fontSize: 9,
+                                                    color: Colors.white.withValues(alpha: 0.7)),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    backgroundColor: AppColors.success,
+                                    behavior: SnackBarBehavior.floating,
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10)),
+                                    duration: const Duration(seconds: 3),
+                                  ),
+                                );
+                              }
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              Navigator.of(context, rootNavigator: true).pop();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Row(
+                                    children: [
+                                      const Icon(Icons.error,
+                                          color: Colors.white, size: 20),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Text(
+                                          'Failed: $e',
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 10),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  backgroundColor: AppColors.danger,
+                                  behavior: SnackBarBehavior.floating,
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10)),
+                                  duration: const Duration(seconds: 3),
+                                ),
+                              );
+                            }
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: ActionButton(
+                        label: widget.order.isPaid ? 'PAID ✓' : 'PAID',
+                        icon: widget.order.isPaid ? Icons.check_circle : Icons.payment,
+                        buttonColor: widget.order.isPaid ? AppColors.success : AppColors.danger,
+                        onTap: () async {
+                          final startTime = DateTime.now();
+                          // Show loading overlay
                           showDialog(
                             context: context,
                             barrierDismissible: false,
@@ -1403,23 +1694,16 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
                               content: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  CircularProgressIndicator(
-                                      color: AppColors.gold),
+                                  CircularProgressIndicator(color: AppColors.success),
                                   const SizedBox(height: 16),
                                   Text(
-                                    'Generating Receipt...',
+                                    widget.order.isPaid
+                                        ? 'Generating PDF Receipt...'
+                                        : 'Marking as Paid & Generating Receipt...',
                                     style: TextStyle(
                                       color: AppColors.textColor,
                                       fontWeight: FontWeight.w600,
                                       fontSize: 14,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    'Creating PDF and saving to downloads',
-                                    style: TextStyle(
-                                      color: AppColors.muted,
-                                      fontSize: 11,
                                     ),
                                     textAlign: TextAlign.center,
                                   ),
@@ -1429,72 +1713,74 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
                           );
 
                           try {
-                            await InvoiceService.downloadInvoice(widget.order);
+                            AppOrder orderToGenerate = widget.order;
+                            
+                            // Only update database if not already marked as Paid
+                            if (!widget.order.isPaid) {
+                              final updatedOrder = widget.order.copyWith(isPaid: true);
+                              await svc.updateOrder(widget.order.dbId, updatedOrder);
+                              orderToGenerate = updatedOrder;
+                            }
+
+                            // Download the PDF invoice
+                            await InvoiceService.downloadInvoice(orderToGenerate);
+
+                            // Send email with PDF attachment
+                            await InvoiceService.sendInitialInvoiceEmail(orderToGenerate);
+
+                            final elapsed = DateTime.now().difference(startTime);
+                            const minDuration = Duration(milliseconds: 1500);
+                            if (elapsed < minDuration) {
+                              await Future.delayed(minDuration - elapsed);
+                            }
 
                             if (context.mounted) {
-                              Navigator.pop(context);
+                              Navigator.of(context, rootNavigator: true).pop(); // dismiss loading dialog
+                              Navigator.of(context).pop(); // close order details sheet to refresh status in parent list
+                              
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Row(
                                     children: [
-                                      Icon(Icons.download_done,
-                                          color: Colors.white, size: 20),
+                                      const Icon(Icons.check_circle, color: Colors.white, size: 20),
                                       const SizedBox(width: 10),
                                       Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Text(
-                                              'PDF downloaded!',
-                                              style: TextStyle(
-                                                  fontWeight: FontWeight.w600,
-                                                  fontSize: 11),
-                                            ),
-                                            Text(
-                                              'Check Downloads folder',
-                                              style: TextStyle(
-                                                  fontSize: 9,
-                                                  color: Colors.white70),
-                                            ),
-                                          ],
+                                        child: Text(
+                                          widget.order.isPaid
+                                              ? 'Paid Invoice downloaded & emailed ✓'
+                                              : 'Order marked as Paid! Invoice downloaded & emailed ✓',
+                                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 11),
                                         ),
                                       ),
                                     ],
                                   ),
                                   backgroundColor: AppColors.success,
                                   behavior: SnackBarBehavior.floating,
-                                  shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(10)),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                   duration: const Duration(seconds: 3),
                                 ),
                               );
                             }
                           } catch (e) {
                             if (context.mounted) {
-                              Navigator.pop(context);
+                              Navigator.of(context, rootNavigator: true).pop();
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Row(
                                     children: [
-                                      Icon(Icons.error,
-                                          color: Colors.white, size: 20),
+                                      const Icon(Icons.error, color: Colors.white, size: 20),
                                       const SizedBox(width: 10),
                                       Expanded(
                                         child: Text(
                                           'Failed: $e',
-                                          style: TextStyle(
-                                              fontWeight: FontWeight.w600,
-                                              fontSize: 10),
+                                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 10),
                                         ),
                                       ),
                                     ],
                                   ),
                                   backgroundColor: AppColors.danger,
                                   behavior: SnackBarBehavior.floating,
-                                  shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(10)),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                   duration: const Duration(seconds: 3),
                                 ),
                               );
@@ -1556,88 +1842,99 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Delivery method row
+                    // Delivery & Payment method on single line
                     Row(
                       children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: AppColors.gold.withOpacity(0.1),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            Icons.local_shipping_outlined,
-                            size: 18,
-                            color: AppColors.gold,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
+                        // Delivery method section
                         Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                          child: Row(
                             children: [
-                              Text(
-                                'DELIVERY METHOD',
-                                style: TextStyle(
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.muted,
-                                  letterSpacing: 0.5,
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: AppColors.gold.withOpacity(0.1),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  Icons.local_shipping_outlined,
+                                  size: 18,
+                                  color: AppColors.gold,
                                 ),
                               ),
-                              const SizedBox(height: 2),
-                              Text(
-                                _selectedDeliveryMethodName ?? 'Not selected',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.textColor,
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'DELIVERY',
+                                      style: TextStyle(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.muted,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      _selectedDeliveryMethodName ?? 'Not selected',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.textColor,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],
                           ),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Divider(color: AppColors.border.withOpacity(0.5), height: 1),
-                    const SizedBox(height: 16),
-                    // Payment method row
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withOpacity(0.1),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            Icons.payment_outlined,
-                            size: 18,
-                            color: AppColors.primaryLight,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 16),
+                        // Payment method section
                         Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                          child: Row(
                             children: [
-                              Text(
-                                'PAYMENT METHOD',
-                                style: TextStyle(
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.muted,
-                                  letterSpacing: 0.5,
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withOpacity(0.1),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  Icons.payment_outlined,
+                                  size: 18,
+                                  color: AppColors.primaryLight,
                                 ),
                               ),
-                              const SizedBox(height: 2),
-                              Text(
-                                _selectedPaymentMethodName ?? 'Not selected',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.textColor,
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'PAYMENT',
+                                      style: TextStyle(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.muted,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      _selectedPaymentMethodName ?? 'Not selected',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.textColor,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],

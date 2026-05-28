@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ota_update/ota_update.dart';
 import 'package:shimmer/shimmer.dart';
 import 'services/update_service.dart';
+import 'services/network_error_handler.dart';
 import 'utils/theme.dart';
 import 'models/stock_item.dart';
 import 'screens/auth_screen.dart';
@@ -229,27 +230,13 @@ class _SplashGateState extends State<SplashGate> {
                         baseColor: AppColors.gold.withOpacity(0.3),
                         highlightColor: AppColors.gold.withOpacity(0.8),
                         period: const Duration(milliseconds: 2000),
-                        child: Container(
-                          width: 280, height: 90,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppColors.gold.withOpacity(0.4),
-                                blurRadius: 40,
-                                offset: const Offset(0, 0),
-                                spreadRadius: 10,
-                              ),
-                              BoxShadow(
-                                color: AppColors.primary.withOpacity(0.2),
-                                blurRadius: 20,
-                                offset: const Offset(0, 8),
-                              ),
-                            ],
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(16),
-                            child: Image.asset('assets/images/ceylux_logo.png', fit: BoxFit.contain),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: Image.asset(
+                            'assets/images/ceylux_logo.png',
+                            width: 280,
+                            height: 90,
+                            fit: BoxFit.contain,
                           ),
                         ),
                       ),
@@ -621,12 +608,13 @@ class _HomeShellState extends State<HomeShell> {
   int _tab = 0;
   String _userName = '';
   String? _profileImagePath;
+  bool _filterPendingOrders = false;
 
   final _navItems = const [
     {'icon': Icons.home_rounded,         'label': 'Home'},
     {'icon': Icons.inventory_2_rounded,  'label': 'Stock'},
     {'icon': Icons.shopping_bag_rounded, 'label': 'Orders'},
-    {'icon': Icons.people_rounded,       'label': 'Clients'},
+    {'icon': Icons.people_rounded,       'label': 'Customers'},
     {'icon': Icons.settings_rounded,     'label': 'Settings'},
   ];
 
@@ -634,6 +622,10 @@ class _HomeShellState extends State<HomeShell> {
   void initState() {
     super.initState();
     _loadUser();
+    // Initialize network error handler
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      NetworkErrorHandler().initialize(context);
+    });
   }
 
   Future<void> _loadUser() async {
@@ -761,9 +753,16 @@ class _HomeShellState extends State<HomeShell> {
       body: IndexedStack(
         index: _tab,
         children: [
-          DashboardScreen(),
+          DashboardScreen(
+            onTabChange: (index, {filterPending = false}) {
+              setState(() {
+                _filterPendingOrders = filterPending;
+                _tab = index;
+              });
+            },
+          ),
           StockScreen(),
-          OrdersScreen(),
+          OrdersScreen(filterPending: _filterPendingOrders),
           CustomersScreen(),
           SettingsScreen(),
         ],
@@ -780,7 +779,12 @@ class _HomeShellState extends State<HomeShell> {
             children: List.generate(_navItems.length, (i) {
               final isActive = _tab == i;
               return Expanded(child: GestureDetector(
-                onTap: () => setState(() => _tab = i),
+                onTap: () => setState(() {
+                  _tab = i;
+                  if (i == 2) {
+                    _filterPendingOrders = false;
+                  }
+                }),
                 behavior: HitTestBehavior.opaque,
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),

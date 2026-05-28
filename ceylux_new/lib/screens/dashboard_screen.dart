@@ -8,9 +8,14 @@ import '../models/order.dart';
 import '../utils/theme.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/animation_widgets.dart';
+import 'revenue_details_screen.dart';
+import 'stock_screen.dart';
+import 'customers_screen.dart';
+import 'orders_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key});
+  final Function(int tabIndex, {bool filterPending})? onTabChange;
+  const DashboardScreen({super.key, this.onTabChange});
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -21,6 +26,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   bool _isLowStockExpanded = true;
   bool _isRecentOrdersExpanded = true;
   bool _isTopCustomersExpanded = true;
+  bool _filterPendingOrders = false;
 
   late ScrollController _scrollController;
   late AnimationController _rotationController;
@@ -231,8 +237,19 @@ class _DashboardScreenState extends State<DashboardScreen>
                           final stock = stockSnap.data ?? [];
                           final orders = orderSnap.data ?? [];
                           final customers = custSnap.data ?? [];
+                          
+                          // Calculate current month revenue
+                          final now = DateTime.now();
+                          final currentMonthStart = DateTime(now.year, now.month, 1);
+                          final currentMonthEnd = DateTime(now.year, now.month + 1, 0);
+                          final currentMonthOrders = orders.where((order) {
+                            final orderDate = DateTime.parse(order.date);
+                            return orderDate.isAfter(currentMonthStart) &&
+                                orderDate.isBefore(currentMonthEnd.add(const Duration(days: 1)));
+                          }).toList();
+                          
                           final totalRevenue =
-                              orders.fold<int>(0, (a, b) => a + b.total);
+                              currentMonthOrders.fold<int>(0, (a, b) => a + b.total);
                           final pendingOrders = orders
                               .where((o) =>
                                   o.status == 'Processing' ||
@@ -247,27 +264,79 @@ class _DashboardScreenState extends State<DashboardScreen>
                             mainAxisSpacing: 12,
                             childAspectRatio: 1.45,
                             children: [
-                              StatCard(
-                                  label: 'Total Revenue',
-                                  value:
-                                      'Rs. ${NumberFormat('#,###').format(totalRevenue)}',
-                                  icon: Icons.wallet,
-                                  accentColor: AppColors.gold),
-                              StatCard(
-                                  label: 'Stock Items',
-                                  value: '${stock.length}',
-                                  icon: Icons.inventory_2,
-                                  accentColor: AppColors.accent),
-                              StatCard(
-                                  label: 'Customers',
-                                  value: '${customers.length}',
-                                  icon: Icons.group,
-                                  accentColor: AppColors.success),
-                              StatCard(
-                                  label: 'Pending Orders',
-                                  value: '$pendingOrders',
-                                  icon: Icons.shopping_bag,
-                                  accentColor: const Color(0xFF9333EA)),
+                              GestureDetector(
+                                onTap: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const RevenueDetailsScreen(),
+                                  ),
+                                ),
+                                child: StatCard(
+                                    label: 'Total Revenue',
+                                    value:
+                                        'Rs. ${NumberFormat('#,###').format(totalRevenue)}',
+                                    icon: Icons.wallet,
+                                    accentColor: AppColors.gold),
+                              ),
+                              GestureDetector(
+                                onTap: () {
+                                  if (widget.onTabChange != null) {
+                                    widget.onTabChange!(1);
+                                  } else {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => const StockScreen(),
+                                      ),
+                                    );
+                                  }
+                                },
+                                child: StatCard(
+                                    label: 'Stock Items',
+                                    value: '${stock.length}',
+                                    icon: Icons.inventory_2,
+                                    accentColor: AppColors.accent),
+                              ),
+                              GestureDetector(
+                                onTap: () {
+                                  if (widget.onTabChange != null) {
+                                    widget.onTabChange!(3);
+                                  } else {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => const CustomersScreen(),
+                                      ),
+                                    );
+                                  }
+                                },
+                                child: StatCard(
+                                    label: 'Customers',
+                                    value: '${customers.length}',
+                                    icon: Icons.group,
+                                    accentColor: AppColors.success),
+                              ),
+                              GestureDetector(
+                                onTap: () {
+                                  if (widget.onTabChange != null) {
+                                    widget.onTabChange!(2, filterPending: true);
+                                  } else {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => const OrdersScreen(
+                                          filterPending: true,
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                },
+                                child: StatCard(
+                                    label: 'Pending Orders',
+                                    value: '$pendingOrders',
+                                    icon: Icons.shopping_bag,
+                                    accentColor: const Color(0xFF9333EA)),
+                              ),
                             ],
                           );
                         },

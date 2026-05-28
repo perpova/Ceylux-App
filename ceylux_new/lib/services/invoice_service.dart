@@ -157,7 +157,7 @@ class InvoiceService {
         /* Bill To Section */
         .bill-to {
             display: flex;
-            gap: 40px;
+            gap: 20px;
             margin-bottom: 30px;
             padding: 30px 40px;
             background: #f8fafb;
@@ -417,19 +417,19 @@ class InvoiceService {
         
         <!-- Bill To Section -->
         <div class="bill-to">
-            <div class="bill-to-section">
+            <div class="bill-to-section" style="flex: 2.2;">
                 <h3>Bill To:</h3>
                 <div class="customer-name">{{CUSTOMER_NAME}}</div>
                 <div class="address">{{CUSTOMER_ADDRESS}}</div>
                 <div class="phone">{{CUSTOMER_PHONE}}</div>
             </div>
-            <div class="bill-to-section" style="text-align: center;">
+            <div class="bill-to-section" style="flex: 2.2; text-align: left;">
                 <h3>Delivery & Payment:</h3>
                 <div class="address" style="font-weight: 600;">Delivery: {{DELIVERY_METHOD}}</div>
                 <div class="address" style="font-weight: 600;">Payment: {{PAYMENT_METHOD}}</div>
             </div>
-            <div class="bill-to-section" style="text-align: right;">
-                <h3>Status:</h3>
+            <div class="bill-to-section" style="flex: 1.2; text-align: right;">
+                <h3>Delivery Status:</h3>
                 <div style="background: linear-gradient(135deg, #86BDDA 0%, #5BA3C7 100%); color: white; padding: 8px 16px; border-radius: 6px; display: inline-block; font-weight: bold; font-size: 12px;">{{STATUS}}</div>
             </div>
         </div>
@@ -656,15 +656,97 @@ class InvoiceService {
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.all(30),
         build: (pw.Context context) {
-          return pw.SizedBox(
+          final invoiceContent = pw.SizedBox(
             width: double.infinity,
             child: rootWidget,
           );
+
+          if (order.isPaid) {
+            return pw.Stack(
+              alignment: pw.Alignment.topLeft,
+              children: [
+                invoiceContent,
+                pw.Positioned(
+                  top: 70,
+                  right: 20,
+                  child: pw.Transform.rotate(
+                    angle: -0.35,
+                    child: _buildVectorPaidStamp(),
+                  ),
+                ),
+              ],
+            );
+          }
+          
+          return invoiceContent;
         },
       ),
     );
     
     return pdf;
+  }
+
+  /// Draws a pure-vector PAID rubber-stamp (no image, no background).
+  static pw.Widget _buildVectorPaidStamp() {
+    const double size = 150.0;
+    const double cx = size / 2;
+    const double cy = size / 2;
+    const double outerR = 70.0;
+    const double innerR = 58.0;
+    final stampColor = PdfColor.fromHex('#C0392B');
+    final pw.TextStyle paidTextStyle = pw.TextStyle(
+      color: stampColor,
+      fontWeight: pw.FontWeight.bold,
+      fontSize: 32,
+      letterSpacing: 3,
+    );
+
+    // Use Stack: CustomPaint for rings/lines, pw.Text for the label.
+    // This avoids the PdfFont vs pw.Font mismatch on the canvas API.
+    return pw.SizedBox(
+      width: size,
+      height: size,
+      child: pw.Stack(
+        alignment: pw.Alignment.center,
+        children: [
+          // ── geometric rings & decorative lines (no text here) ──
+          pw.CustomPaint(
+            size: const PdfPoint(size, size),
+            painter: (canvas, pdfSize) {
+              // Outer thick ring
+              canvas
+                ..setStrokeColor(stampColor)
+                ..setLineWidth(4)
+                ..drawEllipse(cx, cy, outerR, outerR)
+                ..strokePath();
+
+              // Inner thin ring
+              canvas
+                ..setStrokeColor(stampColor)
+                ..setLineWidth(1.5)
+                ..drawEllipse(cx, cy, innerR, innerR)
+                ..strokePath();
+
+              // Decorative horizontal lines above and below where text will sit
+              const lineHalfLen = 22.0;
+              canvas
+                ..setStrokeColor(stampColor)
+                ..setLineWidth(1.2)
+                ..moveTo(cx - lineHalfLen, cy - 20)
+                ..lineTo(cx + lineHalfLen, cy - 20)
+                ..strokePath()
+                ..moveTo(cx - lineHalfLen, cy + 20)
+                ..lineTo(cx + lineHalfLen, cy + 20)
+                ..strokePath();
+            },
+          ),
+          // ── "PAID" label centred over the rings ──
+          pw.Center(
+            child: pw.Text('PAID', style: paidTextStyle),
+          ),
+        ],
+      ),
+    );
   }
 
   static pw.Widget _buildElement(dom.Element element, List<CSSRule> cssRules, Uint8List? logoBitmap, {pw.TextStyle? parentStyle}) {
@@ -930,11 +1012,21 @@ class InvoiceService {
     
     // Handle flex / expanded (note: header-text is removed from Expanded wrap to prevent overflow)
     final flexVal = styles['flex'];
-    if (flexVal == '1' || 
+    if (flexVal != null || 
         element.classes.contains('summary-placeholder') || 
         element.classes.contains('footer-col') || 
         element.classes.contains('bill-to-section')) {
-      widget = pw.Expanded(child: widget);
+      int flex = 1;
+      if (flexVal != null) {
+        final match = RegExp(r'([0-9.]+)').firstMatch(flexVal);
+        if (match != null) {
+          final doubleVal = double.tryParse(match.group(1)!);
+          if (doubleVal != null) {
+            flex = doubleVal.round();
+          }
+        }
+      }
+      widget = pw.Expanded(flex: flex, child: widget);
     }
     
     return widget;
@@ -1251,6 +1343,8 @@ class InvoiceService {
     return pw.TextAlign.left;
   }
 
+  // _getPaidStampBitmap is no longer needed — stamp is drawn as pure vector
+
   static Future<void> shareInvoice(AppOrder order, {String? phone}) async {
     final template = await _getTemplate() ?? defaultTemplate;
     final html = await _generateHTMLFromTemplate(template, order);
@@ -1288,7 +1382,20 @@ class InvoiceService {
 
     String dir = '';
     if (Platform.isAndroid) {
-      dir = '/storage/emulated/0/Download';
+      try {
+        dir = '/storage/emulated/0/Download';
+        final file = File('$dir/CEYLUX_Invoice_${order.id}.pdf');
+        await file.writeAsBytes(bytes);
+        return;
+      } catch (_) {
+        final extDirs = await getExternalStorageDirectories(type: StorageDirectory.downloads);
+        if (extDirs != null && extDirs.isNotEmpty) {
+          dir = extDirs.first.path;
+        } else {
+          final extDir = await getExternalStorageDirectory();
+          dir = extDir?.path ?? '/storage/emulated/0/Download';
+        }
+      }
     } else if (Platform.isIOS) {
       final docsDir = await getApplicationDocumentsDirectory();
       dir = docsDir.path;
@@ -1312,7 +1419,20 @@ class InvoiceService {
 
       String dir = '';
       if (Platform.isAndroid) {
-        dir = '/storage/emulated/0/Download';
+        try {
+          dir = '/storage/emulated/0/Download';
+          final file = File('$dir/CEYLUX_Receipt_${order.id}.html');
+          await file.writeAsString(html);
+          return file.path;
+        } catch (_) {
+          final extDirs = await getExternalStorageDirectories(type: StorageDirectory.downloads);
+          if (extDirs != null && extDirs.isNotEmpty) {
+            dir = extDirs.first.path;
+          } else {
+            final extDir = await getExternalStorageDirectory();
+            dir = extDir?.path ?? '/storage/emulated/0/Download';
+          }
+        }
       } else if (Platform.isIOS) {
         final docsDir = await getApplicationDocumentsDirectory();
         dir = docsDir.path;
@@ -1584,15 +1704,19 @@ class InvoiceService {
 
       String statusMessage = '';
       String statusClass = '';
+      String attachmentMessage = '';
       if (status == 'Processing') {
         statusMessage = 'Our boutique team is carefully preparing your order for shipment. We will keep you updated!';
         statusClass = 'status-processing';
+        attachmentMessage = 'We have attached the order invoice PDF for your reference.';
       } else if (status == 'Delivered') {
         statusMessage = 'Your package has been successfully delivered. We have attached the final PDF invoice to this email for your records.';
         statusClass = 'status-delivered';
+        attachmentMessage = 'The final invoice PDF is attached for your records.';
       } else {
         statusMessage = 'Your order is currently pending verification.';
         statusClass = '';
+        attachmentMessage = 'We have attached the order invoice PDF for your reference.';
       }
 
       String bodyHtml = '''
@@ -1643,6 +1767,8 @@ class InvoiceService {
         </div>
       </div>
       
+      <p>$attachmentMessage</p>
+      
       <p>Thank you for shopping with Ceylux!</p>
     </div>
     <div class="footer">
@@ -1654,10 +1780,8 @@ class InvoiceService {
 </html>
 ''';
 
-      File? pdfFile;
-      if (status == 'Delivered') {
-        pdfFile = await generateInvoicePDFFile(order);
-      }
+      // Generate PDF for all status changes
+      File? pdfFile = await generateInvoicePDFFile(order);
 
       await sendGenericEmail(
         recipientEmail: recipientEmail,
