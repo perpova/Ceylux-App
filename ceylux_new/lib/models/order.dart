@@ -6,14 +6,15 @@ class OrderItem {
   final int price;
   final String size;
   final int discount; // Discount percentage (0-100)
+  final String color;
 
-  OrderItem({required this.name, required this.qty, required this.price, required this.size, this.discount = 0});
+  OrderItem({required this.name, required this.qty, required this.price, required this.size, this.discount = 0, this.color = ''});
 
   factory OrderItem.fromMap(Map<String, dynamic> m) => OrderItem(
     name: m['name'] ?? '', qty: m['qty'] ?? 1,
-    price: m['price'] ?? 0, size: m['size'] ?? '', discount: m['discount'] ?? 0);
+    price: m['price'] ?? 0, size: m['size'] ?? '', discount: m['discount'] ?? 0, color: m['color'] ?? '');
 
-  Map<String, dynamic> toMap() => {'name': name, 'qty': qty, 'price': price, 'size': size, 'discount': discount};
+  Map<String, dynamic> toMap() => {'name': name, 'qty': qty, 'price': price, 'size': size, 'discount': discount, 'color': color};
   int get subtotal => qty * price;
   int get discountAmount => (subtotal * discount) ~/ 100;
   int get total => subtotal - discountAmount;

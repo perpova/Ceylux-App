@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:lottie/lottie.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../services/api_service.dart';
 import '../services/invoice_service.dart';
 import '../models/order.dart';
@@ -740,6 +741,7 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
         qty: qty,
         price: price,
         size: _editableItems[index].size,
+        color: _editableItems[index].color,
         discount: discount,
       );
     }
@@ -1148,7 +1150,7 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
                                                 fontSize: 13,
                                                 fontWeight: FontWeight.w600,
                                                 color: AppColors.textColor)),
-                                        Text('Size: ${item.size}',
+                                        Text('${item.color.isNotEmpty ? "Color: ${item.color} • " : ""}Size: ${item.size}',
                                             style: TextStyle(
                                                 fontSize: 11,
                                                 color: AppColors.muted)),
@@ -1299,7 +1301,7 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
                                             fontSize: 13,
                                             fontWeight: FontWeight.w600,
                                             color: AppColors.textColor)),
-                                    Text('Size: ${item.size} × ${item.qty}',
+                                    Text('${item.color.isNotEmpty ? "Color: ${item.color} • " : ""}Size: ${item.size} × ${item.qty}',
                                         style: TextStyle(
                                             fontSize: 11,
                                             color: AppColors.muted)),
@@ -2539,7 +2541,7 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
     });
   }
 
-  void _addItem(StockItem item, String size, int qty, int price) {
+  void _addItem(StockItem item, String size, int qty, int price, String color) {
     setState(() {
       _selectedItems.add({
         'item': item,
@@ -2547,6 +2549,7 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
         'qty': qty,
         'price': price,
         'discount': item.discount, // Use discount from stock item
+        'color': color,
       });
       _itemSearchCtrl.clear();
       _itemSearch = '';
@@ -2665,6 +2668,7 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
                   qty: i['qty'],
                   price: i['price'],
                   size: i['size'],
+                  color: i['color'] ?? '',
                   discount: i['discount'] ?? 0,
                 ))
             .toList(),
@@ -3281,7 +3285,7 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
                                                     CrossAxisAlignment.start,
                                                 children: [
                                                   Text(
-                                                      '${item['size']} • Qty: ${item['qty']} • Rs. ${item['price']}',
+                                                      '${item['color'] != null && item['color'].toString().isNotEmpty ? "${item['color']} • " : ""}${item['size']} • Qty: ${item['qty']} • Rs. ${item['price']}',
                                                       style: TextStyle(
                                                           fontSize: 11,
                                                           color:
@@ -3854,206 +3858,463 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
   }
 
   void _showAddItemDialog(StockItem item) {
-    String selectedSize = '';
-    int qty = 1;
     int price = item.price;
+    
+    // Extract available colors from stock item sizes map keys (e.g. "Black_M" -> "Black")
+    final colors = item.sizes.keys
+        .where((k) => k.contains('_'))
+        .map((k) => k.split('_')[0])
+        .toSet()
+        .toList();
+    if (colors.isEmpty) {
+      colors.add('Black');
+    }
+
     final sizeList = item.sizes.keys.where((k) => !k.contains('_')).toList();
     if (sizeList.isEmpty) {
-      sizeList.addAll(item.category == 'Kids' ? kidsSizes : allSizes);
+      sizeList.addAll(['M', 'L', 'XL', '2XL']);
     }
     
-    // Filter available sizes based on total stock minus what is already in the cart
-    final availableSizes = sizeList.where((s) {
-      final alreadyInCart = _selectedItems
-          .where((cartItem) => cartItem['item'].id == item.id && cartItem['size'] == s)
-          .fold<int>(0, (sum, cartItem) => sum + (cartItem['qty'] as int));
-      return (item.sizes[s] ?? 0) - alreadyInCart > 0;
-    }).toList();
+    // Sort sizes logically: M, L, XL, 2XL first
+    const sizeOrder = {'M': 0, 'L': 1, 'XL': 2, '2XL': 3};
+    sizeList.sort((a, b) => (sizeOrder[a] ?? 99).compareTo(sizeOrder[b] ?? 99));
+
+    // Global sets counter
+    int sets = 0;
+    final setsController = TextEditingController(text: '0');
+
+    // Maps for individual size controllers and quantities per color
+    final Map<String, Map<String, TextEditingController>> sizeControllersMap = {};
+    final Map<String, Map<String, int>> sizeQuantitiesMap = {};
+    
+    for (final color in colors) {
+      sizeControllersMap[color] = {};
+      sizeQuantitiesMap[color] = {};
+
+      for (final s in sizeList) {
+        sizeControllersMap[color]![s] = TextEditingController(text: '0');
+        sizeQuantitiesMap[color]![s] = 0;
+      }
+    }
+
+    final priceController = TextEditingController(text: '$price');
 
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          backgroundColor: AppColors.card,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('${item.emoji} ${item.name}',
-                        style: TextStyle(
-                            color: AppColors.textColor, fontSize: 16)),
-                    Text('Price: Rs. $price',
-                        style: TextStyle(color: AppColors.gold, fontSize: 12)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+        builder: (context, setState) {
+          
+          // Helper to calculate available stock for a color & size
+          int getAvailableStock(String c, String s) {
+            final stockKey = c.isNotEmpty ? '${c}_$s' : s;
+            final totalStock = item.sizes[stockKey] ?? item.sizes[s] ?? 0;
+            final alreadyInCart = _selectedItems
+                .where((cartItem) =>
+                    cartItem['item'].id == item.id &&
+                    cartItem['size'] == s &&
+                    (cartItem['color'] ?? '') == c)
+                .fold<int>(0, (sum, cartItem) => sum + (cartItem['qty'] as int));
+            return totalStock - alreadyInCart;
+          }
+
+          // Function to update size quantities based on global sets
+          void updateFromGlobalSets(int S) {
+            if (S < 0) S = 0;
+            sets = S;
+            setsController.text = '$S';
+            setsController.selection = TextSelection.fromPosition(
+                TextPosition(offset: setsController.text.length));
+            
+            for (final color in colors) {
+              for (final s in sizeList) {
+                final avail = getAvailableStock(color, s);
+                final req = S;
+                final finalQty = req > avail ? avail : req;
+                sizeQuantitiesMap[color]![s] = finalQty;
+                sizeControllersMap[color]![s]?.text = '$finalQty';
+              }
+            }
+          }
+
+          // Function to update sets based on size quantities change
+          void onSizeQtyChanged(String color, String s, int newQty) {
+            final avail = getAvailableStock(color, s);
+            if (newQty < 0) newQty = 0;
+            if (newQty > avail) newQty = avail;
+            
+            sizeQuantitiesMap[color]![s] = newQty;
+            sizeControllersMap[color]![s]?.text = '$newQty';
+            sizeControllersMap[color]![s]?.selection = TextSelection.fromPosition(
+                TextPosition(offset: sizeControllersMap[color]![s]!.text.length));
+            
+            // Recalculate sets: 1 set = 1 piece of each size of each color
+            int minQtyAcrossAll = 9999;
+            for (final col in colors) {
+              for (final sizeKey in sizeList) {
+                final q = sizeQuantitiesMap[col]![sizeKey] ?? 0;
+                if (q < minQtyAcrossAll) {
+                  minQtyAcrossAll = q;
+                }
+              }
+            }
+            if (minQtyAcrossAll == 9999) minQtyAcrossAll = 0;
+            
+            // Check if it's a perfect set (all sizes/colors in the set are exactly minQtyAcrossAll)
+            bool perfect = true;
+            for (final col in colors) {
+              for (final sizeKey in sizeList) {
+                final q = sizeQuantitiesMap[col]![sizeKey] ?? 0;
+                if (q != minQtyAcrossAll) {
+                  perfect = false;
+                  break;
+                }
+              }
+            }
+            
+            final displaySets = perfect ? minQtyAcrossAll : 0;
+            if (sets != displaySets) {
+              sets = displaySets;
+              setsController.text = '$displaySets';
+            }
+          }
+
+          // Check if any quantity is selected
+          final hasSelection = sizeQuantitiesMap.values.any((sq) => sq.values.any((q) => q > 0));
+
+          final screenWidth = MediaQuery.of(context).size.width;
+          final dialogWidth = screenWidth > 600 ? 460.0 : screenWidth * 0.88;
+
+          return AlertDialog(
+            backgroundColor: AppColors.card,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
+            title: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // Size Selection
-                Container(
-                  decoration: BoxDecoration(
-                    color: AppColors.bg,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: DropdownButton<String>(
-                    value: selectedSize.isEmpty ? null : selectedSize,
-                    isExpanded: true,
-                    underline: Container(),
-                    dropdownColor: AppColors.card,
-                    style: TextStyle(color: AppColors.textColor),
-                    hint: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Text('Select Size',
-                          style: TextStyle(color: AppColors.muted)),
-                    ),
-                    items: availableSizes
-                        .map((s) {
-                          final alreadyInCart = _selectedItems
-                              .where((cartItem) => cartItem['item'].id == item.id && cartItem['size'] == s)
-                              .fold<int>(0, (sum, cartItem) => sum + (cartItem['qty'] as int));
-                          final remaining = (item.sizes[s] ?? 0) - alreadyInCart;
-                          
-                          return DropdownMenuItem(
-                            value: s,
-                            child: Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 12),
-                              child: Text(
-                                  '$s ($remaining available)',
-                                  style: TextStyle(
-                                      color: AppColors.textColor)),
-                            ),
-                          );
-                        })
-                        .toList(),
-                    onChanged: (s) => setState(() {
-                      selectedSize = s ?? '';
-                      qty = 1;
-                    }),
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                // Quantity
-                Container(
-                  decoration: BoxDecoration(
-                    color: AppColors.bg,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Quantity:',
+                      Text('${item.emoji} ${item.name}',
                           style: TextStyle(
-                              color: AppColors.textColor,
-                              fontWeight: FontWeight.w600)),
-                      Row(
-                        children: [
-                          IconButton(
-                            icon: Icon(Icons.remove,
-                                color: AppColors.muted, size: 18),
-                            onPressed: () =>
-                                setState(() => qty = (qty - 1).clamp(1, 99)),
-                            constraints: const BoxConstraints(
-                                minWidth: 32, minHeight: 32),
-                            padding: EdgeInsets.zero,
-                          ),
-                          SizedBox(
-                            width: 40,
-                            child: Text('$qty',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.gold)),
-                          ),
-                          IconButton(
-                            icon: Icon(Icons.add,
-                                color: AppColors.gold, size: 18),
-                            onPressed: selectedSize.isEmpty
-                                ? null
-                                : () {
-                                    final alreadyInCart = _selectedItems
-                                        .where((cartItem) => cartItem['item'].id == item.id && cartItem['size'] == selectedSize)
-                                        .fold<int>(0, (sum, cartItem) => sum + (cartItem['qty'] as int));
-                                    final maxQty = (item.sizes[selectedSize] ?? 0) - alreadyInCart;
-                                    if (qty < maxQty) {
-                                      setState(() => qty++);
-                                    }
-                                  },
-                            constraints: const BoxConstraints(
-                                minWidth: 32, minHeight: 32),
-                            padding: EdgeInsets.zero,
-                          ),
-                        ],
-                      ),
+                              color: AppColors.textColor, fontSize: 16, fontWeight: FontWeight.bold)),
+                      Text('Price: Rs. $price',
+                          style: TextStyle(color: AppColors.gold, fontSize: 12, fontWeight: FontWeight.w600)),
                     ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                // Price (editable)
-                Container(
-                  decoration: BoxDecoration(
-                    color: AppColors.bg,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: TextField(
-                    keyboardType: TextInputType.number,
-                    style: TextStyle(color: AppColors.textColor),
-                    decoration: InputDecoration(
-                      hintText: 'Price',
-                      hintStyle: TextStyle(color: AppColors.muted),
-                      border: InputBorder.none,
-                      prefixText: 'Rs. ',
-                      prefixStyle: TextStyle(
-                          color: AppColors.gold, fontWeight: FontWeight.bold),
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 10),
-                    ),
-                    controller: TextEditingController(text: '$price'),
-                    onChanged: (v) =>
-                        setState(() => price = int.tryParse(v) ?? item.price),
                   ),
                 ),
               ],
             ),
-          ),
-          actions: [
-            ActionButton(
-              label: 'Cancel',
-              onTap: () => Navigator.pop(context),
-              isOutlined: true,
-              buttonColor: AppColors.muted,
+            content: SizedBox(
+              width: dialogWidth,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Single Global Sets counter
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'GLOBAL SETS',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.gold,
+                                fontSize: 13,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '1 Set = 16 pieces',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: AppColors.muted,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Row(
+                          children: [
+                            IconButton(
+                              icon: Icon(Icons.remove_circle_outline,
+                                  color: AppColors.muted, size: 20),
+                              onPressed: () => setState(() {
+                                if (sets > 0) {
+                                  updateFromGlobalSets(sets - 1);
+                                }
+                              }),
+                              constraints: const BoxConstraints(),
+                              padding: const EdgeInsets.symmetric(horizontal: 4),
+                            ),
+                            Container(
+                              width: 45,
+                              height: 28,
+                              decoration: BoxDecoration(
+                                color: AppColors.bg,
+                                border: Border.all(color: AppColors.border),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: TextField(
+                                controller: setsController,
+                                keyboardType: TextInputType.number,
+                                textAlign: TextAlign.center,
+                                textAlignVertical: TextAlignVertical.center,
+                                style: TextStyle(
+                                    color: AppColors.textColor,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold),
+                                decoration: InputDecoration(
+                                  border: InputBorder.none,
+                                  isDense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                ),
+                                onChanged: (val) => setState(() {
+                                  final sVal = int.tryParse(val) ?? 0;
+                                  updateFromGlobalSets(sVal);
+                                }),
+                              ),
+                            ),
+                            IconButton(
+                              icon: Icon(Icons.add_circle_outline,
+                                  color: AppColors.gold, size: 20),
+                              onPressed: () => setState(() {
+                                bool canAdd = true;
+                                for (final col in colors) {
+                                  for (final s in sizeList) {
+                                    final avail = getAvailableStock(col, s);
+                                    if (sets + 1 > avail) {
+                                      canAdd = false;
+                                      break;
+                                    }
+                                  }
+                                  if (!canAdd) break;
+                                }
+                                if (canAdd) {
+                                  updateFromGlobalSets(sets + 1);
+                                } else {
+                                  // Find bottlenecks
+                                  int maxSets = 9999;
+                                  for (final col in colors) {
+                                    for (final s in sizeList) {
+                                      final avail = getAvailableStock(col, s);
+                                      if (avail < maxSets) {
+                                        maxSets = avail;
+                                      }
+                                    }
+                                  }
+                                  if (maxSets != 9999 && maxSets > sets) {
+                                    updateFromGlobalSets(maxSets);
+                                  } else {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Cannot add more sets. Stock limit reached for some size/color.'),
+                                        duration: Duration(seconds: 2),
+                                      ),
+                                    );
+                                  }
+                                }
+                              }),
+                              constraints: const BoxConstraints(),
+                              padding: const EdgeInsets.symmetric(horizontal: 4),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // Table Layout like on Stock Screen but with inputs
+                    Table(
+                      border: TableBorder.all(color: AppColors.border, width: 1),
+                      columnWidths: const {
+                        0: FlexColumnWidth(1.6), // Color column
+                        1: FlexColumnWidth(1),   // M
+                        2: FlexColumnWidth(1),   // L
+                        3: FlexColumnWidth(1),   // XL
+                        4: FlexColumnWidth(1),   // 2XL
+                      },
+                      children: [
+                        // Header Row
+                        TableRow(
+                          children: [
+                            TableCell(
+                              child: Container(
+                                height: 36,
+                                color: AppColors.bg,
+                                alignment: Alignment.center,
+                                child: Text(
+                                  'Color',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.textColor,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            ...sizeList.map((s) => TableCell(
+                              child: Container(
+                                height: 36,
+                                color: AppColors.bg,
+                                alignment: Alignment.center,
+                                child: Text(
+                                  s,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.textColor,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            )),
+                          ],
+                        ),
+                        // Data Rows
+                        ...colors.map((color) {
+                          return TableRow(
+                            children: [
+                              // Color Row Header
+                              TableCell(
+                                verticalAlignment: TableCellVerticalAlignment.middle,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    color.toUpperCase(),
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.gold,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              // Size cells with input and avail stock underneath
+                              ...sizeList.map((s) {
+                                final avail = getAvailableStock(color, s);
+                                final selected = sizeQuantitiesMap[color]![s] ?? 0;
+                                final remaining = (avail - selected).clamp(0, avail);
+                                final controller = sizeControllersMap[color]![s];
+                                return TableCell(
+                                  verticalAlignment: TableCellVerticalAlignment.middle,
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 6.0),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Container(
+                                          height: 28,
+                                          decoration: BoxDecoration(
+                                            color: AppColors.bg,
+                                            border: Border.all(color: AppColors.border),
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: TextField(
+                                            controller: controller,
+                                            keyboardType: TextInputType.number,
+                                            textAlign: TextAlign.center,
+                                            textAlignVertical: TextAlignVertical.center,
+                                            style: TextStyle(
+                                                color: AppColors.textColor,
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold),
+                                            decoration: InputDecoration(
+                                              border: InputBorder.none,
+                                              isDense: true,
+                                              contentPadding: EdgeInsets.zero,
+                                            ),
+                                            onChanged: (val) => setState(() {
+                                              final qVal = int.tryParse(val) ?? 0;
+                                              onSizeQtyChanged(color, s, qVal);
+                                            }),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          '$remaining avail',
+                                          style: TextStyle(color: AppColors.muted, fontSize: 8),
+                                          textAlign: TextAlign.center,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              }),
+                            ],
+                          );
+                        }),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Price Input
+                    Text('PRICE',
+                        style: GoogleFonts.plusJakartaSans(
+                            fontSize: 10,
+                            color: AppColors.muted,
+                            letterSpacing: 1,
+                            fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 6),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.bg,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: TextField(
+                        keyboardType: TextInputType.number,
+                        style: TextStyle(color: AppColors.textColor),
+                        decoration: InputDecoration(
+                          hintText: 'Price',
+                          hintStyle: TextStyle(color: AppColors.muted),
+                          border: InputBorder.none,
+                          prefixText: 'Rs. ',
+                          prefixStyle: TextStyle(
+                              color: AppColors.gold, fontWeight: FontWeight.bold),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 10),
+                        ),
+                        controller: priceController,
+                        onChanged: (v) => price = int.tryParse(v) ?? item.price,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-            const SizedBox(width: 8),
-            ActionButton(
-              label: 'Add',
-              onTap: selectedSize.isEmpty
-                  ? () {}
-                  : () {
-                      _addItem(item, selectedSize, qty, price);
-                      Navigator.pop(context);
-                    },
-              buttonColor:
-                  selectedSize.isEmpty ? AppColors.muted : AppColors.gold,
-            ),
-          ],
-        ),
+            actions: [
+              ActionButton(
+                label: 'Cancel',
+                onTap: () => Navigator.pop(context),
+                isOutlined: true,
+                buttonColor: AppColors.muted,
+              ),
+              const SizedBox(width: 8),
+              ActionButton(
+                label: 'Add',
+                onTap: !hasSelection
+                    ? () {}
+                    : () {
+                        // Add each selected size of each color to the cart
+                        sizeQuantitiesMap.forEach((color, sizes) {
+                          sizes.forEach((size, quantity) {
+                            if (quantity > 0) {
+                              _addItem(item, size, quantity, price, color);
+                            }
+                          });
+                        });
+                        Navigator.pop(context);
+                      },
+                buttonColor: !hasSelection ? AppColors.muted : AppColors.gold,
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -4166,11 +4427,17 @@ class _ItemSettingsDialogState extends State<_ItemSettingsDialog> {
                         icon: Icon(Icons.add_circle_outline,
                             color: AppColors.gold),
                         onPressed: () {
-                          // Find total stock of this item and size
-                          final totalStock = widget.item['item'].sizes[widget.item['size']] ?? 0;
-                          // Sum up what other items in the cart are using
+                          final color = widget.item['color'] ?? '';
+                          final size = widget.item['size'];
+                          final stockKey = color.isNotEmpty ? '${color}_$size' : size;
+                          final totalStock = widget.item['item'].sizes[stockKey] ?? widget.item['item'].sizes[size] ?? 0;
+                          
                           final alreadyInCartOther = widget.selectedItems
-                              .where((cartItem) => cartItem != widget.item && cartItem['item'].id == widget.item['item'].id && cartItem['size'] == widget.item['size'])
+                              .where((cartItem) =>
+                                  cartItem != widget.item &&
+                                  cartItem['item'].id == widget.item['item'].id &&
+                                  cartItem['size'] == size &&
+                                  (cartItem['color'] ?? '') == color)
                               .fold<int>(0, (sum, cartItem) => sum + (cartItem['qty'] as int));
                           final maxQty = totalStock - alreadyInCartOther;
                           if (_qty < maxQty) {

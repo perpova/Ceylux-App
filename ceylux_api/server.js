@@ -410,7 +410,7 @@ app.post('/orders', async (req, res) => {
       const parsedItems = typeof items === 'string' ? JSON.parse(items) : items;
       if (Array.isArray(parsedItems)) {
         for (const orderItem of parsedItems) {
-          const { name, size, qty } = orderItem;
+          const { name, size, qty, color } = orderItem;
           if (name && size && qty) {
             const [stockRows] = await conn.query(
               'SELECT id, sizes FROM stock WHERE name = ?',
@@ -429,20 +429,31 @@ app.post('/orders', async (req, res) => {
                 let remainingToDeduct = parseInt(qty);
                 sizesMap[size] = Math.max(0, sizesMap[size] - remainingToDeduct);
                 
-                // Deduct from color-prefixed keys (e.g. "Black_M", "Orange_M")
-                const colorKeys = Object.keys(sizesMap).filter(k => k.endsWith(`_${size}`));
-                for (const key of colorKeys) {
-                  if (remainingToDeduct <= 0) break;
-                  const currentStock = parseInt(sizesMap[key]) || 0;
-                  if (currentStock > 0) {
-                    const deduct = Math.min(currentStock, remainingToDeduct);
-                    sizesMap[key] = currentStock - deduct;
-                    remainingToDeduct -= deduct;
+                if (color) {
+                  const colorKey = `${color}_${size}`;
+                  if (sizesMap[colorKey] !== undefined) {
+                    const currentStock = parseInt(sizesMap[colorKey]) || 0;
+                    sizesMap[colorKey] = Math.max(0, currentStock - remainingToDeduct);
+                    remainingToDeduct = 0;
                   }
                 }
-                if (remainingToDeduct > 0 && colorKeys.length > 0) {
-                  const firstKey = colorKeys[0];
-                  sizesMap[firstKey] = Math.max(0, (parseInt(sizesMap[firstKey]) || 0) - remainingToDeduct);
+                
+                if (remainingToDeduct > 0) {
+                  // Deduct from color-prefixed keys (e.g. "Black_M", "Orange_M")
+                  const colorKeys = Object.keys(sizesMap).filter(k => k.endsWith(`_${size}`));
+                  for (const key of colorKeys) {
+                    if (remainingToDeduct <= 0) break;
+                    const currentStock = parseInt(sizesMap[key]) || 0;
+                    if (currentStock > 0) {
+                      const deduct = Math.min(currentStock, remainingToDeduct);
+                      sizesMap[key] = currentStock - deduct;
+                      remainingToDeduct -= deduct;
+                    }
+                  }
+                  if (remainingToDeduct > 0 && colorKeys.length > 0) {
+                    const firstKey = colorKeys[0];
+                    sizesMap[firstKey] = Math.max(0, (parseInt(sizesMap[firstKey]) || 0) - remainingToDeduct);
+                  }
                 }
                 
                 await conn.query(
@@ -505,7 +516,7 @@ app.put('/orders/:id', async (req, res) => {
         // Restore stock levels from old items
         if (Array.isArray(oldItems)) {
           for (const orderItem of oldItems) {
-            const { name, size, qty } = orderItem;
+            const { name, size, qty, color } = orderItem;
             if (name && size && qty) {
               const [stockRows] = await conn.query(
                 'SELECT id, sizes FROM stock WHERE name = ?',
@@ -523,10 +534,15 @@ app.put('/orders/:id', async (req, res) => {
                 if (sizesMap && sizesMap[size] !== undefined) {
                   sizesMap[size] = sizesMap[size] + parseInt(qty);
                   
-                  // Restore to the first color key ending with "_size", or default to "Black_size"
-                  const colorKeys = Object.keys(sizesMap).filter(k => k.endsWith(`_${size}`));
-                  const targetKey = colorKeys.length > 0 ? colorKeys[0] : `Black_${size}`;
-                  sizesMap[targetKey] = (parseInt(sizesMap[targetKey]) || 0) + parseInt(qty);
+                  if (color) {
+                    const colorKey = `${color}_${size}`;
+                    sizesMap[colorKey] = (parseInt(sizesMap[colorKey]) || 0) + parseInt(qty);
+                  } else {
+                    // Restore to the first color key ending with "_size", or default to "Black_size"
+                    const colorKeys = Object.keys(sizesMap).filter(k => k.endsWith(`_${size}`));
+                    const targetKey = colorKeys.length > 0 ? colorKeys[0] : `Black_${size}`;
+                    sizesMap[targetKey] = (parseInt(sizesMap[targetKey]) || 0) + parseInt(qty);
+                  }
                   
                   await conn.query(
                     'UPDATE stock SET sizes = ? WHERE id = ?',
@@ -549,7 +565,7 @@ app.put('/orders/:id', async (req, res) => {
       const newItems = typeof items === 'string' ? JSON.parse(items) : items;
       if (Array.isArray(newItems)) {
         for (const orderItem of newItems) {
-          const { name, size, qty } = orderItem;
+          const { name, size, qty, color } = orderItem;
           if (name && size && qty) {
             const [stockRows] = await conn.query(
               'SELECT id, sizes FROM stock WHERE name = ?',
@@ -568,20 +584,31 @@ app.put('/orders/:id', async (req, res) => {
                 let remainingToDeduct = parseInt(qty);
                 sizesMap[size] = Math.max(0, sizesMap[size] - remainingToDeduct);
                 
-                // Deduct from color-prefixed keys (e.g. "Black_M", "Orange_M")
-                const colorKeys = Object.keys(sizesMap).filter(k => k.endsWith(`_${size}`));
-                for (const key of colorKeys) {
-                  if (remainingToDeduct <= 0) break;
-                  const currentStock = parseInt(sizesMap[key]) || 0;
-                  if (currentStock > 0) {
-                    const deduct = Math.min(currentStock, remainingToDeduct);
-                    sizesMap[key] = currentStock - deduct;
-                    remainingToDeduct -= deduct;
+                if (color) {
+                  const colorKey = `${color}_${size}`;
+                  if (sizesMap[colorKey] !== undefined) {
+                    const currentStock = parseInt(sizesMap[colorKey]) || 0;
+                    sizesMap[colorKey] = Math.max(0, currentStock - remainingToDeduct);
+                    remainingToDeduct = 0;
                   }
                 }
-                if (remainingToDeduct > 0 && colorKeys.length > 0) {
-                  const firstKey = colorKeys[0];
-                  sizesMap[firstKey] = Math.max(0, (parseInt(sizesMap[firstKey]) || 0) - remainingToDeduct);
+                
+                if (remainingToDeduct > 0) {
+                  // Deduct from color-prefixed keys (e.g. "Black_M", "Orange_M")
+                  const colorKeys = Object.keys(sizesMap).filter(k => k.endsWith(`_${size}`));
+                  for (const key of colorKeys) {
+                    if (remainingToDeduct <= 0) break;
+                    const currentStock = parseInt(sizesMap[key]) || 0;
+                    if (currentStock > 0) {
+                      const deduct = Math.min(currentStock, remainingToDeduct);
+                      sizesMap[key] = currentStock - deduct;
+                      remainingToDeduct -= deduct;
+                    }
+                  }
+                  if (remainingToDeduct > 0 && colorKeys.length > 0) {
+                    const firstKey = colorKeys[0];
+                    sizesMap[firstKey] = Math.max(0, (parseInt(sizesMap[firstKey]) || 0) - remainingToDeduct);
+                  }
                 }
                 
                 await conn.query(
@@ -628,7 +655,7 @@ app.delete('/orders/:id', async (req, res) => {
         // 2. Restore stock levels
         if (Array.isArray(parsedItems)) {
           for (const orderItem of parsedItems) {
-            const { name, size, qty } = orderItem;
+            const { name, size, qty, color } = orderItem;
             if (name && size && qty) {
               const [stockRows] = await conn.query(
                 'SELECT id, sizes FROM stock WHERE name = ?',
@@ -646,10 +673,15 @@ app.delete('/orders/:id', async (req, res) => {
                 if (sizesMap && sizesMap[size] !== undefined) {
                   sizesMap[size] = sizesMap[size] + parseInt(qty);
                   
-                  // Restore to the first color key ending with "_size", or default to "Black_size"
-                  const colorKeys = Object.keys(sizesMap).filter(k => k.endsWith(`_${size}`));
-                  const targetKey = colorKeys.length > 0 ? colorKeys[0] : `Black_${size}`;
-                  sizesMap[targetKey] = (parseInt(sizesMap[targetKey]) || 0) + parseInt(qty);
+                  if (color) {
+                    const colorKey = `${color}_${size}`;
+                    sizesMap[colorKey] = (parseInt(sizesMap[colorKey]) || 0) + parseInt(qty);
+                  } else {
+                    // Restore to the first color key ending with "_size", or default to "Black_size"
+                    const colorKeys = Object.keys(sizesMap).filter(k => k.endsWith(`_${size}`));
+                    const targetKey = colorKeys.length > 0 ? colorKeys[0] : `Black_${size}`;
+                    sizesMap[targetKey] = (parseInt(sizesMap[targetKey]) || 0) + parseInt(qty);
+                  }
                   
                   await conn.query(
                     'UPDATE stock SET sizes = ? WHERE id = ?',
