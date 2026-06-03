@@ -383,6 +383,63 @@ class _StockFormSheetState extends State<_StockFormSheet> {
     if (mounted) Navigator.pop(context);
   }
 
+  void _showQuantityDialog(String sz, int currentQty) async {
+    final controller = TextEditingController(text: currentQty.toString());
+    final newQty = await showDialog<int>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.card,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('Enter Quantity for Size $sz', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: AppColors.textColor, fontSize: 16)),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          autofocus: true,
+          style: GoogleFonts.plusJakartaSans(color: AppColors.textColor),
+          decoration: InputDecoration(
+            hintText: 'e.g. 10',
+            hintStyle: TextStyle(color: AppColors.muted),
+            filled: true,
+            fillColor: AppColors.bg,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: AppColors.border),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: AppColors.border),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: AppColors.primary, width: 1.5),
+            ),
+          ),
+        ),
+        actions: [
+          ActionButton(
+            onTap: () => Navigator.pop(context),
+            label: 'Cancel',
+            isOutlined: true,
+            buttonColor: AppColors.muted,
+          ),
+          const SizedBox(width: 8),
+          ActionButton(
+            onTap: () {
+              final parsed = int.tryParse(controller.text) ?? 0;
+              Navigator.pop(context, parsed.clamp(0, 999));
+            },
+            label: 'OK',
+            buttonColor: AppColors.primary,
+          ),
+        ],
+      ),
+    );
+
+    if (newQty != null) {
+      setState(() => _sizes[sz] = newQty);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -516,10 +573,14 @@ class _StockFormSheetState extends State<_StockFormSheet> {
               child: Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
                 GestureDetector(onTap: () => setState(() => _sizes[sz] = (qty - 1).clamp(0, 999)),
                   child: Icon(Icons.remove, size: 14, color: AppColors.muted)),
-                Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Text(sz, style: GoogleFonts.plusJakartaSans(fontSize: 9, color: AppColors.muted, fontWeight: FontWeight.bold)),
-                  Text('$qty', style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold, color: qty > 0 ? AppColors.primary : AppColors.muted)),
-                ]),
+                GestureDetector(
+                  onTap: () => _showQuantityDialog(sz, qty),
+                  behavior: HitTestBehavior.opaque,
+                  child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Text(sz, style: GoogleFonts.plusJakartaSans(fontSize: 9, color: AppColors.muted, fontWeight: FontWeight.bold)),
+                    Text('$qty', style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold, color: qty > 0 ? AppColors.primary : AppColors.muted)),
+                  ]),
+                ),
                 GestureDetector(onTap: () => setState(() => _sizes[sz] = qty + 1),
                   child: Icon(Icons.add, size: 14, color: AppColors.primary)),
               ]),

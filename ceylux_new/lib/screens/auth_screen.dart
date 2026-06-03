@@ -13,7 +13,7 @@ class AuthScreen extends StatefulWidget {
 }
 
 class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+  // late TabController _tabController; // Hidden/Commented out Sign Up
   bool _loading = false;
   String? _error;
 
@@ -30,8 +30,8 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    _tabController.addListener(() => setState(() => _error = null));
+    // _tabController = TabController(length: 2, vsync: this);
+    // _tabController.addListener(() => setState(() => _error = null));
   }
 
   Future<void> _signin() async {
@@ -128,7 +128,8 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
               Text('CLOTHING', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.muted, letterSpacing: 4, fontWeight: FontWeight.bold)),
               const SizedBox(height: 40),
 
-              // Tab bar
+              // Tab bar (Hidden/Commented out)
+              /*
               Container(
                 decoration: BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
                 padding: const EdgeInsets.all(4),
@@ -148,6 +149,7 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
                 ),
               ),
               const SizedBox(height: 24),
+              */
 
               // Error message
               if (_error != null)
@@ -167,7 +169,30 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
                   ]),
                 ),
 
-              // Forms
+              // Forms - Sign In only (Sign Up commented below)
+              Column(children: [
+                _field(
+                  controller: _siEmail,
+                  label: 'Email',
+                  hint: 'you@example.com',
+                  icon: Icons.email_outlined,
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                const SizedBox(height: 14),
+                _field(
+                  controller: _siPass,
+                  label: 'Password',
+                  hint: '••••••••',
+                  icon: Icons.lock_outline,
+                  obscure: _siObscure,
+                  toggle: () => setState(() => _siObscure = !_siObscure),
+                ),
+                const SizedBox(height: 28),
+                _submitBtn('Sign In', _signin),
+              ]),
+
+              /*
+              // ── SIGN UP (Hidden/Commented) ──────────────────
               SizedBox(
                 height: 420,
                 child: TabBarView(
@@ -234,6 +259,7 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
                   ],
                 ),
               ),
+              */
 
               const SizedBox(height: 24),
               Text('© 2026 Ceylux Fashion Boutique',
@@ -327,7 +353,7 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
 
   @override
   void dispose() {
-    _tabController.dispose();
+    // _tabController.dispose(); // Hidden/Commented out Sign Up
     _siEmail.dispose(); _siPass.dispose();
     _suName.dispose(); _suEmail.dispose();
     _suPass.dispose(); _suPass2.dispose();

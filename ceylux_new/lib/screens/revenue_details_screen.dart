@@ -217,8 +217,7 @@ class _RevenueDetailsScreenState extends State<RevenueDetailsScreen> {
                 final orders = snap.data ?? [];
                 final filteredOrders = orders.where((order) {
                   final orderDate = DateTime.parse(order.date);
-                  return orderDate.isAfter(_startDate) &&
-                      orderDate.isBefore(_endDate.add(const Duration(days: 1)));
+                  return !orderDate.isBefore(_startDate) && !orderDate.isAfter(_endDate);
                 }).toList();
 
                 final totalRevenue =

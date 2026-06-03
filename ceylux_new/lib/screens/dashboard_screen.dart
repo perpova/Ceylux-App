@@ -240,12 +240,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                           
                           // Calculate current month revenue
                           final now = DateTime.now();
-                          final currentMonthStart = DateTime(now.year, now.month, 1);
-                          final currentMonthEnd = DateTime(now.year, now.month + 1, 0);
                           final currentMonthOrders = orders.where((order) {
                             final orderDate = DateTime.parse(order.date);
-                            return orderDate.isAfter(currentMonthStart) &&
-                                orderDate.isBefore(currentMonthEnd.add(const Duration(days: 1)));
+                            return orderDate.year == now.year && orderDate.month == now.month;
                           }).toList();
                           
                           final totalRevenue =
