@@ -348,8 +348,46 @@ class _StockFormSheetState extends State<_StockFormSheet> {
           _sizes['${c}_$sz'] = 0;
         }
       }
+      _generateSkuCode();
     }
   }
+
+  Future<void> _generateSkuCode() async {
+    try {
+      final now = DateTime.now();
+      final yearStr = DateFormat('yy').format(now);
+      final monthStr = DateFormat('MM').format(now);
+      final prefix = 'CLX$yearStr$monthStr';
+      
+      final list = await svc.getStock();
+      
+      int maxNum = 0;
+      final regex = RegExp('^CLX$yearStr$monthStr(\\d{3})\$');
+      
+      for (final item in list) {
+        final match = regex.firstMatch(item.sku);
+        if (match != null) {
+          final numStr = match.group(1)!;
+          final numVal = int.tryParse(numStr) ?? 0;
+          if (numVal > maxNum) {
+            maxNum = numVal;
+          }
+        }
+      }
+      
+      final nextNum = maxNum + 1;
+      final nextNumStr = nextNum.toString().padLeft(3, '0');
+      
+      if (mounted) {
+        setState(() {
+          _sku.text = '$prefix$nextNumStr';
+        });
+      }
+    } catch (e) {
+      print('❌ Failed to auto-generate SKU: $e');
+    }
+  }
+
 
   void _onCategoryChange(String cat) {
     setState(() {

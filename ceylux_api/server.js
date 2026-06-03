@@ -117,9 +117,12 @@ async function initDB() {
         delivery_notes TEXT,
         payment_method_id VARCHAR(100),
         payment_method_name VARCHAR(255),
+        is_paid TINYINT(1) DEFAULT 0,
+        tracking_number VARCHAR(255) DEFAULT '',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
 
     // 5. tiers table
     await pool.query(`
@@ -160,6 +163,31 @@ async function initDB() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
+    // Seed default payment methods if empty
+    const [paymentCount] = await pool.query('SELECT COUNT(*) AS count FROM payment_methods');
+    if (paymentCount[0].count === 0) {
+      await pool.query(`
+        INSERT INTO payment_methods (name, description, emoji) VALUES
+        ('Credit', 'Credit payment method', '💳'),
+        ('Cash on Delivery (C.O.D.)', 'Cash on delivery', '💵'),
+        ('Bank Transfer', 'Bank transfer payment', '🏦')
+      `);
+      console.log('🌱 Seeded default payment methods!');
+    }
+
+    // 8. customer_payments table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS customer_payments (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        customer_id INT NOT NULL,
+        amount DECIMAL(10,2) NOT NULL,
+        payment_date VARCHAR(50) NOT NULL,
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
 
     console.log('✅ MySQL Database initialized and tables verified!');
   } catch (err) {
@@ -317,8 +345,53 @@ app.delete('/stock/:id', async (req, res) => {
 // ── CUSTOMERS ──────────────────────────────────────────────────────────────
 app.get('/customers', async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT * FROM customers ORDER BY name');
+    const [rows] = await pool.query(`
+      SELECT c.*,
+        COALESCE((
+          SELECT SUM(o.total)
+          FROM orders o
+          WHERE o.customer_id = c.id
+            AND o.payment_method_name IN ('Credit', 'Cash on Delivery (C.O.D.)')
+            AND o.status != 'Cancelled'
+        ), 0.00) AS total_outstanding,
+        COALESCE((
+          SELECT SUM(p.amount)
+          FROM customer_payments p
+          WHERE p.customer_id = c.id
+        ), 0.00) AS total_paid
+      FROM customers c
+      ORDER BY c.name
+    `);
     res.json(rows);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/customers/:id', async (req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT c.*,
+        COALESCE((
+          SELECT SUM(o.total)
+          FROM orders o
+          WHERE o.customer_id = c.id
+            AND o.payment_method_name IN ('Credit', 'Cash on Delivery (C.O.D.)')
+            AND o.status != 'Cancelled'
+        ), 0.00) AS total_outstanding,
+        COALESCE((
+          SELECT SUM(p.amount)
+          FROM customer_payments p
+          WHERE p.customer_id = c.id
+        ), 0.00) AS total_paid
+      FROM customers c
+      WHERE c.id = ?
+    `, [req.params.id]);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Customer not found' });
+    }
+    res.json(rows[0]);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -342,7 +415,23 @@ app.post('/customers', async (req, res) => {
     
     console.log('Customer added with ID:', result.insertId);
     
-    const [rows] = await pool.query('SELECT * FROM customers WHERE id = ?', [result.insertId]);
+    const [rows] = await pool.query(`
+      SELECT c.*,
+        COALESCE((
+          SELECT SUM(o.total)
+          FROM orders o
+          WHERE o.customer_id = c.id
+            AND o.payment_method_name IN ('Credit', 'Cash on Delivery (C.O.D.)')
+            AND o.status != 'Cancelled'
+        ), 0.00) AS total_outstanding,
+        COALESCE((
+          SELECT SUM(p.amount)
+          FROM customer_payments p
+          WHERE p.customer_id = c.id
+        ), 0.00) AS total_paid
+      FROM customers c
+      WHERE c.id = ?
+    `, [result.insertId]);
     
     if (rows.length === 0) {
       return res.status(500).json({ error: 'Failed to retrieve inserted customer' });
@@ -362,7 +451,23 @@ app.put('/customers/:id', async (req, res) => {
       'UPDATE customers SET name = ?, phone = ?, email = ?, address = ?, photo_url = ?, owner_rating = ?, owner_note = ? WHERE id = ?',
       [name, phone, email, address, photo_url || null, owner_rating || 0, owner_note || '', req.params.id]
     );
-    const [rows] = await pool.query('SELECT * FROM customers WHERE id = ?', [req.params.id]);
+    const [rows] = await pool.query(`
+      SELECT c.*,
+        COALESCE((
+          SELECT SUM(o.total)
+          FROM orders o
+          WHERE o.customer_id = c.id
+            AND o.payment_method_name IN ('Credit', 'Cash on Delivery (C.O.D.)')
+            AND o.status != 'Cancelled'
+        ), 0.00) AS total_outstanding,
+        COALESCE((
+          SELECT SUM(p.amount)
+          FROM customer_payments p
+          WHERE p.customer_id = c.id
+        ), 0.00) AS total_paid
+      FROM customers c
+      WHERE c.id = ?
+    `, [req.params.id]);
     res.json(rows[0]);
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -373,6 +478,48 @@ app.delete('/customers/:id', async (req, res) => {
   try {
     await pool.query('DELETE FROM customers WHERE id = ?', [req.params.id]);
     res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Customer orders subroute
+app.get('/customers/:id/orders', async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      'SELECT * FROM orders WHERE customer_id = ? ORDER BY created_at DESC',
+      [req.params.id]
+    );
+    res.json(rows);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Customer payments subroute
+app.get('/customers/:id/payments', async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      'SELECT * FROM customer_payments WHERE customer_id = ? ORDER BY created_at DESC',
+      [req.params.id]
+    );
+    res.json(rows);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/customers/:id/payments', async (req, res) => {
+  try {
+    const { amount, payment_date, notes } = req.body;
+    if (!amount || isNaN(amount)) {
+      return res.status(400).json({ error: 'Valid amount is required' });
+    }
+    const [result] = await pool.query(
+      'INSERT INTO customer_payments (customer_id, amount, payment_date, notes) VALUES (?, ?, ?, ?)',
+      [req.params.id, amount, payment_date || new Date().toISOString().split('T')[0], notes || '']
+    );
+    res.json({ success: true, id: result.insertId });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -390,15 +537,15 @@ app.get('/orders', async (req, res) => {
 
 app.post('/orders', async (req, res) => {
   try {
-    const { order_ref, customer_id, customer_name, customer_address, customer_phone, items, total, status, date, discount_percentage, loyalty_discount, delivery_method_id, delivery_method_name, payment_proof_url, delivery_notes, payment_method_id, payment_method_name, is_paid } = req.body;
+    const { order_ref, customer_id, customer_name, customer_address, customer_phone, items, total, status, date, discount_percentage, loyalty_discount, delivery_method_id, delivery_method_name, payment_proof_url, delivery_notes, payment_method_id, payment_method_name, is_paid, tracking_number } = req.body;
     
     const conn = await pool.getConnection();
     try {
       await conn.beginTransaction();
 
       const [result] = await conn.query(
-        'INSERT INTO orders (order_ref, customer_id, customer_name, customer_address, customer_phone, items, total, status, date, discount_percentage, loyalty_discount, delivery_method_id, delivery_method_name, payment_proof_url, delivery_notes, payment_method_id, payment_method_name, is_paid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [order_ref, customer_id, customer_name, customer_address, customer_phone, JSON.stringify(items), total, status, date, discount_percentage || 0, loyalty_discount || 0, delivery_method_id || null, delivery_method_name || null, payment_proof_url || null, delivery_notes || null, payment_method_id || null, payment_method_name || null, is_paid ? 1 : 0]
+        'INSERT INTO orders (order_ref, customer_id, customer_name, customer_address, customer_phone, items, total, status, date, discount_percentage, loyalty_discount, delivery_method_id, delivery_method_name, payment_proof_url, delivery_notes, payment_method_id, payment_method_name, is_paid, tracking_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [order_ref, customer_id, customer_name, customer_address, customer_phone, JSON.stringify(items), total, status, date, discount_percentage || 0, loyalty_discount || 0, delivery_method_id || null, delivery_method_name || null, payment_proof_url || null, delivery_notes || null, payment_method_id || null, payment_method_name || null, is_paid ? 1 : 0, tracking_number || '']
       );
 
       await conn.query(
@@ -497,7 +644,7 @@ app.put('/orders/:id/status', async (req, res) => {
 
 app.put('/orders/:id', async (req, res) => {
   try {
-    const { order_ref, customer_id, customer_name, customer_address, customer_phone, items, total, status, date, discount_percentage, loyalty_discount, delivery_method_id, delivery_method_name, payment_proof_url, delivery_notes, payment_method_id, payment_method_name, is_paid } = req.body;
+    const { order_ref, customer_id, customer_name, customer_address, customer_phone, items, total, status, date, discount_percentage, loyalty_discount, delivery_method_id, delivery_method_name, payment_proof_url, delivery_notes, payment_method_id, payment_method_name, is_paid, tracking_number } = req.body;
     
     const conn = await pool.getConnection();
     try {
@@ -557,8 +704,8 @@ app.put('/orders/:id', async (req, res) => {
 
       // 2. Update the order in DB
       await conn.query(
-        'UPDATE orders SET order_ref = ?, customer_id = ?, customer_name = ?, customer_address = ?, customer_phone = ?, items = ?, total = ?, status = ?, date = ?, discount_percentage = ?, loyalty_discount = ?, delivery_method_id = ?, delivery_method_name = ?, payment_proof_url = ?, delivery_notes = ?, payment_method_id = ?, payment_method_name = ?, is_paid = ? WHERE id = ? OR order_ref = ?',
-        [order_ref, customer_id, customer_name, customer_address, customer_phone, JSON.stringify(items), total, status, date, discount_percentage || 0, loyalty_discount || 0, delivery_method_id || null, delivery_method_name || null, payment_proof_url || null, delivery_notes || null, payment_method_id || null, payment_method_name || null, is_paid ? 1 : 0, req.params.id, req.params.id]
+        'UPDATE orders SET order_ref = ?, customer_id = ?, customer_name = ?, customer_address = ?, customer_phone = ?, items = ?, total = ?, status = ?, date = ?, discount_percentage = ?, loyalty_discount = ?, delivery_method_id = ?, delivery_method_name = ?, payment_proof_url = ?, delivery_notes = ?, payment_method_id = ?, payment_method_name = ?, is_paid = ?, tracking_number = ? WHERE id = ? OR order_ref = ?',
+        [order_ref, customer_id, customer_name, customer_address, customer_phone, JSON.stringify(items), total, status, date, discount_percentage || 0, loyalty_discount || 0, delivery_method_id || null, delivery_method_name || null, payment_proof_url || null, delivery_notes || null, payment_method_id || null, payment_method_name || null, is_paid ? 1 : 0, tracking_number || '', req.params.id, req.params.id]
       );
 
       // 3. Deduct stock levels for new items

@@ -40,10 +40,11 @@ class AppOrder {
   final String? paymentMethodId;
   final String? paymentMethodName;
   final bool isPaid;
+  final String? trackingNumber;
 
   AppOrder({required this.dbId, required this.id, required this.customerId, required this.customerName,
     this.customerAddress, this.customerPhone, required this.items, required this.total, required this.status, required this.date, this.discountPercentage = 0, this.loyaltyDiscount = 0,
-    this.deliveryMethodId, this.deliveryMethodName, this.paymentProofUrl, this.deliveryNotes, this.paymentMethodId, this.paymentMethodName, this.isPaid = false});
+    this.deliveryMethodId, this.deliveryMethodName, this.paymentProofUrl, this.deliveryNotes, this.paymentMethodId, this.paymentMethodName, this.isPaid = false, this.trackingNumber});
 
   static int _toInt(dynamic v) {
     if (v == null) return 0;
@@ -93,6 +94,7 @@ class AppOrder {
       paymentMethodId: m['payment_method_id']?.toString(),
       paymentMethodName: m['payment_method_name']?.toString(),
       isPaid: m['is_paid'] == 1 || m['is_paid'] == true || m['is_paid'] == 'true',
+      trackingNumber: m['tracking_number']?.toString(),
     );
   }
 
@@ -110,6 +112,7 @@ class AppOrder {
     'payment_method_id': paymentMethodId,
     'payment_method_name': paymentMethodName,
     'is_paid': isPaid ? 1 : 0,
+    'tracking_number': trackingNumber,
   };
 
   AppOrder copyWith({
@@ -123,6 +126,7 @@ class AppOrder {
     String? paymentMethodId,
     String? paymentMethodName,
     bool? isPaid,
+    String? trackingNumber,
   }) => AppOrder(
     dbId: dbId,
     id: id,
@@ -143,5 +147,6 @@ class AppOrder {
     paymentMethodId: paymentMethodId ?? this.paymentMethodId,
     paymentMethodName: paymentMethodName ?? this.paymentMethodName,
     isPaid: isPaid ?? this.isPaid,
+    trackingNumber: trackingNumber ?? this.trackingNumber,
   );
 }

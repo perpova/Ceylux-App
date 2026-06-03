@@ -402,15 +402,20 @@
         
         <!-- Bill To Section -->
         <div class="bill-to">
-            <div class="bill-to-section">
+            <div class="bill-to-section" style="flex: 2.2;">
                 <h3>Bill To:</h3>
                 <div class="customer-name">{{CUSTOMER_NAME}}</div>
                 <div class="address">{{CUSTOMER_ADDRESS}}</div>
                 <div class="phone">{{CUSTOMER_PHONE}}</div>
             </div>
-            <div class="bill-to-section" style="text-align: right;">
-                <h3>Status:</h3>
-                <div style="background: linear-gradient(135deg, #C5A059 0%, #AA7C11 100%); color: white; padding: 8px 16px; border-radius: 6px; display: inline-block; font-weight: bold; font-size: 12px;">{{STATUS}}</div>
+            <div class="bill-to-section" style="flex: 2.2; text-align: left;">
+                <h3>Delivery & Payment:</h3>
+                <div class="address" style="font-weight: 600;">Delivery: {{DELIVERY_METHOD}}</div>
+                <div class="address" style="font-weight: 600;">Payment: {{PAYMENT_METHOD}}</div>
+            </div>
+            <div class="bill-to-section" style="flex: 1.2; text-align: right;">
+                <h3>Tracking Number:</h3>
+                <div style="color: #1A1A2E; font-weight: bold; font-size: 13px;">{{TRACKING_NUMBER}}</div>
             </div>
         </div>
         
@@ -462,20 +467,6 @@
         <!-- Footer Section -->
         <div class="footer-section">
             <div class="footer-content">
-                <div class="footer-col">
-                    <h4>Terms</h4>
-                    <p>All sales are final</p>
-                    <p>Return within 7 days</p>
-                </div>
-                <div class="footer-col">
-                    <h4>Payment</h4>
-                    <p>Cash/Card accepted</p>
-                    <p>Installments available</p>
-                </div>
-                <div class="footer-col">
-                    <h4>Questions?</h4>
-                    <p>Email: {{CONTACT_INFO}}</p>
-                </div>
             </div>
             
             <div class="footer-message">{{FOOTER}}</div>

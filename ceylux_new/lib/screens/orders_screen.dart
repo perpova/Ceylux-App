@@ -385,6 +385,8 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
   List<PaymentMethod> _paymentMethods = [];
   bool _loadingPaymentMethods = false;
 
+  final _trackingNumberCtrl = TextEditingController();
+
   final svc = ApiService();
 
   @override
@@ -396,6 +398,7 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
     _selectedDeliveryMethodName = widget.order.deliveryMethodName;
     _selectedPaymentMethodId = widget.order.paymentMethodId;
     _selectedPaymentMethodName = widget.order.paymentMethodName;
+    _trackingNumberCtrl.text = widget.order.trackingNumber ?? '';
     _loadDeliveryMethods();
     _loadPaymentMethods();
   }
@@ -439,16 +442,6 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
   }
 
   Future<void> _saveDeliveryMethod() async {
-    if (_selectedDeliveryMethodId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Please select a delivery method'),
-          backgroundColor: AppColors.danger,
-        ),
-      );
-      return;
-    }
-
     setState(() => _uploadingProof = true);
     try {
       String? proofUrl = widget.order.paymentProofUrl;
@@ -456,15 +449,23 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
         proofUrl = await svc.uploadPaymentProof(_paymentProofImage!);
       }
 
+      final newTracking = _trackingNumberCtrl.text.trim();
+      final trackingNumberChanged = newTracking != (widget.order.trackingNumber ?? '').trim();
+
       final updatedOrder = widget.order.copyWith(
-        deliveryMethodId: _selectedDeliveryMethodId,
-        deliveryMethodName: _selectedDeliveryMethodName,
+        deliveryMethodId: _selectedDeliveryMethodId ?? widget.order.deliveryMethodId,
+        deliveryMethodName: _selectedDeliveryMethodName ?? widget.order.deliveryMethodName,
         paymentProofUrl: proofUrl,
-        paymentMethodId: _selectedPaymentMethodId,
-        paymentMethodName: _selectedPaymentMethodName,
+        paymentMethodId: _selectedPaymentMethodId ?? widget.order.paymentMethodId,
+        paymentMethodName: _selectedPaymentMethodName ?? widget.order.paymentMethodName,
+        trackingNumber: newTracking,
       );
 
       await svc.updateOrder(widget.order.dbId, updatedOrder);
+
+      if (trackingNumberChanged && newTracking.isNotEmpty) {
+        InvoiceService.sendTrackingUpdateEmail(updatedOrder);
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -637,6 +638,7 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
     _qtyControllers.values.forEach((c) => c.dispose());
     _priceControllers.values.forEach((c) => c.dispose());
     _discountControllers.values.forEach((c) => c.dispose());
+    _trackingNumberCtrl.dispose();
     super.dispose();
   }
 
@@ -792,6 +794,7 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
         deliveryNotes: widget.order.deliveryNotes,
         paymentMethodId: widget.order.paymentMethodId,
         paymentMethodName: widget.order.paymentMethodName,
+        trackingNumber: _trackingNumberCtrl.text.trim(),
       );
 
       await svc.updateOrder(widget.order.dbId, updatedOrder);
@@ -1124,199 +1127,216 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
             ]),
             const SizedBox(height: 16),
             Container(
+              constraints: BoxConstraints(maxHeight: _isEditMode ? 320 : 260),
               decoration: BoxDecoration(
                   color: AppColors.bg, borderRadius: BorderRadius.circular(12)),
-              child: Column(
-                children: _editableItems.asMap().entries.map((entry) {
-                  int idx = entry.key;
-                  OrderItem item = entry.value;
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 10),
-                    child: _isEditMode
-                        ? Column(
-                            children: [
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
+              child: Scrollbar(
+                thumbVisibility: _editableItems.length > (_isEditMode ? 2 : 4),
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: Column(
+                    children: _editableItems.asMap().entries.map((entry) {
+                      int idx = entry.key;
+                      OrderItem item = entry.value;
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 10),
+                        child: _isEditMode
+                            ? Column(
                                 children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(item.name,
-                                            style: TextStyle(
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.w600,
-                                                color: AppColors.textColor)),
-                                        Text('${item.color.isNotEmpty ? "Color: ${item.color} • " : ""}Size: ${item.size}',
-                                            style: TextStyle(
-                                                fontSize: 11,
-                                                color: AppColors.muted)),
-                                      ],
-                                    ),
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(item.name,
+                                                style: TextStyle(
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: AppColors.textColor)),
+                                            Text('${item.color.isNotEmpty ? "Color: ${item.color} • " : ""}Size: ${item.size}',
+                                                style: TextStyle(
+                                                    fontSize: 11,
+                                                    color: AppColors.muted)),
+                                          ],
+                                        ),
+                                      ),
+                                      GestureDetector(
+                                        onTap: () =>
+                                            setState(() => _removeItem(idx)),
+                                        child: Icon(Icons.delete,
+                                            color: AppColors.danger, size: 18),
+                                      ),
+                                    ],
                                   ),
-                                  GestureDetector(
-                                    onTap: () =>
-                                        setState(() => _removeItem(idx)),
-                                    child: Icon(Icons.delete,
-                                        color: AppColors.danger, size: 18),
+                                  const SizedBox(height: 10),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text('Qty',
+                                                style: TextStyle(
+                                                    fontSize: 10,
+                                                    color: AppColors.muted)),
+                                            Container(
+                                              decoration: BoxDecoration(
+                                                border: Border.all(
+                                                    color: AppColors.border),
+                                                borderRadius:
+                                                    BorderRadius.circular(6),
+                                              ),
+                                              padding: const EdgeInsets.symmetric(
+                                                  horizontal: 8, vertical: 6),
+                                              child: TextField(
+                                                keyboardType: TextInputType.number,
+                                                style: TextStyle(
+                                                    fontSize: 12,
+                                                    color: AppColors.textColor),
+                                                decoration: InputDecoration(
+                                                  border: InputBorder.none,
+                                                  contentPadding: EdgeInsets.zero,
+                                                ),
+                                                controller: _qtyControllers[idx],
+                                                onChanged: (v) =>
+                                                    _updateEditableItem(idx),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text('Price',
+                                                style: TextStyle(
+                                                    fontSize: 10,
+                                                    color: AppColors.muted)),
+                                            Container(
+                                              decoration: BoxDecoration(
+                                                border: Border.all(
+                                                    color: AppColors.border),
+                                                borderRadius:
+                                                    BorderRadius.circular(6),
+                                              ),
+                                              padding: const EdgeInsets.symmetric(
+                                                  horizontal: 8, vertical: 6),
+                                              child: TextField(
+                                                keyboardType: TextInputType.number,
+                                                style: TextStyle(
+                                                    fontSize: 12,
+                                                    color: AppColors.textColor),
+                                                decoration: InputDecoration(
+                                                  border: InputBorder.none,
+                                                  contentPadding: EdgeInsets.zero,
+                                                ),
+                                                controller: _priceControllers[idx],
+                                                onChanged: (v) =>
+                                                    _updateEditableItem(idx),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text('Discount %',
+                                                style: TextStyle(
+                                                    fontSize: 10,
+                                                    color: AppColors.muted)),
+                                            Container(
+                                              decoration: BoxDecoration(
+                                                border: Border.all(
+                                                    color: AppColors.border),
+                                                borderRadius:
+                                                    BorderRadius.circular(6),
+                                              ),
+                                              padding: const EdgeInsets.symmetric(
+                                                  horizontal: 8, vertical: 6),
+                                              child: TextField(
+                                                keyboardType: TextInputType.number,
+                                                style: TextStyle(
+                                                    fontSize: 12,
+                                                    color: AppColors.textColor),
+                                                decoration: InputDecoration(
+                                                  border: InputBorder.none,
+                                                  contentPadding: EdgeInsets.zero,
+                                                ),
+                                                controller:
+                                                    _discountControllers[idx],
+                                                onChanged: (v) =>
+                                                    _updateEditableItem(idx),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
                                   ),
+                                  Text(
+                                      'Subtotal: Rs. ${NumberFormat('#,###').format(_editableItems[idx].subtotal)}',
+                                      style: TextStyle(
+                                          fontSize: 11,
+                                          color: AppColors.muted,
+                                          fontStyle: FontStyle.italic)),
+                                  const SizedBox(height: 8),
+                                  if (idx < _editableItems.length - 1)
+                                    Divider(color: AppColors.border, height: 16),
                                 ],
-                              ),
-                              const SizedBox(height: 10),
-                              Row(
+                              )
+                            : Column(
                                 children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text('Qty',
-                                            style: TextStyle(
-                                                fontSize: 10,
-                                                color: AppColors.muted)),
-                                        Container(
-                                          decoration: BoxDecoration(
-                                            border: Border.all(
-                                                color: AppColors.border),
-                                            borderRadius:
-                                                BorderRadius.circular(6),
-                                          ),
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 8, vertical: 6),
-                                          child: TextField(
-                                            keyboardType: TextInputType.number,
-                                            style: TextStyle(
-                                                fontSize: 12,
-                                                color: AppColors.textColor),
-                                            decoration: InputDecoration(
-                                              border: InputBorder.none,
-                                              contentPadding: EdgeInsets.zero,
-                                            ),
-                                            controller: _qtyControllers[idx],
-                                            onChanged: (v) =>
-                                                _updateEditableItem(idx),
-                                          ),
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(item.name,
+                                                style: TextStyle(
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: AppColors.textColor)),
+                                            Text('${item.color.isNotEmpty ? "Color: ${item.color} • " : ""}Size: ${item.size} × ${item.qty}',
+                                                style: TextStyle(
+                                                    fontSize: 11,
+                                                    color: AppColors.muted)),
+                                          ],
                                         ),
-                                      ],
-                                    ),
+                                      ),
+                                      Text(
+                                          'Rs. ${NumberFormat('#,###').format(item.subtotal)}',
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.w600,
+                                              color: AppColors.textColor)),
+                                    ],
                                   ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text('Price',
-                                            style: TextStyle(
-                                                fontSize: 10,
-                                                color: AppColors.muted)),
-                                        Container(
-                                          decoration: BoxDecoration(
-                                            border: Border.all(
-                                                color: AppColors.border),
-                                            borderRadius:
-                                                BorderRadius.circular(6),
-                                          ),
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 8, vertical: 6),
-                                          child: TextField(
-                                            keyboardType: TextInputType.number,
-                                            style: TextStyle(
-                                                fontSize: 12,
-                                                color: AppColors.textColor),
-                                            decoration: InputDecoration(
-                                              border: InputBorder.none,
-                                              contentPadding: EdgeInsets.zero,
-                                            ),
-                                            controller: _priceControllers[idx],
-                                            onChanged: (v) =>
-                                                _updateEditableItem(idx),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text('Discount %',
-                                            style: TextStyle(
-                                                fontSize: 10,
-                                                color: AppColors.muted)),
-                                        Container(
-                                          decoration: BoxDecoration(
-                                            border: Border.all(
-                                                color: AppColors.border),
-                                            borderRadius:
-                                                BorderRadius.circular(6),
-                                          ),
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 8, vertical: 6),
-                                          child: TextField(
-                                            keyboardType: TextInputType.number,
-                                            style: TextStyle(
-                                                fontSize: 12,
-                                                color: AppColors.textColor),
-                                            decoration: InputDecoration(
-                                              border: InputBorder.none,
-                                              contentPadding: EdgeInsets.zero,
-                                            ),
-                                            controller:
-                                                _discountControllers[idx],
-                                            onChanged: (v) =>
-                                                _updateEditableItem(idx),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              Text(
-                                  'Subtotal: Rs. ${NumberFormat('#,###').format(_editableItems[idx].subtotal)}',
-                                  style: TextStyle(
-                                      fontSize: 11,
-                                      color: AppColors.muted,
-                                      fontStyle: FontStyle.italic)),
-                              const SizedBox(height: 8),
-                              if (idx < _editableItems.length - 1)
-                                Divider(color: AppColors.border, height: 16),
-                            ],
-                          )
-                        : Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(item.name,
-                                        style: TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w600,
-                                            color: AppColors.textColor)),
-                                    Text('${item.color.isNotEmpty ? "Color: ${item.color} • " : ""}Size: ${item.size} × ${item.qty}',
-                                        style: TextStyle(
-                                            fontSize: 11,
-                                            color: AppColors.muted)),
+                                  if (idx < _editableItems.length - 1) ...[
+                                    const SizedBox(height: 8),
+                                    Divider(color: AppColors.border, height: 1),
                                   ],
-                                ),
+                                ],
                               ),
-                              Text(
-                                  'Rs. ${NumberFormat('#,###').format(item.subtotal)}',
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.textColor)),
-                            ],
-                          ),
-                  );
-                }).toList(),
+                      );
+                    }).toList(),
+                  ),
+                ),
               ),
             ),
             const SizedBox(height: 12),
@@ -1945,6 +1965,55 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
                       ],
                     ),
                     
+                    if (widget.order.trackingNumber != null &&
+                        widget.order.trackingNumber!.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      Divider(color: AppColors.border.withValues(alpha: 0.5), height: 1),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withValues(alpha: 0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.tag,
+                              size: 18,
+                              color: AppColors.primaryLight,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'TRACKING NUMBER',
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.muted,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  widget.order.trackingNumber!,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    
                     // Payment proof image section
                     if (widget.order.paymentProofUrl != null &&
                         widget.order.paymentProofUrl!.isNotEmpty) ...[
@@ -2244,6 +2313,33 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
                           ),
                         ),
                       ),
+                      const SizedBox(height: 16),
+                    Text(
+                      'TRACKING NUMBER (OPTIONAL)',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.muted,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.bg,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: TextField(
+                        controller: _trackingNumberCtrl,
+                        style: TextStyle(color: AppColors.textColor, fontSize: 13, fontWeight: FontWeight.w500),
+                        decoration: InputDecoration(
+                          hintText: 'Enter Tracking Number',
+                          hintStyle: TextStyle(color: AppColors.muted, fontSize: 13),
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        ),
+                      ),
+                    ),
                     const SizedBox(height: 16),
 
                     // Payment Proof Selection (Optional)
@@ -2313,6 +2409,8 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
   
   int _loyaltyDiscount = 0;
   final _loyaltyDiscountCtrl = TextEditingController();
+
+  final _trackingNumberCtrl = TextEditingController();
 
   List<Tier> _tiers = [];
   final svc = ApiService();
@@ -2478,6 +2576,7 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
     _itemSearchCtrl.dispose();
     _overallDiscountCtrl.dispose();
     _loyaltyDiscountCtrl.dispose();
+    _trackingNumberCtrl.dispose();
     super.dispose();
   }
 
@@ -2682,6 +2781,7 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
         paymentMethodId: _selectedPaymentMethodId,
         paymentMethodName: _selectedPaymentMethodName,
         paymentProofUrl: proofUrl,
+        trackingNumber: _trackingNumberCtrl.text.trim(),
       );
       print('DEBUG: Creating order with discountPercentage: $_overallDiscount, loyaltyDiscount: $_loyaltyDiscount');
       print('DEBUG: Order toMap: ${o.toMap()}');
@@ -3821,6 +3921,24 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
                                       ),
                                     ),
                                   ),
+                            const SizedBox(height: 12),
+                            Container(
+                              decoration: BoxDecoration(
+                                color: AppColors.bg,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: AppColors.border),
+                              ),
+                              child: TextField(
+                                controller: _trackingNumberCtrl,
+                                style: TextStyle(color: AppColors.textColor, fontSize: 13),
+                                decoration: InputDecoration(
+                                  hintText: 'Tracking Number (Optional)',
+                                  hintStyle: TextStyle(color: AppColors.muted, fontSize: 13),
+                                  border: InputBorder.none,
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                ),
+                              ),
+                            ),
                             const SizedBox(height: 12),
 
                             // Payment Proof Selection Card

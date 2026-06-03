@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -253,86 +254,100 @@ class _DashboardScreenState extends State<DashboardScreen>
                                   o.status == 'Pending')
                               .length;
 
-                          return GridView.count(
-                            crossAxisCount: 2,
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            crossAxisSpacing: 12,
-                            mainAxisSpacing: 12,
-                            childAspectRatio: 1.45,
+                          final double totalCreditDue = customers.fold<double>(0.0, (a, b) => a + b.remainingDue);
+
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              GestureDetector(
-                                onTap: () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => const RevenueDetailsScreen(),
+                              GridView.count(
+                                crossAxisCount: 2,
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                crossAxisSpacing: 12,
+                                mainAxisSpacing: 12,
+                                childAspectRatio: 1.45,
+                                children: [
+                                  GestureDetector(
+                                    onTap: () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => const RevenueDetailsScreen(),
+                                      ),
+                                    ),
+                                    child: StatCard(
+                                        label: 'Total Revenue',
+                                        value:
+                                            'Rs. ${NumberFormat('#,###').format(totalRevenue)}',
+                                        icon: Icons.wallet,
+                                        accentColor: AppColors.gold),
                                   ),
-                                ),
-                                child: StatCard(
-                                    label: 'Total Revenue',
-                                    value:
-                                        'Rs. ${NumberFormat('#,###').format(totalRevenue)}',
-                                    icon: Icons.wallet,
-                                    accentColor: AppColors.gold),
+                                  GestureDetector(
+                                    onTap: () {
+                                      if (widget.onTabChange != null) {
+                                        widget.onTabChange!(1);
+                                      } else {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) => const StockScreen(),
+                                          ),
+                                        );
+                                      }
+                                    },
+                                    child: StatCard(
+                                        label: 'Stock Items',
+                                        value: '${stock.length}',
+                                        icon: Icons.inventory_2,
+                                        accentColor: AppColors.accent),
+                                  ),
+                                  GestureDetector(
+                                    onTap: () {
+                                      if (widget.onTabChange != null) {
+                                        widget.onTabChange!(3);
+                                      } else {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) => const CustomersScreen(),
+                                          ),
+                                        );
+                                      }
+                                    },
+                                    child: StatCard(
+                                        label: 'Customers',
+                                        value: '${customers.length}',
+                                        icon: Icons.group,
+                                        accentColor: AppColors.success),
+                                  ),
+                                  GestureDetector(
+                                    onTap: () {
+                                      if (widget.onTabChange != null) {
+                                        widget.onTabChange!(2, filterPending: true);
+                                      } else {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) => const OrdersScreen(
+                                              filterPending: true,
+                                            ),
+                                          ),
+                                        );
+                                      }
+                                    },
+                                    child: StatCard(
+                                        label: 'Pending Orders',
+                                        value: '$pendingOrders',
+                                        icon: Icons.shopping_bag,
+                                        accentColor: const Color(0xFF9333EA)),
+                                  ),
+                                ],
                               ),
-                              GestureDetector(
-                                onTap: () {
-                                  if (widget.onTabChange != null) {
-                                    widget.onTabChange!(1);
-                                  } else {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => const StockScreen(),
-                                      ),
-                                    );
-                                  }
-                                },
-                                child: StatCard(
-                                    label: 'Stock Items',
-                                    value: '${stock.length}',
-                                    icon: Icons.inventory_2,
-                                    accentColor: AppColors.accent),
-                              ),
-                              GestureDetector(
-                                onTap: () {
-                                  if (widget.onTabChange != null) {
-                                    widget.onTabChange!(3);
-                                  } else {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => const CustomersScreen(),
-                                      ),
-                                    );
-                                  }
-                                },
-                                child: StatCard(
-                                    label: 'Customers',
-                                    value: '${customers.length}',
-                                    icon: Icons.group,
-                                    accentColor: AppColors.success),
-                              ),
-                              GestureDetector(
-                                onTap: () {
-                                  if (widget.onTabChange != null) {
-                                    widget.onTabChange!(2, filterPending: true);
-                                  } else {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => const OrdersScreen(
-                                          filterPending: true,
-                                        ),
-                                      ),
-                                    );
-                                  }
-                                },
-                                child: StatCard(
-                                    label: 'Pending Orders',
-                                    value: '$pendingOrders',
-                                    icon: Icons.shopping_bag,
-                                    accentColor: const Color(0xFF9333EA)),
+                              const SizedBox(height: 12),
+                              CreditStatCard(
+                                label: 'Outstanding Credit Balance',
+                                value: 'Rs. ${NumberFormat('#,###').format(totalCreditDue)}',
+                                icon: Icons.account_balance_wallet,
+                                onTap: () => _showCreditDetailSheet(context, customers),
                               ),
                             ],
                           );
@@ -705,6 +720,219 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
+  void _showCreditDetailSheet(BuildContext context, List<Customer> customers) {
+    final creditCustomers = customers.where((c) => c.remainingDue > 0).toList();
+    final double totalCreditDue = creditCustomers.fold<double>(0.0, (a, b) => a + b.remainingDue);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) {
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.75,
+          decoration: BoxDecoration(
+            color: AppColors.card,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            border: Border.all(color: AppColors.border),
+          ),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Outstanding Credit Breakdown',
+                    style: GoogleFonts.outfit(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(sheetCtx),
+                    child: Icon(Icons.close, size: 20, color: AppColors.muted),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.bg,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Rs. ${NumberFormat('#,###').format(totalCreditDue)}',
+                            style: GoogleFonts.outfit(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.danger,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Total Due Balance',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 10,
+                              color: AppColors.muted,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(width: 1, height: 36, color: AppColors.border),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Text(
+                            '${creditCustomers.length}',
+                            style: GoogleFonts.outfit(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textColor,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Active Debtors',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 10,
+                              color: AppColors.muted,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Customers with Outstanding Dues',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textColor,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Expanded(
+                child: creditCustomers.isEmpty
+                    ? Center(
+                        child: Text(
+                          'No outstanding credit found.',
+                          style: GoogleFonts.plusJakartaSans(
+                            color: AppColors.muted,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      )
+                    : ListView.builder(
+                        itemCount: creditCustomers.length,
+                        itemBuilder: (context, i) {
+                          final c = creditCustomers[i];
+                          final tier = Tiers.getTier(c.totalSpent);
+                          return CeyluxCard(
+                            onTap: () {
+                              Navigator.pop(sheetCtx);
+                              showModalBottomSheet(
+                                context: context,
+                                isScrollControlled: true,
+                                backgroundColor: Colors.transparent,
+                                builder: (_) => CustomerDetailSheet(customer: c),
+                              );
+                            },
+                            child: Row(
+                              children: [
+                                UserAvatar(
+                                  name: c.name,
+                                  photoUrl: c.photoUrl,
+                                  borderColor: tier.color,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        c.name,
+                                        style: GoogleFonts.plusJakartaSans(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                          color: AppColors.textColor,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        c.phone,
+                                        style: GoogleFonts.plusJakartaSans(
+                                          fontSize: 11,
+                                          color: AppColors.muted,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      'Due: Rs. ${NumberFormat('#,###').format(c.remainingDue)}',
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.danger,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Paid: Rs. ${NumberFormat('#,###').format(c.totalPaid)}',
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 9,
+                                        color: AppColors.success,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildExpandableSection({
     required String title,
     required bool isExpanded,
@@ -771,6 +999,171 @@ class _DashboardScreenState extends State<DashboardScreen>
             ),
           ),
       ],
+    );
+  }
+}
+
+// ── Custom Flower-decor Painter for Credit Card ──────────────────────────
+class FlowerDecorationPainter extends CustomPainter {
+  final Color color;
+  FlowerDecorationPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color.withOpacity(0.04)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+
+    // Center the flower pattern in the middle-right area of the card
+    final center = Offset(size.width * 0.85, size.height * 0.5);
+    final radius = size.height * 0.55;
+
+    // Draw central circle
+    canvas.drawCircle(center, radius, paint);
+
+    // Draw 6 petals surrounding it to form the sacred geometry "Seed of Life" rosette
+    for (int i = 0; i < 6; i++) {
+      final angle = i * (3.14159265359 / 3);
+      final petalCenter = Offset(
+        center.dx + radius * cos(angle),
+        center.dy + radius * sin(angle),
+      );
+      canvas.drawCircle(petalCenter, radius, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+// ── Credit Stat Card with Background Rosette Flower ─────────────────────
+class CreditStatCard extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const CreditStatCard({
+    super.key,
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isDark = AppColors.isDark;
+    
+    // Warn orange/red peachy gradient layout
+    final LinearGradient gradient = isDark
+        ? const LinearGradient(
+            colors: [const Color(0xFF632B15), const Color(0xFF1F120A)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          )
+        : const LinearGradient(
+            colors: [const Color(0xFFFEEFEA), const Color(0xFFFFF7F5)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          );
+
+    final Color color = isDark ? const Color(0xFFFB923C) : const Color(0xFFB45309);
+    final Color borderColor = isDark 
+        ? const Color(0xFFFB923C).withOpacity(0.2)
+        : const Color(0xFFF97316).withOpacity(0.15);
+    
+    final Color iconBgColor = color.withOpacity(0.12);
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          gradient: gradient,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: borderColor, width: 1.0),
+          boxShadow: [
+            BoxShadow(
+              color: color.withOpacity(0.02),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Stack(
+          children: [
+            // Flower Decoration
+            Positioned.fill(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(18),
+                child: CustomPaint(
+                  painter: FlowerDecorationPainter(color: color),
+                ),
+              ),
+            ),
+            
+            // Text & Icon Content
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        label,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 11,
+                          color: color.withOpacity(0.7),
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.1,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          value,
+                          style: GoogleFonts.outfit(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: color,
+                            letterSpacing: -0.3,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Tap to view credit breakdown',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 9,
+                          color: color.withOpacity(0.55),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: iconBgColor,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    icon,
+                    size: 20,
+                    color: color,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

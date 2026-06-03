@@ -30,7 +30,7 @@ class InvoiceService {
         
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #f0f4f8 0%, #e8f1f7 100%);
+            background: linear-gradient(135deg, #f5f5f7 0%, #eaeaee 100%);
             padding: 20px;
         }
         
@@ -38,32 +38,34 @@ class InvoiceService {
             max-width: 900px;
             margin: 0 auto;
             background: white;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
             border-radius: 12px;
             overflow: hidden;
+            border: 1px solid #e1e1e8;
         }
         
-        /* Header Section with Logo */
+        /* Header Section with Elegant Charcoal & Gold */
         .header {
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
-            background: linear-gradient(135deg, #0C4A6E 0%, #0F5D7D 100%);
+            background: linear-gradient(135deg, #1E1E24 0%, #2D2D37 100%);
             color: white;
             padding: 40px;
             margin-bottom: 0;
             position: relative;
             overflow: hidden;
+            border-bottom: 4px solid #C5A059;
         }
         
         .header::after {
             content: '';
             position: absolute;
-            bottom: -40px;
-            right: -80px;
-            width: 400px;
+            bottom: -50px;
+            right: -50px;
+            width: 300px;
             height: 300px;
-            background: rgba(134, 189, 218, 0.3);
+            background: rgba(197, 160, 89, 0.15);
             border-radius: 50%;
             z-index: 0;
         }
@@ -82,36 +84,37 @@ class InvoiceService {
         .logo-placeholder {
             width: 80px;
             height: 80px;
-            background: rgba(255, 255, 255, 0.15);
-            border: 2px solid rgba(255, 255, 255, 0.3);
+            background: rgba(197, 160, 89, 0.15);
+            border: 2px solid rgba(197, 160, 89, 0.4);
             display: flex;
             align-items: center;
             justify-content: center;
             border-radius: 12px;
-            color: rgba(255, 255, 255, 0.8);
+            color: #C5A059;
             font-size: 12px;
             text-align: center;
             flex-shrink: 0;
             backdrop-filter: blur(10px);
+            font-weight: bold;
         }
         
         .header-text h1 {
             font-size: 32px;
-            color: #ffffff;
+            color: #C5A059;
             font-weight: bold;
             margin-bottom: 5px;
-            letter-spacing: 1px;
+            letter-spacing: 2px;
         }
         
         .header-text p {
-            color: #86BDDA;
+            color: #e5e5ea;
             font-size: 13px;
             font-weight: 600;
             margin-bottom: 8px;
         }
         
         .header-contact {
-            color: rgba(255, 255, 255, 0.85);
+            color: rgba(255, 255, 255, 0.7);
             font-size: 11px;
             line-height: 1.6;
         }
@@ -121,10 +124,11 @@ class InvoiceService {
         }
         
         .header-right .company-name {
-            font-size: 18px;
+            font-size: 20px;
             font-weight: bold;
             color: #ffffff;
             margin-bottom: 8px;
+            letter-spacing: 1px;
         }
         
         .header-right .invoice-number {
@@ -136,12 +140,12 @@ class InvoiceService {
         }
         
         .header-right .invoice-number .label {
-            color: rgba(255, 255, 255, 0.7);
+            color: rgba(255, 255, 255, 0.6);
             font-weight: 600;
         }
         
         .header-right .invoice-number .value {
-            color: #ffffff;
+            color: #C5A059;
             font-weight: bold;
             min-width: 80px;
         }
@@ -151,7 +155,7 @@ class InvoiceService {
             justify-content: flex-end;
             gap: 10px;
             font-size: 12px;
-            color: rgba(255, 255, 255, 0.85);
+            color: rgba(255, 255, 255, 0.7);
         }
         
         /* Bill To Section */
@@ -160,8 +164,8 @@ class InvoiceService {
             gap: 20px;
             margin-bottom: 30px;
             padding: 30px 40px;
-            background: #f8fafb;
-            border-bottom: 1px solid #e8eef4;
+            background: #fafafc;
+            border-bottom: 1px solid #eaeaea;
         }
         
         .bill-to-section {
@@ -170,11 +174,13 @@ class InvoiceService {
         
         .bill-to-section h3 {
             font-size: 11px;
-            color: #0C4A6E;
+            color: #1E1E24;
             font-weight: bold;
             text-transform: uppercase;
-            letter-spacing: 1px;
+            letter-spacing: 1.5px;
             margin-bottom: 10px;
+            border-left: 3px solid #C5A059;
+            padding-left: 8px;
         }
         
         .bill-to-section .customer-name {
@@ -186,14 +192,14 @@ class InvoiceService {
         
         .bill-to-section .address {
             font-size: 12px;
-            color: #555;
+            color: #666;
             line-height: 1.6;
             margin-bottom: 4px;
         }
         
         .bill-to-section .phone {
             font-size: 11px;
-            color: #555;
+            color: #666;
         }
         
         /* Items Table */
@@ -205,7 +211,7 @@ class InvoiceService {
         }
         
         .items-table thead {
-            background: linear-gradient(135deg, #0C4A6E 0%, #0F5D7D 100%);
+            background: #1E1E24;
             color: white;
         }
         
@@ -215,7 +221,9 @@ class InvoiceService {
             font-size: 11px;
             font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 1px;
+            color: #C5A059;
+            border-bottom: 2px solid #C5A059;
             white-space: nowrap;
         }
         
@@ -229,15 +237,15 @@ class InvoiceService {
         
         .items-table td {
             padding: 14px 15px;
-            border-bottom: 1px solid #f0f4f8;
+            border-bottom: 1px solid #eaeaea;
             font-size: 12px;
-            color: #1A1A2E;
+            color: #2D2D37;
             white-space: nowrap;
         }
         
         .items-table .item-name {
             font-weight: 600;
-            color: #0C4A6E;
+            color: #1E1E24;
             white-space: normal;
         }
         
@@ -251,7 +259,7 @@ class InvoiceService {
         }
         
         .items-table tbody tr:hover {
-            background: #f0f7fc;
+            background: #fafafc;
         }
         
         /* Summary Section */
@@ -276,32 +284,36 @@ class InvoiceService {
             justify-content: space-between;
             padding: 10px 0;
             font-size: 12px;
-            border-bottom: 1px solid #e8eef4;
+            border-bottom: 1px solid #eaeaea;
         }
         
         .summary-row .label {
-            color: #555;
+            color: #666;
             font-weight: 500;
         }
         
         .summary-row .value {
-            color: #1A1A2E;
+            color: #1E1E24;
             font-weight: 600;
         }
         
         .summary-row.total {
-            background: linear-gradient(135deg, #0C4A6E 0%, #0F5D7D 100%);
+            background: #1E1E24;
             color: white;
             padding: 14px 12px;
             margin-top: 10px;
             border-radius: 8px;
-            border: none;
+            border: 1px solid #C5A059;
             font-size: 13px;
         }
         
-        .summary-row.total .label,
+        .summary-row.total .label {
+            color: #ffffff;
+            font-weight: bold;
+        }
+        
         .summary-row.total .value {
-            color: #86BDDA;
+            color: #C5A059;
             font-weight: bold;
         }
         
@@ -319,8 +331,8 @@ class InvoiceService {
         .footer-section {
             margin-top: 0;
             padding: 30px 40px;
-            border-top: 1px solid #e8eef4;
-            background: #f8fafb;
+            border-top: 1px solid #eaeaea;
+            background: #fafafc;
         }
         
         .footer-content {
@@ -337,27 +349,31 @@ class InvoiceService {
         .footer-col h4 {
             font-size: 11px;
             font-weight: bold;
-            color: #0C4A6E;
+            color: #1E1E24;
             text-transform: uppercase;
             letter-spacing: 0.5px;
             margin-bottom: 8px;
+            border-bottom: 1px solid #C5A059;
+            display: inline-block;
+            padding-bottom: 2px;
         }
         
         .footer-col p {
-            color: #555;
+            color: #666;
             margin-bottom: 4px;
             line-height: 1.6;
         }
         
         .footer-message {
-            background: linear-gradient(135deg, #0C4A6E 0%, #0F5D7D 100%);
-            color: #86BDDA;
+            background: #1E1E24;
+            color: #C5A059;
             padding: 16px;
             text-align: center;
             border-radius: 8px;
             font-size: 12px;
             font-weight: bold;
             margin-top: 20px;
+            border: 1px solid rgba(197, 160, 89, 0.3);
         }
         
         .authorized-signature {
@@ -368,10 +384,10 @@ class InvoiceService {
         }
         
         .signature-line {
-            border-top: 2px solid #0C4A6E;
+            border-top: 2px solid #C5A059;
             padding-top: 8px;
             font-size: 11px;
-            color: #555;
+            color: #666;
             min-width: 150px;
             font-weight: 600;
         }
@@ -429,8 +445,8 @@ class InvoiceService {
                 <div class="address" style="font-weight: 600;">Payment: {{PAYMENT_METHOD}}</div>
             </div>
             <div class="bill-to-section" style="flex: 1.2; text-align: right;">
-                <h3>Delivery Status:</h3>
-                <div style="background: linear-gradient(135deg, #86BDDA 0%, #5BA3C7 100%); color: white; padding: 8px 16px; border-radius: 6px; display: inline-block; font-weight: bold; font-size: 12px;">{{STATUS}}</div>
+                <h3>Tracking Number:</h3>
+                <div style="color: #1A1A2E; font-weight: bold; font-size: 13px;">{{TRACKING_NUMBER}}</div>
             </div>
         </div>
         
@@ -439,10 +455,10 @@ class InvoiceService {
         <table class="items-table">
             <thead>
                 <tr>
-                    <th style="width: 28%;">Item Description</th>
+                    <th style="width: 26%;">Item Description</th>
                     <th style="width: 11%;" class="text-center">Qty</th>
                     <th style="width: 19%;" class="text-right">Price</th>
-                    <th style="width: 19%;" class="text-right">Discount</th>
+                    <th style="width: 21%;" class="text-right">Discount</th>
                     <th style="width: 23%;" class="text-right">Total</th>
                 </tr>
             </thead>
@@ -488,26 +504,12 @@ class InvoiceService {
         <!-- Footer Section -->
         <div class="footer-section">
             <div class="footer-content">
-                <div class="footer-col">
-                    <h4>Terms</h4>
-                    <p>All sales are final</p>
-                    <p>Return within 7 days</p>
-                </div>
-                <div class="footer-col">
-                    <h4>Payment</h4>
-                    <p>Cash/Card accepted</p>
-                    <p>Installments available</p>
-                </div>
-                <div class="footer-col">
-                    <h4>Questions?</h4>
-                    <p>Mobile: {{CONTACT_INFO}}</p>
-                </div>
             </div>
             
             <div class="footer-message">{{FOOTER}}</div>
             
             <div class="authorized-signature">
-                <div class="signature-line">Authorized Signature</div>
+                <div class="signature-line">Customer Signature & Stamp</div>
             </div>
         </div>
     </div>
@@ -577,7 +579,7 @@ class InvoiceService {
     // Generate items HTML rows with size info included
     String itemsHtml = order.items.map((item) => '''
         <tr>
-          <td class="item-name">${item.name}${item.size.isNotEmpty ? ' [${item.size}]' : ''}</td>
+          <td class="item-name">${item.name}${item.color.isNotEmpty ? ' [${item.color}]' : ''}${item.size.isNotEmpty ? ' [${item.size}]' : ''}</td>
           <td class="text-center">${item.qty}</td>
           <td class="text-right">Rs. ${NumberFormat('#,###').format(item.price)}</td>
           <td class="text-right discount-cell">${item.discountAmount > 0 ? 'Rs. ${NumberFormat('#,###').format(item.discountAmount)}' : '-'}</td>
@@ -599,6 +601,7 @@ class InvoiceService {
     html = html.replaceAll('{{CUSTOMER_ADDRESS}}', order.customerAddress ?? '');
     html = html.replaceAll('{{CUSTOMER_PHONE}}', order.customerPhone ?? '');
     html = html.replaceAll('{{STATUS}}', order.status);
+    html = html.replaceAll('{{TRACKING_NUMBER}}', order.trackingNumber != null && order.trackingNumber!.isNotEmpty ? order.trackingNumber! : '—');
     html = html.replaceAll('{{ITEMS}}', itemsHtml);
     html = html.replaceAll('{{SUBTOTAL}}', NumberFormat('#,###').format(subtotal));
     
@@ -648,24 +651,25 @@ class InvoiceService {
     final styleElement = doc.querySelector('style');
     final cssRules = styleElement != null ? CSSParser.parse(styleElement.text) : <CSSRule>[];
     
-    // Recursively convert elements to widgets starting from container
-    final rootWidget = _buildElement(container, cssRules, logoBitmap);
-    
-    pdf.addPage(
-      pw.Page(
-        pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.all(30),
-        build: (pw.Context context) {
-          final invoiceContent = pw.SizedBox(
-            width: double.infinity,
-            child: rootWidget,
-          );
-
-          if (order.isPaid) {
-            return pw.Stack(
-              alignment: pw.Alignment.topLeft,
+    final childrenWidgets = <pw.Widget>[];
+    for (final child in container.children) {
+      if (child.localName == 'script' || child.localName == 'style') continue;
+      
+      // Check if this child is or contains a table
+      final tableEl = child.localName == 'table' ? child : child.querySelector('table');
+      if (tableEl != null) {
+        // Build the table directly (without the padding/margin container wrapper) so it can break across pages
+        final tableWidget = _buildElement(tableEl, cssRules, logoBitmap);
+        childrenWidgets.add(tableWidget);
+      } else {
+        final childWidget = _buildElement(child, cssRules, logoBitmap);
+        
+        // Wrap header in Stack with paid stamp if paid
+        if (child.classes.contains('header') && order.isPaid) {
+          childrenWidgets.add(
+            pw.Stack(
               children: [
-                invoiceContent,
+                childWidget,
                 pw.Positioned(
                   top: 70,
                   right: 20,
@@ -675,11 +679,19 @@ class InvoiceService {
                   ),
                 ),
               ],
-            );
-          }
-          
-          return invoiceContent;
-        },
+            ),
+          );
+        } else {
+          childrenWidgets.add(childWidget);
+        }
+      }
+    }
+    
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(30),
+        build: (pw.Context context) => childrenWidgets,
       ),
     );
     
@@ -1360,7 +1372,7 @@ class InvoiceService {
     final msg = '📄 *Invoice from CEYLUX* 📄\n\n'
       'Order: *${order.id}*\n'
       'Customer: ${order.customerName}\n'
-      '${order.items.map((i) => '• ${i.name} [${i.size}] x${i.qty} — Rs. ${NumberFormat('#,###').format(i.subtotal)}').join('\n')}'
+      '${order.items.map((i) => '• ${i.name}${i.color.isNotEmpty ? ' [${i.color}]' : ''}${i.size.isNotEmpty ? ' [${i.size}]' : ''} x${i.qty} — Rs. ${NumberFormat('#,###').format(i.subtotal)}').join('\n')}'
       '\n\n💰 *Total: Rs. ${NumberFormat('#,###').format(order.total)}*\n\n'
       'PDF receipt attached. Thank you for shopping with CEYLUX! 🛍️';
 
@@ -1791,6 +1803,89 @@ class InvoiceService {
       );
     } catch (e) {
       print('❌ Error in sendStatusUpdateEmail: $e');
+    }
+  }
+
+  static Future<void> sendTrackingUpdateEmail(AppOrder order) async {
+    try {
+      final selectedCustomer = await ApiService().getCustomers().then(
+            (list) => list.where((c) => c.id == order.customerId).firstOrNull,
+          );
+      final recipientEmail = selectedCustomer?.email?.trim();
+      if (recipientEmail == null || recipientEmail.isEmpty) return;
+
+      final contact = await _getContactInfo();
+      final formattedTotal = NumberFormat('#,###').format(order.total);
+      final trackingNum = order.trackingNumber != null && order.trackingNumber!.isNotEmpty ? order.trackingNumber! : '—';
+
+      String bodyHtml = '''
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f4f8; margin: 0; padding: 20px; color: #1a1a2e; }
+    .card { max-width: 600px; margin: 0 auto; background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 8px 30px rgba(0,0,0,0.08); }
+    .header { background: linear-gradient(135deg, #0c4a6e 0%, #0f5d7d 100%); color: white; padding: 40px 30px; text-align: center; }
+    .header h1 { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: 1px; }
+    .content { padding: 30px; line-height: 1.6; }
+    .status-badge { display: inline-block; padding: 8px 16px; border-radius: 8px; font-weight: 700; color: white; background: #0b84b5; font-size: 14px; margin-bottom: 20px; }
+    .order-details { margin: 20px 0; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; }
+    .detail-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; }
+    .detail-label { color: #64748b; font-weight: 600; }
+    .detail-value { color: #1a1a2e; font-weight: 700; }
+    .footer { background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 20px; text-align: center; font-size: 12px; color: #64748b; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <h1>Order Tracking Update</h1>
+    </div>
+    <div class="content">
+      <p>Dear ${order.customerName},</p>
+      <p>Your order <strong>#${order.id}</strong> tracking number has been updated:</p>
+      
+      <div class="status-badge">$trackingNum</div>
+      
+      <p>You can use this tracking number to track the delivery of your package. We have also attached the updated PDF invoice for your reference.</p>
+      
+      <div class="order-details">
+        <div class="detail-row">
+          <span class="detail-label">Order Total:</span>
+          <span class="detail-value">Rs. $formattedTotal</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Delivery Method:</span>
+          <span class="detail-value">${order.deliveryMethodName ?? 'Not selected'}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Payment Method:</span>
+          <span class="detail-value">${order.paymentMethodName ?? 'Not selected'}</span>
+        </div>
+      </div>
+      
+      <p>Thank you for shopping with Ceylux!</p>
+    </div>
+    <div class="footer">
+      <p>&copy; Ceylux Clothing. All rights reserved.</p>
+      <p>Questions? Contact us at $contact</p>
+    </div>
+  </div>
+</body>
+</html>
+''';
+
+      // Generate PDF
+      File? pdfFile = await generateInvoicePDFFile(order);
+
+      await sendGenericEmail(
+        recipientEmail: recipientEmail,
+        subject: 'Tracking Update for Order #${order.id} - Ceylux',
+        bodyHtml: bodyHtml,
+        attachment: pdfFile,
+      );
+    } catch (e) {
+      print('❌ Error in sendTrackingUpdateEmail: $e');
     }
   }
 
