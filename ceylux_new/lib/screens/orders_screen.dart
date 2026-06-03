@@ -3857,7 +3857,10 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
     String selectedSize = '';
     int qty = 1;
     int price = item.price;
-    final sizeList = item.category == 'Kids' ? kidsSizes : allSizes;
+    final sizeList = item.sizes.keys.where((k) => !k.contains('_')).toList();
+    if (sizeList.isEmpty) {
+      sizeList.addAll(item.category == 'Kids' ? kidsSizes : allSizes);
+    }
     
     // Filter available sizes based on total stock minus what is already in the cart
     final availableSizes = sizeList.where((s) {

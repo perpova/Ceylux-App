@@ -214,7 +214,7 @@ class _StockCard extends StatelessWidget {
                 _catTag(item.category),
               ]),
               const SizedBox(height: 3),
-              Text(item.sizes.entries.where((e) => e.value > 0).map((e) => '${e.key}:${e.value}').join('  '),
+              Text(item.sizes.entries.where((e) => !e.key.contains('_') && e.value > 0).map((e) => '${e.key}:${e.value}').join('  '),
                 style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.muted, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis),
             ])),
             Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
@@ -266,9 +266,19 @@ class _StockFormSheetState extends State<_StockFormSheet> {
   final _cost   = TextEditingController();
   final _discount = TextEditingController();
   final _minQty = TextEditingController();
+  final _colorController = TextEditingController();
   String _category = 'Men';
   String _emoji = '👕';
   Map<String, int> _sizes = {};
+  List<String> _colors = ['Black', 'Red', 'Orange', 'Yellow'];
+  final List<String> _targetSizes = ['M', 'L', 'XL', '2XL'];
+  List<String> _addSuggestions = [];
+  static const List<String> _commonColors = [
+    'Black', 'Blue', 'Brown', 'Beige', 'Bronze', 'Burgundy', 'Red', 'Orange', 'Yellow',
+    'Green', 'Grey', 'Gold', 'Silver', 'White', 'Purple', 'Pink', 'Peach', 'Navy',
+    'Maroon', 'Magenta', 'Mint', 'Olive', 'Teal', 'Turquoise', 'Violet', 'Lavender',
+    'Khaki', 'Charcoal', 'Coral', 'Cream', 'Cyan', 'Mustard', 'Indigo', 'Plum'
+  ];
   File? _photo;
   String? _existingPhotoUrl;
   DateTime _createdAt = DateTime.now();
@@ -276,7 +286,6 @@ class _StockFormSheetState extends State<_StockFormSheet> {
   final svc = ApiService();
 
   bool get _isEdit => widget.item != null;
-  List<String> get _sizeKeys => _category == 'Kids' ? kidsSizes : allSizes;
   final _emojis = ['👔','👕','👗','👘','👖','👚','🧥','🧣','👒','👠','👟','🧤'];
 
   @override
@@ -291,17 +300,73 @@ class _StockFormSheetState extends State<_StockFormSheet> {
       _category = it.category; _emoji = it.emoji;
       _sizes = Map.from(it.sizes); _existingPhotoUrl = it.photoUrl;
       _createdAt = it.createdAt;
+
+      final colorsSet = <String>{};
+      for (final key in _sizes.keys) {
+        if (key.contains('_')) {
+          colorsSet.add(key.split('_')[0]);
+        }
+      }
+
+      if (colorsSet.isEmpty) {
+        _colors = ['Black', 'Red', 'Orange', 'Yellow'];
+        final tempSizes = <String, int>{};
+        for (final c in _colors) {
+          for (final sz in _targetSizes) {
+            tempSizes['${c}_$sz'] = (c == 'Black') ? (_sizes[sz] ?? 0) : 0;
+          }
+        }
+        for (final entry in _sizes.entries) {
+          if (!entry.key.contains('_') && !_targetSizes.contains(entry.key)) {
+            tempSizes['Black_${entry.key}'] = entry.value;
+          }
+        }
+        _sizes = tempSizes;
+      } else {
+        final defaultOrder = ['Black', 'Red', 'Orange', 'Yellow'];
+        final parsedColors = colorsSet.toList();
+        parsedColors.sort((a, b) {
+          final idxA = defaultOrder.indexOf(a);
+          final idxB = defaultOrder.indexOf(b);
+          if (idxA != -1 && idxB != -1) return idxA.compareTo(idxB);
+          if (idxA != -1) return -1;
+          if (idxB != -1) return 1;
+          return a.compareTo(b);
+        });
+        _colors = parsedColors;
+      }
+
+      for (final c in _colors) {
+        for (final sz in _targetSizes) {
+          _sizes['${c}_$sz'] ??= 0;
+        }
+      }
     } else {
-      for (final s in allSizes) { _sizes[s] = 0; }
+      _colors = ['Black', 'Red', 'Orange', 'Yellow'];
+      for (final c in _colors) {
+        for (final sz in _targetSizes) {
+          _sizes['${c}_$sz'] = 0;
+        }
+      }
     }
   }
 
   void _onCategoryChange(String cat) {
     setState(() {
       _category = cat;
-      final newSizes = <String, int>{};
-      for (final s in (cat == 'Kids' ? kidsSizes : allSizes)) { newSizes[s] = _sizes[s] ?? 0; }
-      _sizes = newSizes;
+    });
+  }
+
+  void _updateAddSuggestions(String input) {
+    if (input.trim().isEmpty) {
+      setState(() => _addSuggestions = []);
+      return;
+    }
+    final lowercaseInput = input.toLowerCase();
+    setState(() {
+      _addSuggestions = _commonColors
+          .where((c) => c.toLowerCase().startsWith(lowercaseInput) && !_colors.any((existing) => existing.toLowerCase() == c.toLowerCase()))
+          .toList();
     });
   }
 
@@ -340,6 +405,16 @@ class _StockFormSheetState extends State<_StockFormSheet> {
       String? photoUrl = _existingPhotoUrl;
       if (_photo != null) photoUrl = await svc.uploadPhoto(_photo!, 'stock');
 
+      // Compute aggregated size totals for backward compatibility
+      final finalSizes = Map<String, int>.from(_sizes);
+      for (final sz in _targetSizes) {
+        int total = 0;
+        for (final color in _colors) {
+          total += _sizes['${color}_$sz'] ?? 0;
+        }
+        finalSizes[sz] = total;
+      }
+
       final item = StockItem(
         id: _isEdit ? widget.item!.id : '',
         name: _name.text, category: _category, sku: _sku.text,
@@ -347,7 +422,7 @@ class _StockFormSheetState extends State<_StockFormSheet> {
         price: int.tryParse(_price.text) ?? 0,
         cost: int.tryParse(_cost.text) ?? 0,
         discount: int.tryParse(_discount.text) ?? 0,
-        emoji: _emoji, photoUrl: photoUrl, sizes: _sizes,
+        emoji: _emoji, photoUrl: photoUrl, sizes: finalSizes,
         createdAt: _createdAt,
       );
 
@@ -383,14 +458,14 @@ class _StockFormSheetState extends State<_StockFormSheet> {
     if (mounted) Navigator.pop(context);
   }
 
-  void _showQuantityDialog(String sz, int currentQty) async {
-    final controller = TextEditingController(text: currentQty.toString());
+  void _showQuantityDialog(String color, String sz, int currentQty) async {
+    final controller = TextEditingController(text: currentQty == 0 ? '' : currentQty.toString());
     final newQty = await showDialog<int>(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.card,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text('Enter Quantity for Size $sz', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: AppColors.textColor, fontSize: 16)),
+        title: Text('Enter Quantity for $color ($sz)', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: AppColors.textColor, fontSize: 16)),
         content: TextField(
           controller: controller,
           keyboardType: TextInputType.number,
@@ -436,8 +511,139 @@ class _StockFormSheetState extends State<_StockFormSheet> {
     );
 
     if (newQty != null) {
-      setState(() => _sizes[sz] = newQty);
+      setState(() => _sizes['${color}_$sz'] = newQty);
     }
+  }
+
+  void _showColorActions(String color) {
+    final renameController = TextEditingController(text: color);
+    List<String> suggestions = [];
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, dialogSetState) => AlertDialog(
+          backgroundColor: AppColors.card,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text('Edit Color: $color', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: AppColors.textColor, fontSize: 16)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: renameController,
+                style: GoogleFonts.plusJakartaSans(color: AppColors.textColor),
+                decoration: InputDecoration(
+                  labelText: 'Color Name',
+                  labelStyle: TextStyle(color: AppColors.muted),
+                  filled: true,
+                  fillColor: AppColors.bg,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onChanged: (val) {
+                  final trimmed = val.trim();
+                  if (trimmed.isEmpty) {
+                    dialogSetState(() => suggestions = []);
+                  } else {
+                    final lowercase = trimmed.toLowerCase();
+                    dialogSetState(() {
+                      suggestions = _commonColors
+                          .where((c) => c.toLowerCase().startsWith(lowercase) && c.toLowerCase() != color.toLowerCase())
+                          .toList();
+                    });
+                  }
+                },
+              ),
+              if (suggestions.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: suggestions.take(5).map((sugg) => GestureDetector(
+                    onTap: () {
+                      renameController.text = sugg;
+                      dialogSetState(() => suggestions = []);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppColors.isDark ? Colors.blueGrey[800] : Colors.grey[200],
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: AppColors.isDark ? AppColors.border : Colors.grey[300]!),
+                      ),
+                      child: Text(
+                        sugg,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 11,
+                          color: AppColors.textColor,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  )).toList(),
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            ActionButton(
+              onTap: () {
+                if (_colors.length <= 1) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Cannot delete the only remaining color.'))
+                  );
+                  return;
+                }
+                setState(() {
+                  _colors.remove(color);
+                  for (final sz in _targetSizes) {
+                    _sizes.remove('${color}_$sz');
+                  }
+                });
+                Navigator.pop(context);
+              },
+              label: 'Delete',
+              isOutlined: true,
+              buttonColor: AppColors.danger,
+            ),
+            const SizedBox(width: 8),
+            ActionButton(
+              onTap: () => Navigator.pop(context),
+              label: 'Cancel',
+              isOutlined: true,
+              buttonColor: AppColors.muted,
+            ),
+            const SizedBox(width: 8),
+            ActionButton(
+              onTap: () {
+                final newName = renameController.text.trim();
+                if (newName.isNotEmpty && newName != color) {
+                  if (_colors.contains(newName)) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Color already exists.'))
+                    );
+                    return;
+                  }
+                  setState(() {
+                    final index = _colors.indexOf(color);
+                    if (index != -1) {
+                      _colors[index] = newName;
+                      for (final sz in _targetSizes) {
+                        _sizes['${newName}_$sz'] = _sizes['${color}_$sz'] ?? 0;
+                        _sizes.remove('${color}_$sz');
+                      }
+                    }
+                  });
+                }
+                Navigator.pop(context);
+              },
+              label: 'Save',
+              buttonColor: AppColors.primary,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -555,38 +761,176 @@ class _StockFormSheetState extends State<_StockFormSheet> {
         // Sizes
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
           Text('SIZE INVENTORY', style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.muted, letterSpacing: 1, fontWeight: FontWeight.bold)),
-          Text('Total: ${_sizes.values.fold(0, (a, b) => a + b)}',
+          Text('Total: ${_sizes.entries.where((e) => e.key.contains('_')).fold(0, (a, b) => a + b.value)}',
             style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.bold)),
         ]),
         const SizedBox(height: 10),
 
-        GridView.count(
-          crossAxisCount: 3, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
-          crossAxisSpacing: 8, mainAxisSpacing: 8, childAspectRatio: 2.2,
-          children: _sizeKeys.map((sz) {
-            final qty = _sizes[sz] ?? 0;
-            return Container(
-              decoration: BoxDecoration(
-                color: qty > 0 ? AppColors.primary.withOpacity(0.05) : AppColors.bg,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: qty > 0 ? AppColors.primary.withOpacity(0.3) : AppColors.border)),
-              child: Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
-                GestureDetector(onTap: () => setState(() => _sizes[sz] = (qty - 1).clamp(0, 999)),
-                  child: Icon(Icons.remove, size: 14, color: AppColors.muted)),
-                GestureDetector(
-                  onTap: () => _showQuantityDialog(sz, qty),
-                  behavior: HitTestBehavior.opaque,
-                  child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    Text(sz, style: GoogleFonts.plusJakartaSans(fontSize: 9, color: AppColors.muted, fontWeight: FontWeight.bold)),
-                    Text('$qty', style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold, color: qty > 0 ? AppColors.primary : AppColors.muted)),
-                  ]),
-                ),
-                GestureDetector(onTap: () => setState(() => _sizes[sz] = qty + 1),
-                  child: Icon(Icons.add, size: 14, color: AppColors.primary)),
-              ]),
-            );
-          }).toList(),
+        Table(
+          border: TableBorder.all(color: Colors.black87, width: 1),
+          columnWidths: const {
+            0: FlexColumnWidth(1.2), // Color column
+            1: FlexColumnWidth(1),   // M
+            2: FlexColumnWidth(1),   // L
+            3: FlexColumnWidth(1),   // XL
+            4: FlexColumnWidth(1),   // 2XL
+          },
+          children: [
+            // Header Row
+            TableRow(
+              children: [
+                TableCell(child: Container(height: 40, color: Colors.white, alignment: Alignment.center)),
+                _buildHeaderCell('M'),
+                _buildHeaderCell('L'),
+                _buildHeaderCell('XL'),
+                _buildHeaderCell('2XL'),
+              ],
+            ),
+            // Data Rows
+            ..._colors.map((color) {
+              return TableRow(
+                children: [
+                  // Color row header
+                  TableCell(
+                    child: GestureDetector(
+                      onTap: () => _showColorActions(color),
+                      child: Container(
+                        height: 45,
+                        color: color == 'Black' ? Colors.white : Colors.white,
+                        alignment: Alignment.center,
+                        child: Text(
+                          color,
+                          style: GoogleFonts.plusJakartaSans(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  // Size cells
+                  ..._targetSizes.map((sz) {
+                    final qty = _sizes['${color}_$sz'] ?? 0;
+                    return TableCell(
+                      child: GestureDetector(
+                        onTap: () => _showQuantityDialog(color, sz, qty),
+                        child: Container(
+                          height: 45,
+                          color: Colors.white,
+                          alignment: Alignment.center,
+                          child: Text(
+                            qty == 0 ? '' : '$qty',
+                            style: GoogleFonts.plusJakartaSans(
+                              color: Colors.black87,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                ],
+              );
+            }),
+          ],
         ),
+        const SizedBox(height: 16),
+
+        // Add Color Input Field
+        Row(
+          children: [
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppColors.bg,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.border),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: TextField(
+                  controller: _colorController,
+                  style: GoogleFonts.plusJakartaSans(color: AppColors.textColor, fontSize: 13),
+                  onChanged: _updateAddSuggestions,
+                  decoration: InputDecoration(
+                    border: InputBorder.none,
+                    hintText: 'Add new color...',
+                    hintStyle: TextStyle(color: AppColors.muted),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: () {
+                final newColor = _colorController.text.trim();
+                if (newColor.isNotEmpty) {
+                  if (_colors.any((c) => c.toLowerCase() == newColor.toLowerCase())) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Color already exists!'))
+                    );
+                    return;
+                  }
+                  setState(() {
+                    _colors.add(newColor);
+                    for (final sz in _targetSizes) {
+                      _sizes['${newColor}_$sz'] = 0;
+                    }
+                    _colorController.clear();
+                    _addSuggestions = [];
+                  });
+                }
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  'Add Color',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        if (_addSuggestions.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: _addSuggestions.take(6).map((suggestion) => GestureDetector(
+              onTap: () {
+                setState(() {
+                  _colorController.text = suggestion;
+                  _addSuggestions = [];
+                });
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppColors.isDark ? Colors.blueGrey[800] : Colors.grey[200],
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: AppColors.isDark ? AppColors.border : Colors.grey[300]!),
+                ),
+                child: Text(
+                  suggestion,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 11,
+                    color: AppColors.textColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            )).toList(),
+          ),
+        ],
         const SizedBox(height: 20),
 
         _saving
@@ -597,8 +941,35 @@ class _StockFormSheetState extends State<_StockFormSheet> {
     );
   }
 
+  Widget _buildHeaderCell(String label) {
+    return TableCell(
+      child: Container(
+        height: 40,
+        color: Colors.white,
+        alignment: Alignment.center,
+        child: Text(
+          label,
+          style: GoogleFonts.plusJakartaSans(
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+            fontSize: 13,
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
-  void dispose() { _name.dispose(); _sku.dispose(); _price.dispose(); _cost.dispose(); _discount.dispose(); _minQty.dispose(); super.dispose(); }
+  void dispose() {
+    _name.dispose();
+    _sku.dispose();
+    _price.dispose();
+    _cost.dispose();
+    _discount.dispose();
+    _minQty.dispose();
+    _colorController.dispose();
+    super.dispose();
+  }
 }
 
 class _MonthYearPicker extends StatefulWidget {

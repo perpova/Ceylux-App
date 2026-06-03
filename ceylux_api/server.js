@@ -426,7 +426,25 @@ app.post('/orders', async (req, res) => {
               }
 
               if (sizesMap && sizesMap[size] !== undefined) {
-                sizesMap[size] = Math.max(0, sizesMap[size] - parseInt(qty));
+                let remainingToDeduct = parseInt(qty);
+                sizesMap[size] = Math.max(0, sizesMap[size] - remainingToDeduct);
+                
+                // Deduct from color-prefixed keys (e.g. "Black_M", "Orange_M")
+                const colorKeys = Object.keys(sizesMap).filter(k => k.endsWith(`_${size}`));
+                for (const key of colorKeys) {
+                  if (remainingToDeduct <= 0) break;
+                  const currentStock = parseInt(sizesMap[key]) || 0;
+                  if (currentStock > 0) {
+                    const deduct = Math.min(currentStock, remainingToDeduct);
+                    sizesMap[key] = currentStock - deduct;
+                    remainingToDeduct -= deduct;
+                  }
+                }
+                if (remainingToDeduct > 0 && colorKeys.length > 0) {
+                  const firstKey = colorKeys[0];
+                  sizesMap[firstKey] = Math.max(0, (parseInt(sizesMap[firstKey]) || 0) - remainingToDeduct);
+                }
+                
                 await conn.query(
                   'UPDATE stock SET sizes = ? WHERE id = ?',
                   [JSON.stringify(sizesMap), stockItem.id]
@@ -504,6 +522,12 @@ app.put('/orders/:id', async (req, res) => {
 
                 if (sizesMap && sizesMap[size] !== undefined) {
                   sizesMap[size] = sizesMap[size] + parseInt(qty);
+                  
+                  // Restore to the first color key ending with "_size", or default to "Black_size"
+                  const colorKeys = Object.keys(sizesMap).filter(k => k.endsWith(`_${size}`));
+                  const targetKey = colorKeys.length > 0 ? colorKeys[0] : `Black_${size}`;
+                  sizesMap[targetKey] = (parseInt(sizesMap[targetKey]) || 0) + parseInt(qty);
+                  
                   await conn.query(
                     'UPDATE stock SET sizes = ? WHERE id = ?',
                     [JSON.stringify(sizesMap), stockItem.id]
@@ -541,7 +565,25 @@ app.put('/orders/:id', async (req, res) => {
               }
 
               if (sizesMap && sizesMap[size] !== undefined) {
-                sizesMap[size] = Math.max(0, sizesMap[size] - parseInt(qty));
+                let remainingToDeduct = parseInt(qty);
+                sizesMap[size] = Math.max(0, sizesMap[size] - remainingToDeduct);
+                
+                // Deduct from color-prefixed keys (e.g. "Black_M", "Orange_M")
+                const colorKeys = Object.keys(sizesMap).filter(k => k.endsWith(`_${size}`));
+                for (const key of colorKeys) {
+                  if (remainingToDeduct <= 0) break;
+                  const currentStock = parseInt(sizesMap[key]) || 0;
+                  if (currentStock > 0) {
+                    const deduct = Math.min(currentStock, remainingToDeduct);
+                    sizesMap[key] = currentStock - deduct;
+                    remainingToDeduct -= deduct;
+                  }
+                }
+                if (remainingToDeduct > 0 && colorKeys.length > 0) {
+                  const firstKey = colorKeys[0];
+                  sizesMap[firstKey] = Math.max(0, (parseInt(sizesMap[firstKey]) || 0) - remainingToDeduct);
+                }
+                
                 await conn.query(
                   'UPDATE stock SET sizes = ? WHERE id = ?',
                   [JSON.stringify(sizesMap), stockItem.id]
@@ -603,6 +645,12 @@ app.delete('/orders/:id', async (req, res) => {
 
                 if (sizesMap && sizesMap[size] !== undefined) {
                   sizesMap[size] = sizesMap[size] + parseInt(qty);
+                  
+                  // Restore to the first color key ending with "_size", or default to "Black_size"
+                  const colorKeys = Object.keys(sizesMap).filter(k => k.endsWith(`_${size}`));
+                  const targetKey = colorKeys.length > 0 ? colorKeys[0] : `Black_${size}`;
+                  sizesMap[targetKey] = (parseInt(sizesMap[targetKey]) || 0) + parseInt(qty);
+                  
                   await conn.query(
                     'UPDATE stock SET sizes = ? WHERE id = ?',
                     [JSON.stringify(sizesMap), stockItem.id]
