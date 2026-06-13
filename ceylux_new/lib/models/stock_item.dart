@@ -19,7 +19,7 @@ class StockItem {
     required this.cost, this.discount = 0, required this.emoji, this.photoUrl, required this.sizes,
     DateTime? createdAt}) : createdAt = createdAt ?? DateTime.now();
 
-  int get totalQty => sizes.values.fold(0, (a, b) => a + b);
+  int get totalQty => sizes.entries.where((e) => !e.key.contains('_')).fold(0, (a, b) => a + b.value);
   bool get isLowStock => totalQty > 0 && totalQty < minQty;
   bool get isOutOfStock => totalQty == 0;
 

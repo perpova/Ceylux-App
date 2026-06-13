@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 import '../models/customer.dart';
+import '../models/order.dart';
 import '../models/tier.dart';
 import '../utils/theme.dart';
 import '../widgets/common_widgets.dart';
@@ -409,6 +410,23 @@ class _CustomersScreenState extends State<CustomersScreen> {
                             const SizedBox(height: 5),
                             // Mini rating bar
                             _MiniRatingBar(rating: c.ownerRating),
+                            if (c.remainingDue > 0) ...[
+                              const SizedBox(height: 5),
+                              Row(
+                                children: [
+                                  Icon(Icons.account_balance_wallet_outlined,
+                                      size: 11, color: AppColors.warning),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Due: Rs. ${NumberFormat('#,###').format(c.remainingDue)}',
+                                    style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 10,
+                                        color: AppColors.warning,
+                                        fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ])),
                       const SizedBox(width: 8),
                       Column(
@@ -497,7 +515,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _CustomerDetailSheet(customer: c),
+      builder: (_) => CustomerDetailSheet(customer: c),
     );
   }
 
@@ -546,14 +564,14 @@ class _MiniRatingBar extends StatelessWidget {
 }
 
 //  Customer Detail Sheet
-class _CustomerDetailSheet extends StatefulWidget {
+class CustomerDetailSheet extends StatefulWidget {
   final Customer customer;
-  const _CustomerDetailSheet({required this.customer});
+  const CustomerDetailSheet({required this.customer, super.key});
   @override
-  State<_CustomerDetailSheet> createState() => _CustomerDetailSheetState();
+  State<CustomerDetailSheet> createState() => CustomerDetailSheetState();
 }
 
-class _CustomerDetailSheetState extends State<_CustomerDetailSheet> {
+class CustomerDetailSheetState extends State<CustomerDetailSheet> {
   bool _uploading = false;
   bool _editingNote = false;
   bool _editingInfo = false;
@@ -568,6 +586,15 @@ class _CustomerDetailSheetState extends State<_CustomerDetailSheet> {
   bool _loadingTiers = false;
   bool _deleting = false;
 
+  // Credit tracking fields
+  double _outstandingBalance = 0;
+  double _totalPaid = 0;
+  double _remainingDue = 0;
+  List<AppOrder> _customerOrders = [];
+  List<Map<String, dynamic>> _payments = [];
+  bool _loadingOrders = false;
+  bool _loadingPayments = false;
+
   @override
   void initState() {
     super.initState();
@@ -576,7 +603,12 @@ class _CustomerDetailSheetState extends State<_CustomerDetailSheet> {
     _phoneCtrl = TextEditingController(text: widget.customer.phone);
     _emailCtrl = TextEditingController(text: widget.customer.email);
     _addressCtrl = TextEditingController(text: widget.customer.address);
+    _outstandingBalance = widget.customer.outstandingBalance;
+    _totalPaid = widget.customer.totalPaid;
+    _remainingDue = widget.customer.remainingDue;
     _loadTiers();
+    _loadCustomerOrders();
+    _loadPayments();
   }
 
   Future<void> _loadTiers() async {
@@ -591,6 +623,36 @@ class _CustomerDetailSheetState extends State<_CustomerDetailSheet> {
       }
     } catch (_) {
       if (mounted) setState(() => _loadingTiers = false);
+    }
+  }
+
+  Future<void> _loadCustomerOrders() async {
+    if (mounted) setState(() => _loadingOrders = true);
+    try {
+      final orders = await svc.getCustomerOrders(widget.customer.id);
+      if (mounted) {
+        setState(() {
+          _customerOrders = orders;
+          _loadingOrders = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingOrders = false);
+    }
+  }
+
+  Future<void> _loadPayments() async {
+    if (mounted) setState(() => _loadingPayments = true);
+    try {
+      final payments = await svc.getCustomerPayments(widget.customer.id);
+      if (mounted) {
+        setState(() {
+          _payments = payments;
+          _loadingPayments = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingPayments = false);
     }
   }
 
@@ -1379,6 +1441,332 @@ class _CustomerDetailSheetState extends State<_CustomerDetailSheet> {
           const SizedBox(width: 10),
           Expanded(child: _statBox('Discount', '${_getDiscount()}%')),
         ]),
+        const SizedBox(height: 14),
+
+        // CREDIT & BALANCE TRACKING PANEL
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.warning.withOpacity(0.04),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.warning.withOpacity(0.2)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.account_balance_wallet_outlined, size: 16, color: AppColors.warning),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Credit & Balance Tracking',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.warning,
+                        ),
+                      ),
+                    ],
+                  ),
+                  GestureDetector(
+                    onTap: _showRecordPaymentDialog,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.add, size: 12, color: Colors.white),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Record Payment',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: _creditStatCol(
+                      label: 'Outstanding',
+                      value: _outstandingBalance,
+                      color: AppColors.textColor,
+                    ),
+                  ),
+                  Container(width: 1, height: 36, color: AppColors.border),
+                  Expanded(
+                    child: _creditStatCol(
+                      label: 'Total Paid',
+                      value: _totalPaid,
+                      color: AppColors.success,
+                    ),
+                  ),
+                  Container(width: 1, height: 36, color: AppColors.border),
+                  Expanded(
+                    child: _creditStatCol(
+                      label: 'Balance Due',
+                      value: _remainingDue,
+                      color: _remainingDue > 0 ? AppColors.danger : AppColors.muted,
+                      isBold: true,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+
+        // ORDER HISTORY
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.bg,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Order History',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textColor,
+                ),
+              ),
+              const SizedBox(height: 10),
+              if (_loadingOrders)
+                Center(child: CircularProgressIndicator(color: AppColors.primary))
+              else ...[
+                Builder(builder: (_) {
+                  final allOrders = _customerOrders;
+
+                  if (allOrders.isEmpty) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Text(
+                        'No orders found for this customer.',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 11,
+                          fontStyle: FontStyle.italic,
+                          color: AppColors.muted,
+                        ),
+                      ),
+                    );
+                  }
+
+                  return Column(
+                    children: allOrders.map<Widget>((o) {
+                      final statusColor = (o.status == 'Cancelled' || o.status == 'Canceled')
+                          ? AppColors.danger
+                          : (o.status == 'Completed' || o.status == 'Delivered')
+                              ? AppColors.success
+                              : o.status == 'Pending'
+                                  ? AppColors.warning
+                                  : AppColors.muted;
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppColors.card,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    o.id,
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.textColor,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '${o.date} • ${o.paymentMethodName}',
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 10,
+                                      color: AppColors.muted,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  ...o.items.map((item) => Padding(
+                                    padding: const EdgeInsets.only(top: 2),
+                                    child: Text(
+                                      '• ${item.qty}x ${item.name} (${item.size}${item.color.isNotEmpty ? ' - ${item.color}' : ''})',
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 10,
+                                        color: AppColors.textColor.withOpacity(0.8),
+                                      ),
+                                    ),
+                                  )),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  'Rs. ${NumberFormat('#,###').format(o.total)}',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.textColor,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: statusColor.withOpacity(0.12),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    o.status,
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 9,
+                                      color: statusColor,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  );
+                }),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+
+        // PAYMENT HISTORY TIMELINE
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.bg,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Collected Payments History',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textColor,
+                ),
+              ),
+              const SizedBox(height: 10),
+              if (_loadingPayments)
+                Center(child: CircularProgressIndicator(color: AppColors.primary))
+              else ...[
+                if (_payments.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Text(
+                      'No payments recorded yet.',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 11,
+                        fontStyle: FontStyle.italic,
+                        color: AppColors.muted,
+                      ),
+                    ),
+                  )
+                else
+                  Column(
+                    children: _payments.map((p) {
+                      final amount = double.tryParse(p['amount']?.toString() ?? '0') ?? 0.0;
+                      final date = p['payment_date']?.toString() ?? '';
+                      final note = p['notes']?.toString() ?? '';
+
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppColors.card,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    date,
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.textColor,
+                                    ),
+                                  ),
+                                  if (note.isNotEmpty) ...[
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      note,
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 10,
+                                        color: AppColors.muted,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                            Text(
+                              '+ Rs. ${NumberFormat('#,###').format(amount)}',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.success,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
+              ],
+            ],
+          ),
+        ),
         const SizedBox(height: 8),
       ])),
     );
@@ -1494,6 +1882,218 @@ class _CustomerDetailSheetState extends State<_CustomerDetailSheet> {
                   fontWeight: FontWeight.w600)),
         ]),
       );
+
+  Widget _creditStatCol({
+    required String label,
+    required double value,
+    required Color color,
+    bool isBold = false,
+  }) {
+    return Column(
+      children: [
+        Text(
+          'Rs. ${NumberFormat('#,###').format(value)}',
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 13,
+            fontWeight: isBold ? FontWeight.w800 : FontWeight.bold,
+            color: color,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 9,
+            fontWeight: FontWeight.w600,
+            color: AppColors.muted,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ],
+    );
+  }
+
+  void _showRecordPaymentDialog() {
+    final amountCtrl = TextEditingController();
+    final notesCtrl = TextEditingController();
+    String selectedDate = DateTime.now().toIso8601String().split('T').first;
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: AppColors.card,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Text(
+                'Record Collected Payment',
+                style: GoogleFonts.outfit(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textColor,
+                ),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  GoldTextField(
+                    label: 'Amount Collected *',
+                    controller: amountCtrl,
+                    hint: 'Enter amount in Rs.',
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Payment Date',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textColor.withOpacity(0.8),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  GestureDetector(
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: DateTime.now(),
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime(2030),
+                        builder: (context, child) {
+                          return Theme(
+                            data: Theme.of(context).copyWith(
+                              colorScheme: ColorScheme.dark(
+                                primary: AppColors.primary,
+                                onPrimary: Colors.white,
+                                surface: AppColors.card,
+                                onSurface: AppColors.textColor,
+                              ),
+                              dialogBackgroundColor: AppColors.card,
+                            ),
+                            child: child!,
+                          );
+                        },
+                      );
+                      if (picked != null) {
+                        setDialogState(() {
+                          selectedDate = picked.toIso8601String().split('T').first;
+                        });
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: AppColors.bg,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            selectedDate,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 13,
+                              color: AppColors.textColor,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          Icon(Icons.calendar_today, size: 16, color: AppColors.primary),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  GoldTextField(
+                    label: 'Notes / Remarks',
+                    controller: notesCtrl,
+                    hint: 'e.g. Received cash, bank ref number',
+                    maxLines: 2,
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogCtx),
+                  child: Text(
+                    'Cancel',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: AppColors.muted,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    final amount = double.tryParse(amountCtrl.text);
+                    if (amount == null || amount <= 0) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Please enter a valid amount'),
+                          backgroundColor: AppColors.danger,
+                        ),
+                      );
+                      return;
+                    }
+                    Navigator.pop(dialogCtx);
+                    
+                    if (dialogCtx.mounted) {
+                      setDialogState(() {});
+                    }
+                    if (mounted) {
+                      setState(() => _uploading = true);
+                    }
+                    try {
+                      await svc.recordPayment(widget.customer.id, amount, selectedDate, notesCtrl.text);
+                      
+                      final updated = await svc.getCustomer(widget.customer.id);
+                      if (mounted) {
+                        setState(() {
+                          _outstandingBalance = updated.outstandingBalance;
+                          _totalPaid = updated.totalPaid;
+                          _remainingDue = updated.remainingDue;
+                          _uploading = false;
+                        });
+                        _loadCustomerOrders();
+                        _loadPayments();
+                        
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('✓ Payment of Rs. ${NumberFormat('#,###').format(amount)} recorded successfully!'),
+                            backgroundColor: AppColors.success,
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        setState(() => _uploading = false);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Error recording payment: $e'),
+                            backgroundColor: AppColors.danger,
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  child: Text(
+                    'Record',
+                    style: GoogleFonts.plusJakartaSans(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
 
   @override
   void dispose() {

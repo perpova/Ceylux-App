@@ -277,6 +277,8 @@ class StatusBadge extends StatelessWidget {
     switch (status.toLowerCase()) {
       case 'delivered': color = AppColors.success; break;
       case 'processing': color = AppColors.warning; break;
+      case 'cancelled':
+      case 'canceled': color = AppColors.danger; break;
       default: color = AppColors.muted;
     }
     return Container(

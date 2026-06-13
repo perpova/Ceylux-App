@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,13 +11,13 @@
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #f0f4f8 0%, #e8f1f7 100%);
             padding: 20px;
         }
-        
+
         .container {
             max-width: 900px;
             margin: 0 auto;
@@ -25,7 +26,7 @@
             border-radius: 12px;
             overflow: hidden;
         }
-        
+
         /* Header Section with Logo */
         .header {
             display: flex;
@@ -38,7 +39,7 @@
             position: relative;
             overflow: hidden;
         }
-        
+
         .header::after {
             content: '';
             position: absolute;
@@ -50,18 +51,18 @@
             border-radius: 50%;
             z-index: 0;
         }
-        
-        .header > * {
+
+        .header>* {
             position: relative;
             z-index: 1;
         }
-        
+
         .header-left {
             display: flex;
             gap: 20px;
             align-items: flex-start;
         }
-        
+
         .logo-placeholder {
             width: 80px;
             height: 80px;
@@ -77,7 +78,7 @@
             flex-shrink: 0;
             backdrop-filter: blur(10px);
         }
-        
+
         .header-text h1 {
             font-size: 32px;
             color: #ffffff;
@@ -85,31 +86,31 @@
             margin-bottom: 5px;
             letter-spacing: 1px;
         }
-        
+
         .header-text p {
             color: #86BDDA;
             font-size: 13px;
             font-weight: 600;
             margin-bottom: 8px;
         }
-        
+
         .header-contact {
             color: rgba(255, 255, 255, 0.85);
             font-size: 11px;
             line-height: 1.6;
         }
-        
+
         .header-right {
             text-align: right;
         }
-        
+
         .header-right .company-name {
             font-size: 18px;
             font-weight: bold;
             color: #ffffff;
             margin-bottom: 8px;
         }
-        
+
         .header-right .invoice-number {
             display: flex;
             justify-content: flex-end;
@@ -117,18 +118,18 @@
             margin-bottom: 6px;
             font-size: 12px;
         }
-        
+
         .header-right .invoice-number .label {
             color: rgba(255, 255, 255, 0.7);
             font-weight: 600;
         }
-        
+
         .header-right .invoice-number .value {
             color: #ffffff;
             font-weight: bold;
             min-width: 80px;
         }
-        
+
         .header-right .date {
             display: flex;
             justify-content: flex-end;
@@ -136,7 +137,7 @@
             font-size: 12px;
             color: rgba(255, 255, 255, 0.85);
         }
-        
+
         /* Bill To Section */
         .bill-to {
             display: flex;
@@ -146,11 +147,11 @@
             background: #f8fafb;
             border-bottom: 1px solid #e8eef4;
         }
-        
+
         .bill-to-section {
             flex: 1;
         }
-        
+
         .bill-to-section h3 {
             font-size: 11px;
             color: #0C4A6E;
@@ -159,26 +160,26 @@
             letter-spacing: 1px;
             margin-bottom: 10px;
         }
-        
+
         .bill-to-section .customer-name {
             font-size: 14px;
             font-weight: bold;
             color: #1A1A2E;
             margin-bottom: 6px;
         }
-        
+
         .bill-to-section .address {
             font-size: 12px;
             color: #555;
             line-height: 1.6;
             margin-bottom: 4px;
         }
-        
+
         .bill-to-section .phone {
             font-size: 11px;
             color: #555;
         }
-        
+
         /* Items Table */
         .items-table {
             width: 100%;
@@ -186,12 +187,12 @@
             border-collapse: collapse;
             background: white;
         }
-        
+
         .items-table thead {
             background: linear-gradient(135deg, #0C4A6E 0%, #0F5D7D 100%);
             color: white;
         }
-        
+
         .items-table th {
             padding: 16px 15px;
             text-align: left;
@@ -201,15 +202,15 @@
             letter-spacing: 0.5px;
             white-space: nowrap;
         }
-        
+
         .items-table th.text-center {
             text-align: center;
         }
-        
+
         .items-table th.text-right {
             text-align: right;
         }
-        
+
         .items-table td {
             padding: 14px 15px;
             border-bottom: 1px solid #f0f4f8;
@@ -217,26 +218,26 @@
             color: #1A1A2E;
             white-space: nowrap;
         }
-        
+
         .items-table .item-name {
             font-weight: 600;
             color: #0C4A6E;
             white-space: normal;
         }
-        
+
         .items-table .text-center {
             text-align: center;
         }
-        
+
         .items-table .text-right {
             text-align: right;
             font-weight: 600;
         }
-        
+
         .items-table tbody tr:hover {
             background: #f0f7fc;
         }
-        
+
         /* Summary Section */
         .summary-section {
             display: flex;
@@ -245,15 +246,15 @@
             padding: 30px 40px;
             background: white;
         }
-        
+
         .summary-placeholder {
             flex: 1;
         }
-        
+
         .summary-box {
             width: 300px;
         }
-        
+
         .summary-row {
             display: flex;
             justify-content: space-between;
@@ -261,17 +262,17 @@
             font-size: 12px;
             border-bottom: 1px solid #e8eef4;
         }
-        
+
         .summary-row .label {
             color: #555;
             font-weight: 500;
         }
-        
+
         .summary-row .value {
             color: #1A1A2E;
             font-weight: 600;
         }
-        
+
         .summary-row.total {
             background: linear-gradient(135deg, #0C4A6E 0%, #0F5D7D 100%);
             color: white;
@@ -281,23 +282,23 @@
             border: none;
             font-size: 13px;
         }
-        
+
         .summary-row.total .label,
         .summary-row.total .value {
             color: #86BDDA;
             font-weight: bold;
         }
-        
+
         .summary-row.discount {
             color: #E74C3C;
         }
-        
+
         .summary-row.discount .label,
         .summary-row.discount .value {
             color: #E74C3C;
             font-weight: 600;
         }
-        
+
         /* Footer Section */
         .footer-section {
             margin-top: 0;
@@ -305,18 +306,18 @@
             border-top: 1px solid #e8eef4;
             background: #f8fafb;
         }
-        
+
         .footer-content {
             display: flex;
             justify-content: space-between;
             margin-bottom: 20px;
             font-size: 11px;
         }
-        
+
         .footer-col {
             flex: 1;
         }
-        
+
         .footer-col h4 {
             font-size: 11px;
             font-weight: bold;
@@ -325,13 +326,13 @@
             letter-spacing: 0.5px;
             margin-bottom: 8px;
         }
-        
+
         .footer-col p {
             color: #555;
             margin-bottom: 4px;
             line-height: 1.6;
         }
-        
+
         .footer-message {
             background: linear-gradient(135deg, #0C4A6E 0%, #0F5D7D 100%);
             color: #86BDDA;
@@ -342,14 +343,14 @@
             font-weight: bold;
             margin-top: 20px;
         }
-        
+
         .authorized-signature {
             display: flex;
             justify-content: flex-end;
             margin-top: 30px;
             text-align: center;
         }
-        
+
         .signature-line {
             border-top: 2px solid #0C4A6E;
             padding-top: 8px;
@@ -358,14 +359,14 @@
             min-width: 150px;
             font-weight: 600;
         }
-        
+
         /* Print Styles */
         @media print {
             body {
                 background: white;
                 padding: 0;
             }
-            
+
             .container {
                 box-shadow: none;
                 max-width: 100%;
@@ -374,6 +375,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <!-- Header with Logo -->
@@ -397,39 +399,44 @@
                 </div>
             </div>
         </div>
-        
+
         <!-- Bill To Section -->
         <div class="bill-to">
-            <div class="bill-to-section">
+            <div class="bill-to-section" style="flex: 2.2;">
                 <h3>Bill To:</h3>
                 <div class="customer-name">{{CUSTOMER_NAME}}</div>
                 <div class="address">{{CUSTOMER_ADDRESS}}</div>
                 <div class="phone">{{CUSTOMER_PHONE}}</div>
             </div>
-            <div class="bill-to-section" style="text-align: right;">
-                <h3>Status:</h3>
-                <div style="background: linear-gradient(135deg, #86BDDA 0%, #5BA3C7 100%); color: white; padding: 8px 16px; border-radius: 6px; display: inline-block; font-weight: bold; font-size: 12px;">{{STATUS}}</div>
+            <div class="bill-to-section" style="flex: 2.2; text-align: left;">
+                <h3>Delivery & Payment:</h3>
+                <div class="address" style="font-weight: 600;">Delivery: {{DELIVERY_METHOD}}</div>
+                <div class="address" style="font-weight: 600;">Payment: {{PAYMENT_METHOD}}</div>
+            </div>
+            <div class="bill-to-section" style="flex: 1.2; text-align: right;">
+                <h3>Tracking Number:</h3>
+                <div style="color: #1A1A2E; font-weight: bold; font-size: 13px;">{{TRACKING_NUMBER}}</div>
             </div>
         </div>
-        
+
         <!-- Items Table -->
         <div style="padding: 0 40px;">
-        <table class="items-table">
-            <thead>
-                <tr>
-                    <th style="width: 35%;">Item Description</th>
-                    <th style="width: 10%;" class="text-center">Qty</th>
-                    <th style="width: 16%;" class="text-right">Price</th>
-                    <th style="width: 14%;" class="text-right">Discount</th>
-                    <th style="width: 25%;" class="text-right">Total</th>
-                </tr>
-            </thead>
-            <tbody>
-                {{ITEMS}}
-            </tbody>
-        </table>
+            <table class="items-table">
+                <thead>
+                    <tr>
+                        <th style="width: 35%;">Item Description</th>
+                        <th style="width: 10%;" class="text-center">Qty</th>
+                        <th style="width: 16%;" class="text-right">Price</th>
+                        <th style="width: 14%;" class="text-right">Discount</th>
+                        <th style="width: 25%;" class="text-right">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{ITEMS}}
+                </tbody>
+            </table>
         </div>
-        
+
         <!-- Summary Section -->
         <div class="summary-section">
             <div class="summary-placeholder"></div>
@@ -456,32 +463,19 @@
                 </div>
             </div>
         </div>
-        
+
         <!-- Footer Section -->
         <div class="footer-section">
             <div class="footer-content">
-                <div class="footer-col">
-                    <h4>Terms</h4>
-                    <p>All sales are final</p>
-                    <p>Return within 7 days</p>
-                </div>
-                <div class="footer-col">
-                    <h4>Payment</h4>
-                    <p>Cash/Card accepted</p>
-                    <p>Installments available</p>
-                </div>
-                <div class="footer-col">
-                    <h4>Questions?</h4>
-                    <p>Email: {{CONTACT_INFO}}</p>
-                </div>
             </div>
-            
+
             <div class="footer-message">{{FOOTER}}</div>
-            
+
             <div class="authorized-signature">
                 <div class="signature-line">Authorized Signature</div>
             </div>
         </div>
     </div>
 </body>
+
 </html>

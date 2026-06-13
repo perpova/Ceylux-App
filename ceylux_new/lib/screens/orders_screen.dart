@@ -1,10 +1,12 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:lottie/lottie.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../services/api_service.dart';
 import '../services/invoice_service.dart';
 import '../models/order.dart';
@@ -16,6 +18,7 @@ import '../models/payment_method.dart';
 import '../utils/theme.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/animation_widgets.dart';
+import '../widgets/download_notification.dart';
 
 class OrdersScreen extends StatefulWidget {
   final bool filterPending;
@@ -156,7 +159,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                     child: SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: Row(
-                        children: ['All', 'Pending', 'Processing', 'Delivered']
+                        children: ['All', 'Pending', 'Processing', 'Delivered', 'Cancelled']
                             .map((s) => GestureDetector(
                                   onTap: () => setState(() => _filter = s),
                                   child: Container(
@@ -384,6 +387,8 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
   List<PaymentMethod> _paymentMethods = [];
   bool _loadingPaymentMethods = false;
 
+  final _trackingNumberCtrl = TextEditingController();
+
   final svc = ApiService();
 
   @override
@@ -395,6 +400,7 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
     _selectedDeliveryMethodName = widget.order.deliveryMethodName;
     _selectedPaymentMethodId = widget.order.paymentMethodId;
     _selectedPaymentMethodName = widget.order.paymentMethodName;
+    _trackingNumberCtrl.text = widget.order.trackingNumber ?? '';
     _loadDeliveryMethods();
     _loadPaymentMethods();
   }
@@ -438,16 +444,6 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
   }
 
   Future<void> _saveDeliveryMethod() async {
-    if (_selectedDeliveryMethodId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Please select a delivery method'),
-          backgroundColor: AppColors.danger,
-        ),
-      );
-      return;
-    }
-
     setState(() => _uploadingProof = true);
     try {
       String? proofUrl = widget.order.paymentProofUrl;
@@ -455,15 +451,23 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
         proofUrl = await svc.uploadPaymentProof(_paymentProofImage!);
       }
 
+      final newTracking = _trackingNumberCtrl.text.trim();
+      final trackingNumberChanged = newTracking != (widget.order.trackingNumber ?? '').trim();
+
       final updatedOrder = widget.order.copyWith(
-        deliveryMethodId: _selectedDeliveryMethodId,
-        deliveryMethodName: _selectedDeliveryMethodName,
+        deliveryMethodId: _selectedDeliveryMethodId ?? widget.order.deliveryMethodId,
+        deliveryMethodName: _selectedDeliveryMethodName ?? widget.order.deliveryMethodName,
         paymentProofUrl: proofUrl,
-        paymentMethodId: _selectedPaymentMethodId,
-        paymentMethodName: _selectedPaymentMethodName,
+        paymentMethodId: _selectedPaymentMethodId ?? widget.order.paymentMethodId,
+        paymentMethodName: _selectedPaymentMethodName ?? widget.order.paymentMethodName,
+        trackingNumber: newTracking,
       );
 
       await svc.updateOrder(widget.order.dbId, updatedOrder);
+
+      if (trackingNumberChanged && newTracking.isNotEmpty) {
+        InvoiceService.sendTrackingUpdateEmail(updatedOrder);
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -636,6 +640,7 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
     _qtyControllers.values.forEach((c) => c.dispose());
     _priceControllers.values.forEach((c) => c.dispose());
     _discountControllers.values.forEach((c) => c.dispose());
+    _trackingNumberCtrl.dispose();
     super.dispose();
   }
 
@@ -740,6 +745,7 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
         qty: qty,
         price: price,
         size: _editableItems[index].size,
+        color: _editableItems[index].color,
         discount: discount,
       );
     }
@@ -790,6 +796,7 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
         deliveryNotes: widget.order.deliveryNotes,
         paymentMethodId: widget.order.paymentMethodId,
         paymentMethodName: widget.order.paymentMethodName,
+        trackingNumber: _trackingNumberCtrl.text.trim(),
       );
 
       await svc.updateOrder(widget.order.dbId, updatedOrder);
@@ -917,69 +924,6 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
     }
   }
 
-  // ── Downloading Animation Popup ──────────────────────────────────────────
-  Future<void> _showDownloadingAnimation() async {
-    if (context.mounted) {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        useRootNavigator: true,
-        builder: (context) => AlertDialog(
-          backgroundColor: AppColors.card,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SizedBox(
-                  width: 200,
-                  height: 180,
-                  child: GestureDetector(
-                    onTap: () {}, // Prevent dismissing by tapping
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: AppColors.bg,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          Lottie.asset(
-                            'assets/animations/downloading.json',
-                            repeat: true,
-                            reverse: false,
-                            fit: BoxFit.contain,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Downloading PDF...',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textColor,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Creating PDF and saving to downloads',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.muted,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-  }
 
   int get _totalSubtotal =>
       _editableItems.fold<int>(0, (sum, item) => sum + item.subtotal);
@@ -994,6 +938,244 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
       (_afterBillDiscount * widget.order.loyaltyDiscount ~/ 100);
   int get _totalAmount =>
       _totalSubtotal - _totalItemDiscounts - _billDiscountAmount - _loyaltyDiscountAmount;
+
+
+  void _showTrackingSheet(BuildContext context, AppOrder order) {
+    final trackingNo = order.trackingNumber ?? '';
+    final steps = _buildTrackingSteps(order.status);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.75,
+          minChildSize: 0.5,
+          maxChildSize: 0.93,
+          builder: (_, scrollCtrl) {
+            return Container(
+              decoration: BoxDecoration(
+                color: AppColors.card,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                border: Border(top: BorderSide(color: AppColors.gold.withValues(alpha: 0.4), width: 1.5)),
+              ),
+              child: Column(
+                children: [
+                  Center(
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(vertical: 12),
+                      width: 40, height: 4,
+                      decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)),
+                    ),
+                  ),
+                  Expanded(
+                    child: ListView(
+                      controller: scrollCtrl,
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(colors: [AppColors.gold, AppColors.goldDark], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                                shape: BoxShape.circle,
+                                boxShadow: [BoxShadow(color: AppColors.gold.withValues(alpha: 0.35), blurRadius: 12, offset: const Offset(0, 4))],
+                              ),
+                              child: const Icon(Icons.local_shipping_rounded, color: Colors.white, size: 22),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('Shipment Tracking', style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textColor)),
+                                  Text('Order #${order.id}', style: TextStyle(fontSize: 12, color: AppColors.muted)),
+                                ],
+                              ),
+                            ),
+                            IconButton(onPressed: () => Navigator.pop(ctx), icon: Icon(Icons.close_rounded, color: AppColors.muted)),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [AppColors.gold.withValues(alpha: 0.12), AppColors.primary.withValues(alpha: 0.08)],
+                              begin: Alignment.topLeft, end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: AppColors.gold.withValues(alpha: 0.35)),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('TRACKING NUMBER', style: TextStyle(fontSize: 9, letterSpacing: 1.2, fontWeight: FontWeight.bold, color: AppColors.muted)),
+                                    const SizedBox(height: 6),
+                                    Text(trackingNo, style: GoogleFonts.robotoMono(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.gold, letterSpacing: 1.5)),
+                                  ],
+                                ),
+                              ),
+                              GestureDetector(
+                                onTap: () {
+                                  Clipboard.setData(ClipboardData(text: trackingNo));
+                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                    content: const Row(children: [Icon(Icons.copy, color: Colors.white, size: 16), SizedBox(width: 8), Text('Copied!')]),
+                                    backgroundColor: AppColors.success,
+                                    behavior: SnackBarBehavior.floating,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    duration: const Duration(seconds: 2),
+                                  ));
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(color: AppColors.gold.withValues(alpha: 0.15), shape: BoxShape.circle),
+                                  child: const Icon(Icons.copy_rounded, size: 16, color: AppColors.gold),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        Text('DELIVERY PROGRESS', style: TextStyle(fontSize: 10, letterSpacing: 1.2, fontWeight: FontWeight.bold, color: AppColors.muted)),
+                        const SizedBox(height: 16),
+                        ...List.generate(steps.length, (i) {
+                          final step = steps[i];
+                          final isDone = step['done'] as bool;
+                          final isActive = step['active'] as bool;
+                          final isLast = i == steps.length - 1;
+                          return Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Column(
+                                children: [
+                                  AnimatedContainer(
+                                    duration: Duration(milliseconds: 300 + i * 80),
+                                    width: 30, height: 30,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      gradient: isDone || isActive ? const LinearGradient(colors: [AppColors.gold, AppColors.goldDark], begin: Alignment.topLeft, end: Alignment.bottomRight) : null,
+                                      color: isDone || isActive ? null : AppColors.border,
+                                      boxShadow: isDone || isActive ? [BoxShadow(color: AppColors.gold.withValues(alpha: 0.4), blurRadius: 8, offset: const Offset(0, 2))] : null,
+                                    ),
+                                    child: Icon(isDone ? Icons.check_rounded : (step['icon'] as IconData), size: 15, color: isDone || isActive ? Colors.white : AppColors.muted),
+                                  ),
+                                  if (!isLast)
+                                    AnimatedContainer(
+                                      duration: Duration(milliseconds: 400 + i * 80),
+                                      width: 2, height: 44,
+                                      decoration: BoxDecoration(
+                                        gradient: isDone ? const LinearGradient(colors: [AppColors.gold, AppColors.goldDark], begin: Alignment.topCenter, end: Alignment.bottomCenter) : null,
+                                        color: isDone ? null : AppColors.border,
+                                        borderRadius: BorderRadius.circular(1),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.only(top: 5),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        step['label'] as String,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: isActive || isDone ? FontWeight.bold : FontWeight.w500,
+                                          color: isActive ? AppColors.gold : isDone ? AppColors.textColor : AppColors.muted,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(step['sub'] as String, style: TextStyle(fontSize: 11, color: AppColors.muted)),
+                                      SizedBox(height: isLast ? 0 : 18),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        }),
+                        const SizedBox(height: 24),
+                        Divider(color: AppColors.border, height: 1),
+                        const SizedBox(height: 20),
+                        Text('TRACK ONLINE', style: TextStyle(fontSize: 10, letterSpacing: 1.2, fontWeight: FontWeight.bold, color: AppColors.muted)),
+                        const SizedBox(height: 12),
+                        _buildTrackButton(icon: Icons.public_rounded, label: '17TRACK', sublabel: 'Supports 900+ carriers worldwide', color: const Color(0xFF2563EB), url: 'https://t.17track.net/en#nums=$trackingNo'),
+                        const SizedBox(height: 10),
+                        _buildTrackButton(icon: Icons.search_rounded, label: 'AfterShip', sublabel: 'Real-time tracking updates', color: const Color(0xFF7C3AED), url: 'https://www.aftership.com/track?tracking-number=$trackingNo'),
+                        const SizedBox(height: 10),
+                        _buildTrackButton(icon: Icons.local_post_office_rounded, label: 'ParcelMonitor', sublabel: 'Multi-carrier global tracking', color: const Color(0xFF059669), url: 'https://www.parcelmonitor.com/track-lk/?tracking_number=$trackingNo'),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  List<Map<String, dynamic>> _buildTrackingSteps(String status) {
+    final allSteps = [
+      {'label': 'Order Placed',   'sub': 'Your order has been received',  'icon': Icons.receipt_long_rounded,   'key': 'Pending'},
+      {'label': 'Processing',     'sub': 'Order is being prepared',        'icon': Icons.inventory_2_rounded,    'key': 'Processing'},
+      {'label': 'Shipped',        'sub': 'Package is on the way',          'icon': Icons.local_shipping_rounded, 'key': 'Shipped'},
+      {'label': 'Delivered',      'sub': 'Package delivered successfully', 'icon': Icons.check_circle_rounded,   'key': 'Delivered'},
+    ];
+    final statusOrder = ['Pending', 'Processing', 'Shipped', 'Delivered'];
+    final activeIdx = statusOrder.indexOf(status).clamp(0, statusOrder.length - 1);
+    return List.generate(allSteps.length, (i) {
+      final step = Map<String, dynamic>.from(allSteps[i]);
+      step['done'] = i < activeIdx || status == 'Delivered';
+      step['active'] = i == activeIdx && status != 'Delivered';
+      return step;
+    });
+  }
+
+  Widget _buildTrackButton({required IconData icon, required String label, required String sublabel, required Color color, required String url}) {
+    return GestureDetector(
+      onTap: () async {
+        final uri = Uri.parse(url);
+        if (await canLaunchUrl(uri)) await launchUrl(uri, mode: LaunchMode.externalApplication);
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.07),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withValues(alpha: 0.25)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: color.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
+              child: Icon(icon, color: color, size: 18),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textColor)),
+                  Text(sublabel, style: TextStyle(fontSize: 11, color: AppColors.muted)),
+                ],
+              ),
+            ),
+            Icon(Icons.open_in_new_rounded, size: 16, color: color.withValues(alpha: 0.7)),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1122,199 +1304,216 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
             ]),
             const SizedBox(height: 16),
             Container(
+              constraints: BoxConstraints(maxHeight: _isEditMode ? 320 : 260),
               decoration: BoxDecoration(
                   color: AppColors.bg, borderRadius: BorderRadius.circular(12)),
-              child: Column(
-                children: _editableItems.asMap().entries.map((entry) {
-                  int idx = entry.key;
-                  OrderItem item = entry.value;
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 10),
-                    child: _isEditMode
-                        ? Column(
-                            children: [
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
+              child: Scrollbar(
+                thumbVisibility: _editableItems.length > (_isEditMode ? 2 : 4),
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: Column(
+                    children: _editableItems.asMap().entries.map((entry) {
+                      int idx = entry.key;
+                      OrderItem item = entry.value;
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 10),
+                        child: _isEditMode
+                            ? Column(
                                 children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(item.name,
-                                            style: TextStyle(
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.w600,
-                                                color: AppColors.textColor)),
-                                        Text('Size: ${item.size}',
-                                            style: TextStyle(
-                                                fontSize: 11,
-                                                color: AppColors.muted)),
-                                      ],
-                                    ),
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(item.name,
+                                                style: TextStyle(
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: AppColors.textColor)),
+                                            Text('${item.color.isNotEmpty ? "Color: ${item.color} • " : ""}Size: ${item.size}',
+                                                style: TextStyle(
+                                                    fontSize: 11,
+                                                    color: AppColors.muted)),
+                                          ],
+                                        ),
+                                      ),
+                                      GestureDetector(
+                                        onTap: () =>
+                                            setState(() => _removeItem(idx)),
+                                        child: Icon(Icons.delete,
+                                            color: AppColors.danger, size: 18),
+                                      ),
+                                    ],
                                   ),
-                                  GestureDetector(
-                                    onTap: () =>
-                                        setState(() => _removeItem(idx)),
-                                    child: Icon(Icons.delete,
-                                        color: AppColors.danger, size: 18),
+                                  const SizedBox(height: 10),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text('Qty',
+                                                style: TextStyle(
+                                                    fontSize: 10,
+                                                    color: AppColors.muted)),
+                                            Container(
+                                              decoration: BoxDecoration(
+                                                border: Border.all(
+                                                    color: AppColors.border),
+                                                borderRadius:
+                                                    BorderRadius.circular(6),
+                                              ),
+                                              padding: const EdgeInsets.symmetric(
+                                                  horizontal: 8, vertical: 6),
+                                              child: TextField(
+                                                keyboardType: TextInputType.number,
+                                                style: TextStyle(
+                                                    fontSize: 12,
+                                                    color: AppColors.textColor),
+                                                decoration: InputDecoration(
+                                                  border: InputBorder.none,
+                                                  contentPadding: EdgeInsets.zero,
+                                                ),
+                                                controller: _qtyControllers[idx],
+                                                onChanged: (v) =>
+                                                    _updateEditableItem(idx),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text('Price',
+                                                style: TextStyle(
+                                                    fontSize: 10,
+                                                    color: AppColors.muted)),
+                                            Container(
+                                              decoration: BoxDecoration(
+                                                border: Border.all(
+                                                    color: AppColors.border),
+                                                borderRadius:
+                                                    BorderRadius.circular(6),
+                                              ),
+                                              padding: const EdgeInsets.symmetric(
+                                                  horizontal: 8, vertical: 6),
+                                              child: TextField(
+                                                keyboardType: TextInputType.number,
+                                                style: TextStyle(
+                                                    fontSize: 12,
+                                                    color: AppColors.textColor),
+                                                decoration: InputDecoration(
+                                                  border: InputBorder.none,
+                                                  contentPadding: EdgeInsets.zero,
+                                                ),
+                                                controller: _priceControllers[idx],
+                                                onChanged: (v) =>
+                                                    _updateEditableItem(idx),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text('Discount %',
+                                                style: TextStyle(
+                                                    fontSize: 10,
+                                                    color: AppColors.muted)),
+                                            Container(
+                                              decoration: BoxDecoration(
+                                                border: Border.all(
+                                                    color: AppColors.border),
+                                                borderRadius:
+                                                    BorderRadius.circular(6),
+                                              ),
+                                              padding: const EdgeInsets.symmetric(
+                                                  horizontal: 8, vertical: 6),
+                                              child: TextField(
+                                                keyboardType: TextInputType.number,
+                                                style: TextStyle(
+                                                    fontSize: 12,
+                                                    color: AppColors.textColor),
+                                                decoration: InputDecoration(
+                                                  border: InputBorder.none,
+                                                  contentPadding: EdgeInsets.zero,
+                                                ),
+                                                controller:
+                                                    _discountControllers[idx],
+                                                onChanged: (v) =>
+                                                    _updateEditableItem(idx),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
                                   ),
+                                  Text(
+                                      'Subtotal: Rs. ${NumberFormat('#,###').format(_editableItems[idx].subtotal)}',
+                                      style: TextStyle(
+                                          fontSize: 11,
+                                          color: AppColors.muted,
+                                          fontStyle: FontStyle.italic)),
+                                  const SizedBox(height: 8),
+                                  if (idx < _editableItems.length - 1)
+                                    Divider(color: AppColors.border, height: 16),
                                 ],
-                              ),
-                              const SizedBox(height: 10),
-                              Row(
+                              )
+                            : Column(
                                 children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text('Qty',
-                                            style: TextStyle(
-                                                fontSize: 10,
-                                                color: AppColors.muted)),
-                                        Container(
-                                          decoration: BoxDecoration(
-                                            border: Border.all(
-                                                color: AppColors.border),
-                                            borderRadius:
-                                                BorderRadius.circular(6),
-                                          ),
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 8, vertical: 6),
-                                          child: TextField(
-                                            keyboardType: TextInputType.number,
-                                            style: TextStyle(
-                                                fontSize: 12,
-                                                color: AppColors.textColor),
-                                            decoration: InputDecoration(
-                                              border: InputBorder.none,
-                                              contentPadding: EdgeInsets.zero,
-                                            ),
-                                            controller: _qtyControllers[idx],
-                                            onChanged: (v) =>
-                                                _updateEditableItem(idx),
-                                          ),
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(item.name,
+                                                style: TextStyle(
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: AppColors.textColor)),
+                                            Text('${item.color.isNotEmpty ? "Color: ${item.color} • " : ""}Size: ${item.size} × ${item.qty}',
+                                                style: TextStyle(
+                                                    fontSize: 11,
+                                                    color: AppColors.muted)),
+                                          ],
                                         ),
-                                      ],
-                                    ),
+                                      ),
+                                      Text(
+                                          'Rs. ${NumberFormat('#,###').format(item.subtotal)}',
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.w600,
+                                              color: AppColors.textColor)),
+                                    ],
                                   ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text('Price',
-                                            style: TextStyle(
-                                                fontSize: 10,
-                                                color: AppColors.muted)),
-                                        Container(
-                                          decoration: BoxDecoration(
-                                            border: Border.all(
-                                                color: AppColors.border),
-                                            borderRadius:
-                                                BorderRadius.circular(6),
-                                          ),
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 8, vertical: 6),
-                                          child: TextField(
-                                            keyboardType: TextInputType.number,
-                                            style: TextStyle(
-                                                fontSize: 12,
-                                                color: AppColors.textColor),
-                                            decoration: InputDecoration(
-                                              border: InputBorder.none,
-                                              contentPadding: EdgeInsets.zero,
-                                            ),
-                                            controller: _priceControllers[idx],
-                                            onChanged: (v) =>
-                                                _updateEditableItem(idx),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text('Discount %',
-                                            style: TextStyle(
-                                                fontSize: 10,
-                                                color: AppColors.muted)),
-                                        Container(
-                                          decoration: BoxDecoration(
-                                            border: Border.all(
-                                                color: AppColors.border),
-                                            borderRadius:
-                                                BorderRadius.circular(6),
-                                          ),
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 8, vertical: 6),
-                                          child: TextField(
-                                            keyboardType: TextInputType.number,
-                                            style: TextStyle(
-                                                fontSize: 12,
-                                                color: AppColors.textColor),
-                                            decoration: InputDecoration(
-                                              border: InputBorder.none,
-                                              contentPadding: EdgeInsets.zero,
-                                            ),
-                                            controller:
-                                                _discountControllers[idx],
-                                            onChanged: (v) =>
-                                                _updateEditableItem(idx),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              Text(
-                                  'Subtotal: Rs. ${NumberFormat('#,###').format(_editableItems[idx].subtotal)}',
-                                  style: TextStyle(
-                                      fontSize: 11,
-                                      color: AppColors.muted,
-                                      fontStyle: FontStyle.italic)),
-                              const SizedBox(height: 8),
-                              if (idx < _editableItems.length - 1)
-                                Divider(color: AppColors.border, height: 16),
-                            ],
-                          )
-                        : Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(item.name,
-                                        style: TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w600,
-                                            color: AppColors.textColor)),
-                                    Text('Size: ${item.size} × ${item.qty}',
-                                        style: TextStyle(
-                                            fontSize: 11,
-                                            color: AppColors.muted)),
+                                  if (idx < _editableItems.length - 1) ...[
+                                    const SizedBox(height: 8),
+                                    Divider(color: AppColors.border, height: 1),
                                   ],
-                                ),
+                                ],
                               ),
-                              Text(
-                                  'Rs. ${NumberFormat('#,###').format(item.subtotal)}',
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.textColor)),
-                            ],
-                          ),
-                  );
-                }).toList(),
+                      );
+                    }).toList(),
+                  ),
+                ),
               ),
             ),
             const SizedBox(height: 12),
@@ -1432,10 +1631,10 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
               )
             else
               Row(
-                children: ['Pending', 'Processing', 'Delivered']
+                children: ['Pending', 'Processing', 'Delivered', 'Cancelled']
                     .map((s) => Expanded(
                           child: Padding(
-                            padding: const EdgeInsets.only(right: 8),
+                            padding: const EdgeInsets.only(right: 4),
                             child: ActionButton(
                               label: s,
                               onTap: () async {
@@ -1454,11 +1653,11 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
                                 if (context.mounted) Navigator.pop(context);
                               },
                               buttonColor: widget.order.status == s
-                                  ? AppColors.gold
+                                  ? (s == 'Cancelled' ? AppColors.danger : AppColors.gold)
                                   : AppColors.muted,
                               isOutlined: widget.order.status != s,
-                              fontSize: 11,
-                              padding: 10,
+                              fontSize: 9.5,
+                              padding: 8,
                             ),
                           ),
                         ))
@@ -1584,93 +1783,12 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
                         label: 'PDF',
                         icon: Icons.picture_as_pdf,
                         buttonColor: AppColors.gold,
-                        onTap: () async {
-                          final startTime = DateTime.now();
-                          // Show downloading animation
-                          _showDownloadingAnimation();
-
-                          try {
-                            await InvoiceService.downloadInvoice(widget.order);
-
-                            final elapsed = DateTime.now().difference(startTime);
-                            const minDuration = Duration(milliseconds: 1500);
-                            if (elapsed < minDuration) {
-                              await Future.delayed(minDuration - elapsed);
-                            }
-
-                            if (context.mounted) {
-                              Navigator.of(context, rootNavigator: true).pop();
-                              // Brief delay for a smooth transition
-                              await Future.delayed(const Duration(milliseconds: 300));
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Row(
-                                      children: [
-                                        const Icon(Icons.download_done,
-                                            color: Colors.white, size: 20),
-                                        const SizedBox(width: 10),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              const Text(
-                                                'PDF downloaded!',
-                                                style: TextStyle(
-                                                    fontWeight: FontWeight.w600,
-                                                    fontSize: 11),
-                                              ),
-                                              Text(
-                                                'Check Downloads folder',
-                                                style: TextStyle(
-                                                    fontSize: 9,
-                                                    color: Colors.white.withValues(alpha: 0.7)),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    backgroundColor: AppColors.success,
-                                    behavior: SnackBarBehavior.floating,
-                                    shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(10)),
-                                    duration: const Duration(seconds: 3),
-                                  ),
-                                );
-                              }
-                            }
-                          } catch (e) {
-                            if (context.mounted) {
-                              Navigator.of(context, rootNavigator: true).pop();
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Row(
-                                    children: [
-                                      const Icon(Icons.error,
-                                          color: Colors.white, size: 20),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: Text(
-                                          'Failed: $e',
-                                          style: const TextStyle(
-                                              fontWeight: FontWeight.w600,
-                                              fontSize: 10),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  backgroundColor: AppColors.danger,
-                                  behavior: SnackBarBehavior.floating,
-                                  shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(10)),
-                                  duration: const Duration(seconds: 3),
-                                ),
-                              );
-                            }
-                          }
+                        onTap: () {
+                          DownloadNotification.show(
+                            context,
+                            fileName: 'CEYLUX_Invoice_${widget.order.id}.pdf',
+                            downloadFuture: InvoiceService.downloadInvoice(widget.order),
+                          );
                         },
                       ),
                     ),
@@ -1942,6 +2060,90 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
                         ),
                       ],
                     ),
+                    
+                    if (widget.order.trackingNumber != null &&
+                        widget.order.trackingNumber!.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      Divider(color: AppColors.border.withValues(alpha: 0.5), height: 1),
+                      const SizedBox(height: 16),
+                      GestureDetector(
+                        onTap: () => _showTrackingSheet(context, widget.order),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                AppColors.gold.withValues(alpha: 0.08),
+                                AppColors.primary.withValues(alpha: 0.08),
+                              ],
+                              begin: Alignment.centerLeft,
+                              end: Alignment.centerRight,
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppColors.gold.withValues(alpha: 0.3)),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: AppColors.gold.withValues(alpha: 0.15),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.local_shipping_rounded,
+                                  size: 18,
+                                  color: AppColors.gold,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'TRACKING NUMBER',
+                                      style: TextStyle(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.muted,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      widget.order.trackingNumber!,
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.gold,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: AppColors.gold.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: AppColors.gold.withValues(alpha: 0.3)),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.track_changes_rounded, size: 13, color: AppColors.gold),
+                                    const SizedBox(width: 5),
+                                    Text('TRACK', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.gold)),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                     
                     // Payment proof image section
                     if (widget.order.paymentProofUrl != null &&
@@ -2242,6 +2444,33 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
                           ),
                         ),
                       ),
+                      const SizedBox(height: 16),
+                    Text(
+                      'TRACKING NUMBER (OPTIONAL)',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.muted,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.bg,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: TextField(
+                        controller: _trackingNumberCtrl,
+                        style: TextStyle(color: AppColors.textColor, fontSize: 13, fontWeight: FontWeight.w500),
+                        decoration: InputDecoration(
+                          hintText: 'Enter Tracking Number',
+                          hintStyle: TextStyle(color: AppColors.muted, fontSize: 13),
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        ),
+                      ),
+                    ),
                     const SizedBox(height: 16),
 
                     // Payment Proof Selection (Optional)
@@ -2311,6 +2540,8 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
   
   int _loyaltyDiscount = 0;
   final _loyaltyDiscountCtrl = TextEditingController();
+
+  final _trackingNumberCtrl = TextEditingController();
 
   List<Tier> _tiers = [];
   final svc = ApiService();
@@ -2476,6 +2707,7 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
     _itemSearchCtrl.dispose();
     _overallDiscountCtrl.dispose();
     _loyaltyDiscountCtrl.dispose();
+    _trackingNumberCtrl.dispose();
     super.dispose();
   }
 
@@ -2539,7 +2771,7 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
     });
   }
 
-  void _addItem(StockItem item, String size, int qty, int price) {
+  void _addItem(StockItem item, String size, int qty, int price, String color) {
     setState(() {
       _selectedItems.add({
         'item': item,
@@ -2547,6 +2779,7 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
         'qty': qty,
         'price': price,
         'discount': item.discount, // Use discount from stock item
+        'color': color,
       });
       _itemSearchCtrl.clear();
       _itemSearch = '';
@@ -2665,6 +2898,7 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
                   qty: i['qty'],
                   price: i['price'],
                   size: i['size'],
+                  color: i['color'] ?? '',
                   discount: i['discount'] ?? 0,
                 ))
             .toList(),
@@ -2678,6 +2912,7 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
         paymentMethodId: _selectedPaymentMethodId,
         paymentMethodName: _selectedPaymentMethodName,
         paymentProofUrl: proofUrl,
+        trackingNumber: _trackingNumberCtrl.text.trim(),
       );
       print('DEBUG: Creating order with discountPercentage: $_overallDiscount, loyaltyDiscount: $_loyaltyDiscount');
       print('DEBUG: Order toMap: ${o.toMap()}');
@@ -3281,7 +3516,7 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
                                                     CrossAxisAlignment.start,
                                                 children: [
                                                   Text(
-                                                      '${item['size']} • Qty: ${item['qty']} • Rs. ${item['price']}',
+                                                      '${item['color'] != null && item['color'].toString().isNotEmpty ? "${item['color']} • " : ""}${item['size']} • Qty: ${item['qty']} • Rs. ${item['price']}',
                                                       style: TextStyle(
                                                           fontSize: 11,
                                                           color:
@@ -3818,6 +4053,24 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
                                     ),
                                   ),
                             const SizedBox(height: 12),
+                            Container(
+                              decoration: BoxDecoration(
+                                color: AppColors.bg,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: AppColors.border),
+                              ),
+                              child: TextField(
+                                controller: _trackingNumberCtrl,
+                                style: TextStyle(color: AppColors.textColor, fontSize: 13),
+                                decoration: InputDecoration(
+                                  hintText: 'Tracking Number (Optional)',
+                                  hintStyle: TextStyle(color: AppColors.muted, fontSize: 13),
+                                  border: InputBorder.none,
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
 
                             // Payment Proof Selection Card
                             GestureDetector(
@@ -3854,203 +4107,463 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
   }
 
   void _showAddItemDialog(StockItem item) {
-    String selectedSize = '';
-    int qty = 1;
     int price = item.price;
-    final sizeList = item.category == 'Kids' ? kidsSizes : allSizes;
     
-    // Filter available sizes based on total stock minus what is already in the cart
-    final availableSizes = sizeList.where((s) {
-      final alreadyInCart = _selectedItems
-          .where((cartItem) => cartItem['item'].id == item.id && cartItem['size'] == s)
-          .fold<int>(0, (sum, cartItem) => sum + (cartItem['qty'] as int));
-      return (item.sizes[s] ?? 0) - alreadyInCart > 0;
-    }).toList();
+    // Extract available colors from stock item sizes map keys (e.g. "Black_M" -> "Black")
+    final colors = item.sizes.keys
+        .where((k) => k.contains('_'))
+        .map((k) => k.split('_')[0])
+        .toSet()
+        .toList();
+    if (colors.isEmpty) {
+      colors.add('Black');
+    }
+
+    final sizeList = item.sizes.keys.where((k) => !k.contains('_')).toList();
+    if (sizeList.isEmpty) {
+      sizeList.addAll(['M', 'L', 'XL', '2XL']);
+    }
+    
+    // Sort sizes logically: M, L, XL, 2XL first
+    const sizeOrder = {'M': 0, 'L': 1, 'XL': 2, '2XL': 3};
+    sizeList.sort((a, b) => (sizeOrder[a] ?? 99).compareTo(sizeOrder[b] ?? 99));
+
+    // Global sets counter
+    int sets = 0;
+    final setsController = TextEditingController(text: '0');
+
+    // Maps for individual size controllers and quantities per color
+    final Map<String, Map<String, TextEditingController>> sizeControllersMap = {};
+    final Map<String, Map<String, int>> sizeQuantitiesMap = {};
+    
+    for (final color in colors) {
+      sizeControllersMap[color] = {};
+      sizeQuantitiesMap[color] = {};
+
+      for (final s in sizeList) {
+        sizeControllersMap[color]![s] = TextEditingController(text: '0');
+        sizeQuantitiesMap[color]![s] = 0;
+      }
+    }
+
+    final priceController = TextEditingController(text: '$price');
 
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          backgroundColor: AppColors.card,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('${item.emoji} ${item.name}',
-                        style: TextStyle(
-                            color: AppColors.textColor, fontSize: 16)),
-                    Text('Price: Rs. $price',
-                        style: TextStyle(color: AppColors.gold, fontSize: 12)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+        builder: (context, setState) {
+          
+          // Helper to calculate available stock for a color & size
+          int getAvailableStock(String c, String s) {
+            final stockKey = c.isNotEmpty ? '${c}_$s' : s;
+            final totalStock = item.sizes[stockKey] ?? item.sizes[s] ?? 0;
+            final alreadyInCart = _selectedItems
+                .where((cartItem) =>
+                    cartItem['item'].id == item.id &&
+                    cartItem['size'] == s &&
+                    (cartItem['color'] ?? '') == c)
+                .fold<int>(0, (sum, cartItem) => sum + (cartItem['qty'] as int));
+            return totalStock - alreadyInCart;
+          }
+
+          // Function to update size quantities based on global sets
+          void updateFromGlobalSets(int S) {
+            if (S < 0) S = 0;
+            sets = S;
+            setsController.text = '$S';
+            setsController.selection = TextSelection.fromPosition(
+                TextPosition(offset: setsController.text.length));
+            
+            for (final color in colors) {
+              for (final s in sizeList) {
+                final avail = getAvailableStock(color, s);
+                final req = S;
+                final finalQty = req > avail ? avail : req;
+                sizeQuantitiesMap[color]![s] = finalQty;
+                sizeControllersMap[color]![s]?.text = '$finalQty';
+              }
+            }
+          }
+
+          // Function to update sets based on size quantities change
+          void onSizeQtyChanged(String color, String s, int newQty) {
+            final avail = getAvailableStock(color, s);
+            if (newQty < 0) newQty = 0;
+            if (newQty > avail) newQty = avail;
+            
+            sizeQuantitiesMap[color]![s] = newQty;
+            sizeControllersMap[color]![s]?.text = '$newQty';
+            sizeControllersMap[color]![s]?.selection = TextSelection.fromPosition(
+                TextPosition(offset: sizeControllersMap[color]![s]!.text.length));
+            
+            // Recalculate sets: 1 set = 1 piece of each size of each color
+            int minQtyAcrossAll = 9999;
+            for (final col in colors) {
+              for (final sizeKey in sizeList) {
+                final q = sizeQuantitiesMap[col]![sizeKey] ?? 0;
+                if (q < minQtyAcrossAll) {
+                  minQtyAcrossAll = q;
+                }
+              }
+            }
+            if (minQtyAcrossAll == 9999) minQtyAcrossAll = 0;
+            
+            // Check if it's a perfect set (all sizes/colors in the set are exactly minQtyAcrossAll)
+            bool perfect = true;
+            for (final col in colors) {
+              for (final sizeKey in sizeList) {
+                final q = sizeQuantitiesMap[col]![sizeKey] ?? 0;
+                if (q != minQtyAcrossAll) {
+                  perfect = false;
+                  break;
+                }
+              }
+            }
+            
+            final displaySets = perfect ? minQtyAcrossAll : 0;
+            if (sets != displaySets) {
+              sets = displaySets;
+              setsController.text = '$displaySets';
+            }
+          }
+
+          // Check if any quantity is selected
+          final hasSelection = sizeQuantitiesMap.values.any((sq) => sq.values.any((q) => q > 0));
+
+          final screenWidth = MediaQuery.of(context).size.width;
+          final dialogWidth = screenWidth > 600 ? 460.0 : screenWidth * 0.88;
+
+          return AlertDialog(
+            backgroundColor: AppColors.card,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
+            title: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // Size Selection
-                Container(
-                  decoration: BoxDecoration(
-                    color: AppColors.bg,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: DropdownButton<String>(
-                    value: selectedSize.isEmpty ? null : selectedSize,
-                    isExpanded: true,
-                    underline: Container(),
-                    dropdownColor: AppColors.card,
-                    style: TextStyle(color: AppColors.textColor),
-                    hint: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Text('Select Size',
-                          style: TextStyle(color: AppColors.muted)),
-                    ),
-                    items: availableSizes
-                        .map((s) {
-                          final alreadyInCart = _selectedItems
-                              .where((cartItem) => cartItem['item'].id == item.id && cartItem['size'] == s)
-                              .fold<int>(0, (sum, cartItem) => sum + (cartItem['qty'] as int));
-                          final remaining = (item.sizes[s] ?? 0) - alreadyInCart;
-                          
-                          return DropdownMenuItem(
-                            value: s,
-                            child: Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 12),
-                              child: Text(
-                                  '$s ($remaining available)',
-                                  style: TextStyle(
-                                      color: AppColors.textColor)),
-                            ),
-                          );
-                        })
-                        .toList(),
-                    onChanged: (s) => setState(() {
-                      selectedSize = s ?? '';
-                      qty = 1;
-                    }),
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                // Quantity
-                Container(
-                  decoration: BoxDecoration(
-                    color: AppColors.bg,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Quantity:',
+                      Text('${item.emoji} ${item.name}',
                           style: TextStyle(
-                              color: AppColors.textColor,
-                              fontWeight: FontWeight.w600)),
-                      Row(
-                        children: [
-                          IconButton(
-                            icon: Icon(Icons.remove,
-                                color: AppColors.muted, size: 18),
-                            onPressed: () =>
-                                setState(() => qty = (qty - 1).clamp(1, 99)),
-                            constraints: const BoxConstraints(
-                                minWidth: 32, minHeight: 32),
-                            padding: EdgeInsets.zero,
-                          ),
-                          SizedBox(
-                            width: 40,
-                            child: Text('$qty',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.gold)),
-                          ),
-                          IconButton(
-                            icon: Icon(Icons.add,
-                                color: AppColors.gold, size: 18),
-                            onPressed: selectedSize.isEmpty
-                                ? null
-                                : () {
-                                    final alreadyInCart = _selectedItems
-                                        .where((cartItem) => cartItem['item'].id == item.id && cartItem['size'] == selectedSize)
-                                        .fold<int>(0, (sum, cartItem) => sum + (cartItem['qty'] as int));
-                                    final maxQty = (item.sizes[selectedSize] ?? 0) - alreadyInCart;
-                                    if (qty < maxQty) {
-                                      setState(() => qty++);
-                                    }
-                                  },
-                            constraints: const BoxConstraints(
-                                minWidth: 32, minHeight: 32),
-                            padding: EdgeInsets.zero,
-                          ),
-                        ],
-                      ),
+                              color: AppColors.textColor, fontSize: 16, fontWeight: FontWeight.bold)),
+                      Text('Price: Rs. $price',
+                          style: TextStyle(color: AppColors.gold, fontSize: 12, fontWeight: FontWeight.w600)),
                     ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                // Price (editable)
-                Container(
-                  decoration: BoxDecoration(
-                    color: AppColors.bg,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: TextField(
-                    keyboardType: TextInputType.number,
-                    style: TextStyle(color: AppColors.textColor),
-                    decoration: InputDecoration(
-                      hintText: 'Price',
-                      hintStyle: TextStyle(color: AppColors.muted),
-                      border: InputBorder.none,
-                      prefixText: 'Rs. ',
-                      prefixStyle: TextStyle(
-                          color: AppColors.gold, fontWeight: FontWeight.bold),
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 10),
-                    ),
-                    controller: TextEditingController(text: '$price'),
-                    onChanged: (v) =>
-                        setState(() => price = int.tryParse(v) ?? item.price),
                   ),
                 ),
               ],
             ),
-          ),
-          actions: [
-            ActionButton(
-              label: 'Cancel',
-              onTap: () => Navigator.pop(context),
-              isOutlined: true,
-              buttonColor: AppColors.muted,
+            content: SizedBox(
+              width: dialogWidth,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Single Global Sets counter
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'GLOBAL SETS',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.gold,
+                                fontSize: 13,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '1 Set = 16 pieces',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: AppColors.muted,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Row(
+                          children: [
+                            IconButton(
+                              icon: Icon(Icons.remove_circle_outline,
+                                  color: AppColors.muted, size: 20),
+                              onPressed: () => setState(() {
+                                if (sets > 0) {
+                                  updateFromGlobalSets(sets - 1);
+                                }
+                              }),
+                              constraints: const BoxConstraints(),
+                              padding: const EdgeInsets.symmetric(horizontal: 4),
+                            ),
+                            Container(
+                              width: 45,
+                              height: 28,
+                              decoration: BoxDecoration(
+                                color: AppColors.bg,
+                                border: Border.all(color: AppColors.border),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: TextField(
+                                controller: setsController,
+                                keyboardType: TextInputType.number,
+                                textAlign: TextAlign.center,
+                                textAlignVertical: TextAlignVertical.center,
+                                style: TextStyle(
+                                    color: AppColors.textColor,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold),
+                                decoration: InputDecoration(
+                                  border: InputBorder.none,
+                                  isDense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                ),
+                                onChanged: (val) => setState(() {
+                                  final sVal = int.tryParse(val) ?? 0;
+                                  updateFromGlobalSets(sVal);
+                                }),
+                              ),
+                            ),
+                            IconButton(
+                              icon: Icon(Icons.add_circle_outline,
+                                  color: AppColors.gold, size: 20),
+                              onPressed: () => setState(() {
+                                bool canAdd = true;
+                                for (final col in colors) {
+                                  for (final s in sizeList) {
+                                    final avail = getAvailableStock(col, s);
+                                    if (sets + 1 > avail) {
+                                      canAdd = false;
+                                      break;
+                                    }
+                                  }
+                                  if (!canAdd) break;
+                                }
+                                if (canAdd) {
+                                  updateFromGlobalSets(sets + 1);
+                                } else {
+                                  // Find bottlenecks
+                                  int maxSets = 9999;
+                                  for (final col in colors) {
+                                    for (final s in sizeList) {
+                                      final avail = getAvailableStock(col, s);
+                                      if (avail < maxSets) {
+                                        maxSets = avail;
+                                      }
+                                    }
+                                  }
+                                  if (maxSets != 9999 && maxSets > sets) {
+                                    updateFromGlobalSets(maxSets);
+                                  } else {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Cannot add more sets. Stock limit reached for some size/color.'),
+                                        duration: Duration(seconds: 2),
+                                      ),
+                                    );
+                                  }
+                                }
+                              }),
+                              constraints: const BoxConstraints(),
+                              padding: const EdgeInsets.symmetric(horizontal: 4),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // Table Layout like on Stock Screen but with inputs
+                    Table(
+                      border: TableBorder.all(color: AppColors.border, width: 1),
+                      columnWidths: const {
+                        0: FlexColumnWidth(1.6), // Color column
+                        1: FlexColumnWidth(1),   // M
+                        2: FlexColumnWidth(1),   // L
+                        3: FlexColumnWidth(1),   // XL
+                        4: FlexColumnWidth(1),   // 2XL
+                      },
+                      children: [
+                        // Header Row
+                        TableRow(
+                          children: [
+                            TableCell(
+                              child: Container(
+                                height: 36,
+                                color: AppColors.bg,
+                                alignment: Alignment.center,
+                                child: Text(
+                                  'Color',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.textColor,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            ...sizeList.map((s) => TableCell(
+                              child: Container(
+                                height: 36,
+                                color: AppColors.bg,
+                                alignment: Alignment.center,
+                                child: Text(
+                                  s,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.textColor,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            )),
+                          ],
+                        ),
+                        // Data Rows
+                        ...colors.map((color) {
+                          return TableRow(
+                            children: [
+                              // Color Row Header
+                              TableCell(
+                                verticalAlignment: TableCellVerticalAlignment.middle,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    color.toUpperCase(),
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.gold,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              // Size cells with input and avail stock underneath
+                              ...sizeList.map((s) {
+                                final avail = getAvailableStock(color, s);
+                                final selected = sizeQuantitiesMap[color]![s] ?? 0;
+                                final remaining = (avail - selected).clamp(0, avail);
+                                final controller = sizeControllersMap[color]![s];
+                                return TableCell(
+                                  verticalAlignment: TableCellVerticalAlignment.middle,
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 6.0),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Container(
+                                          height: 28,
+                                          decoration: BoxDecoration(
+                                            color: AppColors.bg,
+                                            border: Border.all(color: AppColors.border),
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: TextField(
+                                            controller: controller,
+                                            keyboardType: TextInputType.number,
+                                            textAlign: TextAlign.center,
+                                            textAlignVertical: TextAlignVertical.center,
+                                            style: TextStyle(
+                                                color: AppColors.textColor,
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold),
+                                            decoration: InputDecoration(
+                                              border: InputBorder.none,
+                                              isDense: true,
+                                              contentPadding: EdgeInsets.zero,
+                                            ),
+                                            onChanged: (val) => setState(() {
+                                              final qVal = int.tryParse(val) ?? 0;
+                                              onSizeQtyChanged(color, s, qVal);
+                                            }),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          '$remaining avail',
+                                          style: TextStyle(color: AppColors.muted, fontSize: 8),
+                                          textAlign: TextAlign.center,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              }),
+                            ],
+                          );
+                        }),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Price Input
+                    Text('PRICE',
+                        style: GoogleFonts.plusJakartaSans(
+                            fontSize: 10,
+                            color: AppColors.muted,
+                            letterSpacing: 1,
+                            fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 6),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.bg,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: TextField(
+                        keyboardType: TextInputType.number,
+                        style: TextStyle(color: AppColors.textColor),
+                        decoration: InputDecoration(
+                          hintText: 'Price',
+                          hintStyle: TextStyle(color: AppColors.muted),
+                          border: InputBorder.none,
+                          prefixText: 'Rs. ',
+                          prefixStyle: TextStyle(
+                              color: AppColors.gold, fontWeight: FontWeight.bold),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 10),
+                        ),
+                        controller: priceController,
+                        onChanged: (v) => price = int.tryParse(v) ?? item.price,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-            const SizedBox(width: 8),
-            ActionButton(
-              label: 'Add',
-              onTap: selectedSize.isEmpty
-                  ? () {}
-                  : () {
-                      _addItem(item, selectedSize, qty, price);
-                      Navigator.pop(context);
-                    },
-              buttonColor:
-                  selectedSize.isEmpty ? AppColors.muted : AppColors.gold,
-            ),
-          ],
-        ),
+            actions: [
+              ActionButton(
+                label: 'Cancel',
+                onTap: () => Navigator.pop(context),
+                isOutlined: true,
+                buttonColor: AppColors.muted,
+              ),
+              const SizedBox(width: 8),
+              ActionButton(
+                label: 'Add',
+                onTap: !hasSelection
+                    ? () {}
+                    : () {
+                        // Add each selected size of each color to the cart
+                        sizeQuantitiesMap.forEach((color, sizes) {
+                          sizes.forEach((size, quantity) {
+                            if (quantity > 0) {
+                              _addItem(item, size, quantity, price, color);
+                            }
+                          });
+                        });
+                        Navigator.pop(context);
+                      },
+                buttonColor: !hasSelection ? AppColors.muted : AppColors.gold,
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -4163,11 +4676,17 @@ class _ItemSettingsDialogState extends State<_ItemSettingsDialog> {
                         icon: Icon(Icons.add_circle_outline,
                             color: AppColors.gold),
                         onPressed: () {
-                          // Find total stock of this item and size
-                          final totalStock = widget.item['item'].sizes[widget.item['size']] ?? 0;
-                          // Sum up what other items in the cart are using
+                          final color = widget.item['color'] ?? '';
+                          final size = widget.item['size'];
+                          final stockKey = color.isNotEmpty ? '${color}_$size' : size;
+                          final totalStock = widget.item['item'].sizes[stockKey] ?? widget.item['item'].sizes[size] ?? 0;
+                          
                           final alreadyInCartOther = widget.selectedItems
-                              .where((cartItem) => cartItem != widget.item && cartItem['item'].id == widget.item['item'].id && cartItem['size'] == widget.item['size'])
+                              .where((cartItem) =>
+                                  cartItem != widget.item &&
+                                  cartItem['item'].id == widget.item['item'].id &&
+                                  cartItem['size'] == size &&
+                                  (cartItem['color'] ?? '') == color)
                               .fold<int>(0, (sum, cartItem) => sum + (cartItem['qty'] as int));
                           final maxQty = totalStock - alreadyInCartOther;
                           if (_qty < maxQty) {

@@ -31,6 +31,17 @@ class ApiService {
     }
   }
 
+  Future<List<StockItem>> getStock() async {
+    try {
+      final r = await _client.get(Uri.parse('$baseUrl/stock'));
+      final list = jsonDecode(r.body) as List;
+      return list.map((m) => StockItem.fromMap(Map<String, dynamic>.from(m))).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+
   Future<void> addStockItem(StockItem item) async {
     final response = await _client.post(Uri.parse('$baseUrl/stock'),
         headers: {'Content-Type': 'application/json'}, body: jsonEncode(item.toMap()));
@@ -357,6 +368,47 @@ class ApiService {
     final response = await _client.delete(Uri.parse('$baseUrl/payment-methods/$id'));
     if (response.statusCode != 200) {
       throw Exception('Failed to delete payment method: ${response.statusCode} - ${response.body}');
+    }
+  }
+
+  Future<Customer> getCustomer(String id) async {
+    final response = await _client.get(Uri.parse('$baseUrl/customers/$id'));
+    if (response.statusCode == 200) {
+      return Customer.fromMap(jsonDecode(response.body));
+    }
+    throw Exception('Failed to fetch customer details: ${response.statusCode} - ${response.body}');
+  }
+
+  Future<List<AppOrder>> getCustomerOrders(String customerId) async {
+    final response = await _client.get(Uri.parse('$baseUrl/customers/$customerId/orders'));
+    if (response.statusCode == 200) {
+      final list = jsonDecode(response.body) as List;
+      return list.map((m) => AppOrder.fromMap(Map<String, dynamic>.from(m))).toList();
+    }
+    return [];
+  }
+
+  Future<List<Map<String, dynamic>>> getCustomerPayments(String customerId) async {
+    final response = await _client.get(Uri.parse('$baseUrl/customers/$customerId/payments'));
+    if (response.statusCode == 200) {
+      final list = jsonDecode(response.body) as List;
+      return list.map((m) => Map<String, dynamic>.from(m)).toList();
+    }
+    return [];
+  }
+
+  Future<void> recordPayment(String customerId, double amount, String date, String notes) async {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/customers/$customerId/payments'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'amount': amount,
+        'payment_date': date,
+        'notes': notes,
+      }),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Failed to record payment: ${response.statusCode} - ${response.body}');
     }
   }
 

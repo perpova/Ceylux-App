@@ -6,14 +6,15 @@ class OrderItem {
   final int price;
   final String size;
   final int discount; // Discount percentage (0-100)
+  final String color;
 
-  OrderItem({required this.name, required this.qty, required this.price, required this.size, this.discount = 0});
+  OrderItem({required this.name, required this.qty, required this.price, required this.size, this.discount = 0, this.color = ''});
 
   factory OrderItem.fromMap(Map<String, dynamic> m) => OrderItem(
     name: m['name'] ?? '', qty: m['qty'] ?? 1,
-    price: m['price'] ?? 0, size: m['size'] ?? '', discount: m['discount'] ?? 0);
+    price: m['price'] ?? 0, size: m['size'] ?? '', discount: m['discount'] ?? 0, color: m['color'] ?? '');
 
-  Map<String, dynamic> toMap() => {'name': name, 'qty': qty, 'price': price, 'size': size, 'discount': discount};
+  Map<String, dynamic> toMap() => {'name': name, 'qty': qty, 'price': price, 'size': size, 'discount': discount, 'color': color};
   int get subtotal => qty * price;
   int get discountAmount => (subtotal * discount) ~/ 100;
   int get total => subtotal - discountAmount;
@@ -39,10 +40,11 @@ class AppOrder {
   final String? paymentMethodId;
   final String? paymentMethodName;
   final bool isPaid;
+  final String? trackingNumber;
 
   AppOrder({required this.dbId, required this.id, required this.customerId, required this.customerName,
     this.customerAddress, this.customerPhone, required this.items, required this.total, required this.status, required this.date, this.discountPercentage = 0, this.loyaltyDiscount = 0,
-    this.deliveryMethodId, this.deliveryMethodName, this.paymentProofUrl, this.deliveryNotes, this.paymentMethodId, this.paymentMethodName, this.isPaid = false});
+    this.deliveryMethodId, this.deliveryMethodName, this.paymentProofUrl, this.deliveryNotes, this.paymentMethodId, this.paymentMethodName, this.isPaid = false, this.trackingNumber});
 
   static int _toInt(dynamic v) {
     if (v == null) return 0;
@@ -92,6 +94,7 @@ class AppOrder {
       paymentMethodId: m['payment_method_id']?.toString(),
       paymentMethodName: m['payment_method_name']?.toString(),
       isPaid: m['is_paid'] == 1 || m['is_paid'] == true || m['is_paid'] == 'true',
+      trackingNumber: m['tracking_number']?.toString(),
     );
   }
 
@@ -109,6 +112,7 @@ class AppOrder {
     'payment_method_id': paymentMethodId,
     'payment_method_name': paymentMethodName,
     'is_paid': isPaid ? 1 : 0,
+    'tracking_number': trackingNumber,
   };
 
   AppOrder copyWith({
@@ -122,6 +126,7 @@ class AppOrder {
     String? paymentMethodId,
     String? paymentMethodName,
     bool? isPaid,
+    String? trackingNumber,
   }) => AppOrder(
     dbId: dbId,
     id: id,
@@ -142,5 +147,6 @@ class AppOrder {
     paymentMethodId: paymentMethodId ?? this.paymentMethodId,
     paymentMethodName: paymentMethodName ?? this.paymentMethodName,
     isPaid: isPaid ?? this.isPaid,
+    trackingNumber: trackingNumber ?? this.trackingNumber,
   );
 }
