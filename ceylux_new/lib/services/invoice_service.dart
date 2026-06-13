@@ -1383,7 +1383,7 @@ class InvoiceService {
     );
   }
 
-  static Future<void> downloadInvoice(AppOrder order) async {
+  static Future<File> downloadInvoice(AppOrder order) async {
     final template = await _getTemplate() ?? defaultTemplate;
     final html = await _generateHTMLFromTemplate(template, order);
     final logoBitmap = await _getLogoBitmap();
@@ -1398,7 +1398,7 @@ class InvoiceService {
         dir = '/storage/emulated/0/Download';
         final file = File('$dir/CEYLUX_Invoice_${order.id}.pdf');
         await file.writeAsBytes(bytes);
-        return;
+        return file;
       } catch (_) {
         final extDirs = await getExternalStorageDirectories(type: StorageDirectory.downloads);
         if (extDirs != null && extDirs.isNotEmpty) {
@@ -1421,6 +1421,7 @@ class InvoiceService {
 
     final file = File('$dir/CEYLUX_Invoice_${order.id}.pdf');
     await file.writeAsBytes(bytes);
+    return file;
   }
 
   // Download HTML Receipt

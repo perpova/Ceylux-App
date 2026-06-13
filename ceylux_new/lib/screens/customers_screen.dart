@@ -1531,7 +1531,7 @@ class CustomerDetailSheetState extends State<CustomerDetailSheet> {
         ),
         const SizedBox(height: 14),
 
-        // RELATED CREDIT & COD ORDERS
+        // ORDER HISTORY
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(16),
@@ -1544,7 +1544,7 @@ class CustomerDetailSheetState extends State<CustomerDetailSheet> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Related Credit & C.O.D. Orders',
+                'Order History',
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
@@ -1556,17 +1556,13 @@ class CustomerDetailSheetState extends State<CustomerDetailSheet> {
                 Center(child: CircularProgressIndicator(color: AppColors.primary))
               else ...[
                 Builder(builder: (_) {
-                  final creditOrders = _customerOrders
-                      .where((o) =>
-                          o.paymentMethodName == 'Credit' ||
-                          o.paymentMethodName == 'Cash on Delivery (C.O.D.)')
-                      .toList();
+                  final allOrders = _customerOrders;
 
-                  if (creditOrders.isEmpty) {
+                  if (allOrders.isEmpty) {
                     return Padding(
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       child: Text(
-                        'No Credit or C.O.D. orders found for this customer.',
+                        'No orders found for this customer.',
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 11,
                           fontStyle: FontStyle.italic,
@@ -1577,12 +1573,14 @@ class CustomerDetailSheetState extends State<CustomerDetailSheet> {
                   }
 
                   return Column(
-                    children: creditOrders.map<Widget>((o) {
-                      final statusColor = o.status == 'Completed'
-                          ? AppColors.success
-                          : o.status == 'Pending'
-                              ? AppColors.warning
-                              : AppColors.muted;
+                    children: allOrders.map<Widget>((o) {
+                      final statusColor = (o.status == 'Cancelled' || o.status == 'Canceled')
+                          ? AppColors.danger
+                          : (o.status == 'Completed' || o.status == 'Delivered')
+                              ? AppColors.success
+                              : o.status == 'Pending'
+                                  ? AppColors.warning
+                                  : AppColors.muted;
                       return Container(
                         margin: const EdgeInsets.only(bottom: 8),
                         padding: const EdgeInsets.all(10),
@@ -1593,29 +1591,44 @@ class CustomerDetailSheetState extends State<CustomerDetailSheet> {
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  o.id,
-                                  style: GoogleFonts.plusJakartaSans(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.textColor,
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    o.id,
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.textColor,
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  '${o.date} • ${o.paymentMethodName}',
-                                  style: GoogleFonts.plusJakartaSans(
-                                    fontSize: 10,
-                                    color: AppColors.muted,
-                                    fontWeight: FontWeight.w500,
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '${o.date} • ${o.paymentMethodName}',
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 10,
+                                      color: AppColors.muted,
+                                      fontWeight: FontWeight.w500,
+                                    ),
                                   ),
-                                ),
-                              ],
+                                  const SizedBox(height: 6),
+                                  ...o.items.map((item) => Padding(
+                                    padding: const EdgeInsets.only(top: 2),
+                                    child: Text(
+                                      '• ${item.qty}x ${item.name} (${item.size}${item.color.isNotEmpty ? ' - ${item.color}' : ''})',
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 10,
+                                        color: AppColors.textColor.withOpacity(0.8),
+                                      ),
+                                    ),
+                                  )),
+                                ],
+                              ),
                             ),
+                            const SizedBox(width: 8),
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
@@ -1627,7 +1640,7 @@ class CustomerDetailSheetState extends State<CustomerDetailSheet> {
                                     color: AppColors.textColor,
                                   ),
                                 ),
-                                const SizedBox(height: 2),
+                                const SizedBox(height: 4),
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(

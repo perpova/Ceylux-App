@@ -342,6 +342,7 @@ class _StockFormSheetState extends State<_StockFormSheet> {
         }
       }
     } else {
+      _name.text = 'Ceylux oversized Tee - ';
       _colors = ['Black', 'Red', 'Orange', 'Yellow'];
       for (final c in _colors) {
         for (final sz in _targetSizes) {

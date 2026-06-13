@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -18,6 +18,7 @@ import '../models/payment_method.dart';
 import '../utils/theme.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/animation_widgets.dart';
+import '../widgets/download_notification.dart';
 
 class OrdersScreen extends StatefulWidget {
   final bool filterPending;
@@ -158,7 +159,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                     child: SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: Row(
-                        children: ['All', 'Pending', 'Processing', 'Delivered']
+                        children: ['All', 'Pending', 'Processing', 'Delivered', 'Cancelled']
                             .map((s) => GestureDetector(
                                   onTap: () => setState(() => _filter = s),
                                   child: Container(
@@ -923,69 +924,6 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
     }
   }
 
-  // ── Downloading Animation Popup ──────────────────────────────────────────
-  Future<void> _showDownloadingAnimation() async {
-    if (context.mounted) {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        useRootNavigator: true,
-        builder: (context) => AlertDialog(
-          backgroundColor: AppColors.card,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SizedBox(
-                  width: 200,
-                  height: 180,
-                  child: GestureDetector(
-                    onTap: () {}, // Prevent dismissing by tapping
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: AppColors.bg,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          Lottie.asset(
-                            'assets/animations/downloading.json',
-                            repeat: true,
-                            reverse: false,
-                            fit: BoxFit.contain,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Downloading PDF...',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textColor,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Creating PDF and saving to downloads',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.muted,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-  }
 
   int get _totalSubtotal =>
       _editableItems.fold<int>(0, (sum, item) => sum + item.subtotal);
@@ -1693,10 +1631,10 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
               )
             else
               Row(
-                children: ['Pending', 'Processing', 'Delivered']
+                children: ['Pending', 'Processing', 'Delivered', 'Cancelled']
                     .map((s) => Expanded(
                           child: Padding(
-                            padding: const EdgeInsets.only(right: 8),
+                            padding: const EdgeInsets.only(right: 4),
                             child: ActionButton(
                               label: s,
                               onTap: () async {
@@ -1715,11 +1653,11 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
                                 if (context.mounted) Navigator.pop(context);
                               },
                               buttonColor: widget.order.status == s
-                                  ? AppColors.gold
+                                  ? (s == 'Cancelled' ? AppColors.danger : AppColors.gold)
                                   : AppColors.muted,
                               isOutlined: widget.order.status != s,
-                              fontSize: 11,
-                              padding: 10,
+                              fontSize: 9.5,
+                              padding: 8,
                             ),
                           ),
                         ))
@@ -1845,93 +1783,12 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
                         label: 'PDF',
                         icon: Icons.picture_as_pdf,
                         buttonColor: AppColors.gold,
-                        onTap: () async {
-                          final startTime = DateTime.now();
-                          // Show downloading animation
-                          _showDownloadingAnimation();
-
-                          try {
-                            await InvoiceService.downloadInvoice(widget.order);
-
-                            final elapsed = DateTime.now().difference(startTime);
-                            const minDuration = Duration(milliseconds: 1500);
-                            if (elapsed < minDuration) {
-                              await Future.delayed(minDuration - elapsed);
-                            }
-
-                            if (context.mounted) {
-                              Navigator.of(context, rootNavigator: true).pop();
-                              // Brief delay for a smooth transition
-                              await Future.delayed(const Duration(milliseconds: 300));
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Row(
-                                      children: [
-                                        const Icon(Icons.download_done,
-                                            color: Colors.white, size: 20),
-                                        const SizedBox(width: 10),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              const Text(
-                                                'PDF downloaded!',
-                                                style: TextStyle(
-                                                    fontWeight: FontWeight.w600,
-                                                    fontSize: 11),
-                                              ),
-                                              Text(
-                                                'Check Downloads folder',
-                                                style: TextStyle(
-                                                    fontSize: 9,
-                                                    color: Colors.white.withValues(alpha: 0.7)),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    backgroundColor: AppColors.success,
-                                    behavior: SnackBarBehavior.floating,
-                                    shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(10)),
-                                    duration: const Duration(seconds: 3),
-                                  ),
-                                );
-                              }
-                            }
-                          } catch (e) {
-                            if (context.mounted) {
-                              Navigator.of(context, rootNavigator: true).pop();
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Row(
-                                    children: [
-                                      const Icon(Icons.error,
-                                          color: Colors.white, size: 20),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: Text(
-                                          'Failed: $e',
-                                          style: const TextStyle(
-                                              fontWeight: FontWeight.w600,
-                                              fontSize: 10),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  backgroundColor: AppColors.danger,
-                                  behavior: SnackBarBehavior.floating,
-                                  shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(10)),
-                                  duration: const Duration(seconds: 3),
-                                ),
-                              );
-                            }
-                          }
+                        onTap: () {
+                          DownloadNotification.show(
+                            context,
+                            fileName: 'CEYLUX_Invoice_${widget.order.id}.pdf',
+                            downloadFuture: InvoiceService.downloadInvoice(widget.order),
+                          );
                         },
                       ),
                     ),

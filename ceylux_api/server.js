@@ -548,14 +548,18 @@ app.post('/orders', async (req, res) => {
         [order_ref, customer_id, customer_name, customer_address, customer_phone, JSON.stringify(items), total, status, date, discount_percentage || 0, loyalty_discount || 0, delivery_method_id || null, delivery_method_name || null, payment_proof_url || null, delivery_notes || null, payment_method_id || null, payment_method_name || null, is_paid ? 1 : 0, tracking_number || '']
       );
 
-      await conn.query(
-        'UPDATE customers SET total_orders = total_orders + 1, total_spent = total_spent + ? WHERE id = ?',
-        [total, customer_id]
-      );
+      const isCancelled = status && (status.toLowerCase() === 'cancelled' || status.toLowerCase() === 'canceled');
 
-      // Decrease stock levels for each item
+      if (!isCancelled && customer_id) {
+        await conn.query(
+          'UPDATE customers SET total_orders = total_orders + 1, total_spent = total_spent + ? WHERE id = ?',
+          [total, customer_id]
+        );
+      }
+
+      // Decrease stock levels for each item only if the order is not cancelled
       const parsedItems = typeof items === 'string' ? JSON.parse(items) : items;
-      if (Array.isArray(parsedItems)) {
+      if (!isCancelled && Array.isArray(parsedItems)) {
         for (const orderItem of parsedItems) {
           const { name, size, qty, color } = orderItem;
           if (name && size && qty) {
@@ -629,89 +633,93 @@ app.post('/orders', async (req, res) => {
 });
 
 app.put('/orders/:id/status', async (req, res) => {
+  const conn = await pool.getConnection();
   try {
-    const now = new Date().toISOString().replace('T', ' ').substring(0, 19); // YYYY-MM-DD HH:MM:SS
-    await pool.query(
-      'UPDATE orders SET status = ?, date = ? WHERE id = ? OR order_ref = ?',
-      [req.body.status, now, req.params.id, req.params.id]
+    await conn.beginTransaction();
+
+    const targetId = req.params.id;
+    // 1. Fetch current order details
+    const [orderRows] = await conn.query(
+      'SELECT status, items, total, customer_id FROM orders WHERE id = ? OR order_ref = ?',
+      [targetId, targetId]
     );
-    const [rows] = await pool.query('SELECT * FROM orders WHERE id = ? OR order_ref = ?', [req.params.id, req.params.id]);
-    res.json(rows[0]);
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
 
-app.put('/orders/:id', async (req, res) => {
-  try {
-    const { order_ref, customer_id, customer_name, customer_address, customer_phone, items, total, status, date, discount_percentage, loyalty_discount, delivery_method_id, delivery_method_name, payment_proof_url, delivery_notes, payment_method_id, payment_method_name, is_paid, tracking_number } = req.body;
-    
-    const conn = await pool.getConnection();
-    try {
-      await conn.beginTransaction();
+    if (orderRows.length === 0) {
+      await conn.rollback();
+      return res.status(404).json({ error: 'Order not found' });
+    }
 
-      // 1. Fetch old order details to restore stock
-      const [oldOrderRows] = await conn.query(
-        'SELECT items FROM orders WHERE id = ? OR order_ref = ?',
-        [req.params.id, req.params.id]
-      );
+    const oldOrder = orderRows[0];
+    const oldStatus = oldOrder.status || '';
+    const newStatus = req.body.status || '';
+    const total = oldOrder.total || 0;
+    const customerId = oldOrder.customer_id;
 
-      if (oldOrderRows.length > 0) {
-        const oldOrder = oldOrderRows[0];
-        const oldItems = typeof oldOrder.items === 'string' ? JSON.parse(oldOrder.items) : oldOrder.items;
+    const wasCancelled = oldStatus.toLowerCase() === 'cancelled' || oldStatus.toLowerCase() === 'canceled';
+    const isCancelled = newStatus.toLowerCase() === 'cancelled' || newStatus.toLowerCase() === 'canceled';
 
-        // Restore stock levels from old items
-        if (Array.isArray(oldItems)) {
-          for (const orderItem of oldItems) {
-            const { name, size, qty, color } = orderItem;
-            if (name && size && qty) {
-              const [stockRows] = await conn.query(
-                'SELECT id, sizes FROM stock WHERE name = ?',
-                [name]
-              );
-              if (stockRows.length > 0) {
-                const stockItem = stockRows[0];
-                let sizesMap = {};
-                try {
-                  sizesMap = typeof stockItem.sizes === 'string' ? JSON.parse(stockItem.sizes) : stockItem.sizes;
-                } catch (_) {
-                  sizesMap = stockItem.sizes || {};
+    // 2. Update status and date in DB
+    const now = new Date().toISOString().replace('T', ' ').substring(0, 19); // YYYY-MM-DD HH:MM:SS
+    await conn.query(
+      'UPDATE orders SET status = ?, date = ? WHERE id = ? OR order_ref = ?',
+      [newStatus, now, targetId, targetId]
+    );
+
+    // 3. Restock if transitioning from non-cancelled to cancelled
+    if (!wasCancelled && isCancelled) {
+      const items = typeof oldOrder.items === 'string' ? JSON.parse(oldOrder.items) : oldOrder.items;
+      if (Array.isArray(items)) {
+        for (const orderItem of items) {
+          const { name, size, qty, color } = orderItem;
+          if (name && size && qty) {
+            const [stockRows] = await conn.query(
+              'SELECT id, sizes FROM stock WHERE name = ?',
+              [name]
+            );
+            if (stockRows.length > 0) {
+              const stockItem = stockRows[0];
+              let sizesMap = {};
+              try {
+                sizesMap = typeof stockItem.sizes === 'string' ? JSON.parse(stockItem.sizes) : stockItem.sizes;
+              } catch (_) {
+                sizesMap = stockItem.sizes || {};
+              }
+
+              if (sizesMap && sizesMap[size] !== undefined) {
+                sizesMap[size] = sizesMap[size] + parseInt(qty);
+                
+                if (color) {
+                  const colorKey = `${color}_${size}`;
+                  sizesMap[colorKey] = (parseInt(sizesMap[colorKey]) || 0) + parseInt(qty);
+                } else {
+                  const colorKeys = Object.keys(sizesMap).filter(k => k.endsWith(`_${size}`));
+                  const targetKey = colorKeys.length > 0 ? colorKeys[0] : `Black_${size}`;
+                  sizesMap[targetKey] = (parseInt(sizesMap[targetKey]) || 0) + parseInt(qty);
                 }
-
-                if (sizesMap && sizesMap[size] !== undefined) {
-                  sizesMap[size] = sizesMap[size] + parseInt(qty);
-                  
-                  if (color) {
-                    const colorKey = `${color}_${size}`;
-                    sizesMap[colorKey] = (parseInt(sizesMap[colorKey]) || 0) + parseInt(qty);
-                  } else {
-                    // Restore to the first color key ending with "_size", or default to "Black_size"
-                    const colorKeys = Object.keys(sizesMap).filter(k => k.endsWith(`_${size}`));
-                    const targetKey = colorKeys.length > 0 ? colorKeys[0] : `Black_${size}`;
-                    sizesMap[targetKey] = (parseInt(sizesMap[targetKey]) || 0) + parseInt(qty);
-                  }
-                  
-                  await conn.query(
-                    'UPDATE stock SET sizes = ? WHERE id = ?',
-                    [JSON.stringify(sizesMap), stockItem.id]
-                  );
-                }
+                
+                await conn.query(
+                  'UPDATE stock SET sizes = ? WHERE id = ?',
+                  [JSON.stringify(sizesMap), stockItem.id]
+                );
               }
             }
           }
         }
       }
 
-      // 2. Update the order in DB
-      await conn.query(
-        'UPDATE orders SET order_ref = ?, customer_id = ?, customer_name = ?, customer_address = ?, customer_phone = ?, items = ?, total = ?, status = ?, date = ?, discount_percentage = ?, loyalty_discount = ?, delivery_method_id = ?, delivery_method_name = ?, payment_proof_url = ?, delivery_notes = ?, payment_method_id = ?, payment_method_name = ?, is_paid = ?, tracking_number = ? WHERE id = ? OR order_ref = ?',
-        [order_ref, customer_id, customer_name, customer_address, customer_phone, JSON.stringify(items), total, status, date, discount_percentage || 0, loyalty_discount || 0, delivery_method_id || null, delivery_method_name || null, payment_proof_url || null, delivery_notes || null, payment_method_id || null, payment_method_name || null, is_paid ? 1 : 0, tracking_number || '', req.params.id, req.params.id]
-      );
-
-      // 3. Deduct stock levels for new items
-      const newItems = typeof items === 'string' ? JSON.parse(items) : items;
-      if (Array.isArray(newItems)) {
-        for (const orderItem of newItems) {
+      // Decrement customer's stats
+      if (customerId) {
+        await conn.query(
+          'UPDATE customers SET total_orders = GREATEST(0, total_orders - 1), total_spent = GREATEST(0.00, total_spent - ?) WHERE id = ?',
+          [total, customerId]
+        );
+      }
+    }
+    // 4. Re-deduct if transitioning from cancelled to non-cancelled
+    else if (wasCancelled && !isCancelled) {
+      const items = typeof oldOrder.items === 'string' ? JSON.parse(oldOrder.items) : oldOrder.items;
+      if (Array.isArray(items)) {
+        for (const orderItem of items) {
           const { name, size, qty, color } = orderItem;
           if (name && size && qty) {
             const [stockRows] = await conn.query(
@@ -741,7 +749,6 @@ app.put('/orders/:id', async (req, res) => {
                 }
                 
                 if (remainingToDeduct > 0) {
-                  // Deduct from color-prefixed keys (e.g. "Black_M", "Orange_M")
                   const colorKeys = Object.keys(sizesMap).filter(k => k.endsWith(`_${size}`));
                   for (const key of colorKeys) {
                     if (remainingToDeduct <= 0) break;
@@ -768,6 +775,178 @@ app.put('/orders/:id', async (req, res) => {
         }
       }
 
+      // Increment customer's stats
+      if (customerId) {
+        await conn.query(
+          'UPDATE customers SET total_orders = total_orders + 1, total_spent = total_spent + ? WHERE id = ?',
+          [total, customerId]
+        );
+      }
+    }
+
+    await conn.commit();
+
+    const [rows] = await pool.query('SELECT * FROM orders WHERE id = ? OR order_ref = ?', [targetId, targetId]);
+    res.json(rows[0]);
+  } catch (e) {
+    await conn.rollback();
+    res.status(500).json({ error: e.message });
+  } finally {
+    conn.release();
+  }
+});
+
+app.put('/orders/:id', async (req, res) => {
+  try {
+    const { order_ref, customer_id, customer_name, customer_address, customer_phone, items, total, status, date, discount_percentage, loyalty_discount, delivery_method_id, delivery_method_name, payment_proof_url, delivery_notes, payment_method_id, payment_method_name, is_paid, tracking_number } = req.body;
+    
+    const conn = await pool.getConnection();
+    try {
+      await conn.beginTransaction();
+
+      // 1. Fetch old order details to restore stock and adjust old customer stats
+      const [oldOrderRows] = await conn.query(
+        'SELECT status, total, customer_id, items FROM orders WHERE id = ? OR order_ref = ?',
+        [req.params.id, req.params.id]
+      );
+
+      if (oldOrderRows.length > 0) {
+        const oldOrder = oldOrderRows[0];
+        const oldStatus = oldOrder.status || '';
+        const oldTotal = oldOrder.total || 0;
+        const oldCustomerId = oldOrder.customer_id;
+        const wasCancelled = oldStatus.toLowerCase() === 'cancelled' || oldStatus.toLowerCase() === 'canceled';
+
+        // Restore stock levels from old items only if old order wasn't cancelled
+        if (!wasCancelled) {
+          const oldItems = typeof oldOrder.items === 'string' ? JSON.parse(oldOrder.items) : oldOrder.items;
+          if (Array.isArray(oldItems)) {
+            for (const orderItem of oldItems) {
+              const { name, size, qty, color } = orderItem;
+              if (name && size && qty) {
+                const [stockRows] = await conn.query(
+                  'SELECT id, sizes FROM stock WHERE name = ?',
+                  [name]
+                );
+                if (stockRows.length > 0) {
+                  const stockItem = stockRows[0];
+                  let sizesMap = {};
+                  try {
+                    sizesMap = typeof stockItem.sizes === 'string' ? JSON.parse(stockItem.sizes) : stockItem.sizes;
+                  } catch (_) {
+                    sizesMap = stockItem.sizes || {};
+                  }
+
+                  if (sizesMap && sizesMap[size] !== undefined) {
+                    sizesMap[size] = sizesMap[size] + parseInt(qty);
+                    
+                    if (color) {
+                      const colorKey = `${color}_${size}`;
+                      sizesMap[colorKey] = (parseInt(sizesMap[colorKey]) || 0) + parseInt(qty);
+                    } else {
+                      // Restore to the first color key ending with "_size", or default to "Black_size"
+                      const colorKeys = Object.keys(sizesMap).filter(k => k.endsWith(`_${size}`));
+                      const targetKey = colorKeys.length > 0 ? colorKeys[0] : `Black_${size}`;
+                      sizesMap[targetKey] = (parseInt(sizesMap[targetKey]) || 0) + parseInt(qty);
+                    }
+                    
+                    await conn.query(
+                      'UPDATE stock SET sizes = ? WHERE id = ?',
+                      [JSON.stringify(sizesMap), stockItem.id]
+                    );
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        // Adjust old customer stats if old order wasn't cancelled
+        if (!wasCancelled && oldCustomerId) {
+          await conn.query(
+            'UPDATE customers SET total_orders = GREATEST(0, total_orders - 1), total_spent = GREATEST(0.00, total_spent - ?) WHERE id = ?',
+            [oldTotal, oldCustomerId]
+          );
+        }
+      }
+
+      // 2. Update the order in DB
+      await conn.query(
+        'UPDATE orders SET order_ref = ?, customer_id = ?, customer_name = ?, customer_address = ?, customer_phone = ?, items = ?, total = ?, status = ?, date = ?, discount_percentage = ?, loyalty_discount = ?, delivery_method_id = ?, delivery_method_name = ?, payment_proof_url = ?, delivery_notes = ?, payment_method_id = ?, payment_method_name = ?, is_paid = ?, tracking_number = ? WHERE id = ? OR order_ref = ?',
+        [order_ref, customer_id, customer_name, customer_address, customer_phone, JSON.stringify(items), total, status, date, discount_percentage || 0, loyalty_discount || 0, delivery_method_id || null, delivery_method_name || null, payment_proof_url || null, delivery_notes || null, payment_method_id || null, payment_method_name || null, is_paid ? 1 : 0, tracking_number || '', req.params.id, req.params.id]
+      );
+
+      // 3. Deduct stock levels for new items only if new status is not cancelled
+      const isCancelled = status && (status.toLowerCase() === 'cancelled' || status.toLowerCase() === 'canceled');
+      if (!isCancelled) {
+        const newItems = typeof items === 'string' ? JSON.parse(items) : items;
+        if (Array.isArray(newItems)) {
+          for (const orderItem of newItems) {
+            const { name, size, qty, color } = orderItem;
+            if (name && size && qty) {
+              const [stockRows] = await conn.query(
+                'SELECT id, sizes FROM stock WHERE name = ?',
+                [name]
+              );
+              if (stockRows.length > 0) {
+                const stockItem = stockRows[0];
+                let sizesMap = {};
+                try {
+                  sizesMap = typeof stockItem.sizes === 'string' ? JSON.parse(stockItem.sizes) : stockItem.sizes;
+                } catch (_) {
+                  sizesMap = stockItem.sizes || {};
+                }
+
+                if (sizesMap && sizesMap[size] !== undefined) {
+                  let remainingToDeduct = parseInt(qty);
+                  sizesMap[size] = Math.max(0, sizesMap[size] - remainingToDeduct);
+                  
+                  if (color) {
+                    const colorKey = `${color}_${size}`;
+                    if (sizesMap[colorKey] !== undefined) {
+                      const currentStock = parseInt(sizesMap[colorKey]) || 0;
+                      sizesMap[colorKey] = Math.max(0, currentStock - remainingToDeduct);
+                      remainingToDeduct = 0;
+                    }
+                  }
+                  
+                  if (remainingToDeduct > 0) {
+                    // Deduct from color-prefixed keys (e.g. "Black_M", "Orange_M")
+                    const colorKeys = Object.keys(sizesMap).filter(k => k.endsWith(`_${size}`));
+                    for (const key of colorKeys) {
+                      if (remainingToDeduct <= 0) break;
+                      const currentStock = parseInt(sizesMap[key]) || 0;
+                      if (currentStock > 0) {
+                        const deduct = Math.min(currentStock, remainingToDeduct);
+                        sizesMap[key] = currentStock - deduct;
+                        remainingToDeduct -= deduct;
+                      }
+                    }
+                    if (remainingToDeduct > 0 && colorKeys.length > 0) {
+                      const firstKey = colorKeys[0];
+                      sizesMap[firstKey] = Math.max(0, (parseInt(sizesMap[firstKey]) || 0) - remainingToDeduct);
+                    }
+                  }
+                  
+                  await conn.query(
+                    'UPDATE stock SET sizes = ? WHERE id = ?',
+                    [JSON.stringify(sizesMap), stockItem.id]
+                  );
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // 4. Adjust new customer stats if new status is not cancelled
+      if (!isCancelled && customer_id) {
+        await conn.query(
+          'UPDATE customers SET total_orders = total_orders + 1, total_spent = total_spent + ? WHERE id = ?',
+          [total, customer_id]
+        );
+      }
+
       await conn.commit();
 
       const [rows] = await pool.query('SELECT * FROM orders WHERE id = ? OR order_ref = ?', [req.params.id, req.params.id]);
@@ -791,16 +970,21 @@ app.delete('/orders/:id', async (req, res) => {
 
       // 1. Fetch order details before deleting
       const [orderRows] = await conn.query(
-        'SELECT items FROM orders WHERE id = ? OR order_ref = ?',
+        'SELECT status, total, customer_id, items FROM orders WHERE id = ? OR order_ref = ?',
         [req.params.id, req.params.id]
       );
 
       if (orderRows.length > 0) {
         const order = orderRows[0];
+        const oldStatus = order.status || '';
+        const oldTotal = order.total || 0;
+        const oldCustomerId = order.customer_id;
+        const wasCancelled = oldStatus.toLowerCase() === 'cancelled' || oldStatus.toLowerCase() === 'canceled';
+
         const parsedItems = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
         
-        // 2. Restore stock levels
-        if (Array.isArray(parsedItems)) {
+        // 2. Restore stock levels only if order wasn't cancelled (cancel already restored it)
+        if (!wasCancelled && Array.isArray(parsedItems)) {
           for (const orderItem of parsedItems) {
             const { name, size, qty, color } = orderItem;
             if (name && size && qty) {
@@ -838,6 +1022,14 @@ app.delete('/orders/:id', async (req, res) => {
               }
             }
           }
+        }
+
+        // Adjust customer stats only if it wasn't cancelled (cancel already deducted it)
+        if (!wasCancelled && oldCustomerId) {
+          await conn.query(
+            'UPDATE customers SET total_orders = GREATEST(0, total_orders - 1), total_spent = GREATEST(0.00, total_spent - ?) WHERE id = ?',
+            [oldTotal, oldCustomerId]
+          );
         }
       }
 
