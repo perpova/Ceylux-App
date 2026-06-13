@@ -1,5 +1,6 @@
-import 'dart:io';
+﻿import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -1000,6 +1001,244 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
   int get _totalAmount =>
       _totalSubtotal - _totalItemDiscounts - _billDiscountAmount - _loyaltyDiscountAmount;
 
+
+  void _showTrackingSheet(BuildContext context, AppOrder order) {
+    final trackingNo = order.trackingNumber ?? '';
+    final steps = _buildTrackingSteps(order.status);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.75,
+          minChildSize: 0.5,
+          maxChildSize: 0.93,
+          builder: (_, scrollCtrl) {
+            return Container(
+              decoration: BoxDecoration(
+                color: AppColors.card,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                border: Border(top: BorderSide(color: AppColors.gold.withValues(alpha: 0.4), width: 1.5)),
+              ),
+              child: Column(
+                children: [
+                  Center(
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(vertical: 12),
+                      width: 40, height: 4,
+                      decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)),
+                    ),
+                  ),
+                  Expanded(
+                    child: ListView(
+                      controller: scrollCtrl,
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(colors: [AppColors.gold, AppColors.goldDark], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                                shape: BoxShape.circle,
+                                boxShadow: [BoxShadow(color: AppColors.gold.withValues(alpha: 0.35), blurRadius: 12, offset: const Offset(0, 4))],
+                              ),
+                              child: const Icon(Icons.local_shipping_rounded, color: Colors.white, size: 22),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('Shipment Tracking', style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textColor)),
+                                  Text('Order #${order.id}', style: TextStyle(fontSize: 12, color: AppColors.muted)),
+                                ],
+                              ),
+                            ),
+                            IconButton(onPressed: () => Navigator.pop(ctx), icon: Icon(Icons.close_rounded, color: AppColors.muted)),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [AppColors.gold.withValues(alpha: 0.12), AppColors.primary.withValues(alpha: 0.08)],
+                              begin: Alignment.topLeft, end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: AppColors.gold.withValues(alpha: 0.35)),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('TRACKING NUMBER', style: TextStyle(fontSize: 9, letterSpacing: 1.2, fontWeight: FontWeight.bold, color: AppColors.muted)),
+                                    const SizedBox(height: 6),
+                                    Text(trackingNo, style: GoogleFonts.robotoMono(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.gold, letterSpacing: 1.5)),
+                                  ],
+                                ),
+                              ),
+                              GestureDetector(
+                                onTap: () {
+                                  Clipboard.setData(ClipboardData(text: trackingNo));
+                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                    content: const Row(children: [Icon(Icons.copy, color: Colors.white, size: 16), SizedBox(width: 8), Text('Copied!')]),
+                                    backgroundColor: AppColors.success,
+                                    behavior: SnackBarBehavior.floating,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    duration: const Duration(seconds: 2),
+                                  ));
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(color: AppColors.gold.withValues(alpha: 0.15), shape: BoxShape.circle),
+                                  child: const Icon(Icons.copy_rounded, size: 16, color: AppColors.gold),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        Text('DELIVERY PROGRESS', style: TextStyle(fontSize: 10, letterSpacing: 1.2, fontWeight: FontWeight.bold, color: AppColors.muted)),
+                        const SizedBox(height: 16),
+                        ...List.generate(steps.length, (i) {
+                          final step = steps[i];
+                          final isDone = step['done'] as bool;
+                          final isActive = step['active'] as bool;
+                          final isLast = i == steps.length - 1;
+                          return Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Column(
+                                children: [
+                                  AnimatedContainer(
+                                    duration: Duration(milliseconds: 300 + i * 80),
+                                    width: 30, height: 30,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      gradient: isDone || isActive ? const LinearGradient(colors: [AppColors.gold, AppColors.goldDark], begin: Alignment.topLeft, end: Alignment.bottomRight) : null,
+                                      color: isDone || isActive ? null : AppColors.border,
+                                      boxShadow: isDone || isActive ? [BoxShadow(color: AppColors.gold.withValues(alpha: 0.4), blurRadius: 8, offset: const Offset(0, 2))] : null,
+                                    ),
+                                    child: Icon(isDone ? Icons.check_rounded : (step['icon'] as IconData), size: 15, color: isDone || isActive ? Colors.white : AppColors.muted),
+                                  ),
+                                  if (!isLast)
+                                    AnimatedContainer(
+                                      duration: Duration(milliseconds: 400 + i * 80),
+                                      width: 2, height: 44,
+                                      decoration: BoxDecoration(
+                                        gradient: isDone ? const LinearGradient(colors: [AppColors.gold, AppColors.goldDark], begin: Alignment.topCenter, end: Alignment.bottomCenter) : null,
+                                        color: isDone ? null : AppColors.border,
+                                        borderRadius: BorderRadius.circular(1),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.only(top: 5),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        step['label'] as String,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: isActive || isDone ? FontWeight.bold : FontWeight.w500,
+                                          color: isActive ? AppColors.gold : isDone ? AppColors.textColor : AppColors.muted,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(step['sub'] as String, style: TextStyle(fontSize: 11, color: AppColors.muted)),
+                                      SizedBox(height: isLast ? 0 : 18),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        }),
+                        const SizedBox(height: 24),
+                        Divider(color: AppColors.border, height: 1),
+                        const SizedBox(height: 20),
+                        Text('TRACK ONLINE', style: TextStyle(fontSize: 10, letterSpacing: 1.2, fontWeight: FontWeight.bold, color: AppColors.muted)),
+                        const SizedBox(height: 12),
+                        _buildTrackButton(icon: Icons.public_rounded, label: '17TRACK', sublabel: 'Supports 900+ carriers worldwide', color: const Color(0xFF2563EB), url: 'https://t.17track.net/en#nums=$trackingNo'),
+                        const SizedBox(height: 10),
+                        _buildTrackButton(icon: Icons.search_rounded, label: 'AfterShip', sublabel: 'Real-time tracking updates', color: const Color(0xFF7C3AED), url: 'https://www.aftership.com/track?tracking-number=$trackingNo'),
+                        const SizedBox(height: 10),
+                        _buildTrackButton(icon: Icons.local_post_office_rounded, label: 'ParcelMonitor', sublabel: 'Multi-carrier global tracking', color: const Color(0xFF059669), url: 'https://www.parcelmonitor.com/track-lk/?tracking_number=$trackingNo'),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  List<Map<String, dynamic>> _buildTrackingSteps(String status) {
+    final allSteps = [
+      {'label': 'Order Placed',   'sub': 'Your order has been received',  'icon': Icons.receipt_long_rounded,   'key': 'Pending'},
+      {'label': 'Processing',     'sub': 'Order is being prepared',        'icon': Icons.inventory_2_rounded,    'key': 'Processing'},
+      {'label': 'Shipped',        'sub': 'Package is on the way',          'icon': Icons.local_shipping_rounded, 'key': 'Shipped'},
+      {'label': 'Delivered',      'sub': 'Package delivered successfully', 'icon': Icons.check_circle_rounded,   'key': 'Delivered'},
+    ];
+    final statusOrder = ['Pending', 'Processing', 'Shipped', 'Delivered'];
+    final activeIdx = statusOrder.indexOf(status).clamp(0, statusOrder.length - 1);
+    return List.generate(allSteps.length, (i) {
+      final step = Map<String, dynamic>.from(allSteps[i]);
+      step['done'] = i < activeIdx || status == 'Delivered';
+      step['active'] = i == activeIdx && status != 'Delivered';
+      return step;
+    });
+  }
+
+  Widget _buildTrackButton({required IconData icon, required String label, required String sublabel, required Color color, required String url}) {
+    return GestureDetector(
+      onTap: () async {
+        final uri = Uri.parse(url);
+        if (await canLaunchUrl(uri)) await launchUrl(uri, mode: LaunchMode.externalApplication);
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.07),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withValues(alpha: 0.25)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: color.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
+              child: Icon(icon, color: color, size: 18),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textColor)),
+                  Text(sublabel, style: TextStyle(fontSize: 11, color: AppColors.muted)),
+                ],
+              ),
+            ),
+            Icon(Icons.open_in_new_rounded, size: 16, color: color.withValues(alpha: 0.7)),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final svc = ApiService();
@@ -1970,47 +2209,82 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
                       const SizedBox(height: 16),
                       Divider(color: AppColors.border.withValues(alpha: 0.5), height: 1),
                       const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withValues(alpha: 0.1),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              Icons.tag,
-                              size: 18,
-                              color: AppColors.primaryLight,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'TRACKING NUMBER',
-                                  style: TextStyle(
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.muted,
-                                    letterSpacing: 0.5,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  widget.order.trackingNumber!,
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.textColor,
-                                  ),
-                                ),
+                      GestureDetector(
+                        onTap: () => _showTrackingSheet(context, widget.order),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                AppColors.gold.withValues(alpha: 0.08),
+                                AppColors.primary.withValues(alpha: 0.08),
                               ],
+                              begin: Alignment.centerLeft,
+                              end: Alignment.centerRight,
                             ),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppColors.gold.withValues(alpha: 0.3)),
                           ),
-                        ],
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: AppColors.gold.withValues(alpha: 0.15),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.local_shipping_rounded,
+                                  size: 18,
+                                  color: AppColors.gold,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'TRACKING NUMBER',
+                                      style: TextStyle(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.muted,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      widget.order.trackingNumber!,
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.gold,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: AppColors.gold.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: AppColors.gold.withValues(alpha: 0.3)),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.track_changes_rounded, size: 13, color: AppColors.gold),
+                                    const SizedBox(width: 5),
+                                    Text('TRACK', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.gold)),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ],
                     
