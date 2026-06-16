@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:open_filex/open_filex.dart';
 import '../utils/theme.dart';
 
 enum DownloadStatus { downloading, completed, failed }
@@ -116,18 +117,19 @@ class _DownloadNotificationBannerState
     if (_downloadedFile == null) return;
     try {
       final filePath = _downloadedFile!.path;
-      if (Platform.isWindows) {
-        await Process.run('explorer.exe', [filePath]);
-      } else if (Platform.isMacOS) {
-        await Process.run('open', [filePath]);
-      } else if (Platform.isLinux) {
-        await Process.run('xdg-open', [filePath]);
-      } else {
-        // Mobile platform fallback to share sheet (which allows opening/viewing/printing natively)
-        await _shareFile();
+      final result = await OpenFilex.open(filePath);
+      if (result.type != ResultType.done) {
+        if (Platform.isWindows) {
+          await Process.run('explorer.exe', [filePath]);
+        } else if (Platform.isMacOS) {
+          await Process.run('open', [filePath]);
+        } else if (Platform.isLinux) {
+          await Process.run('xdg-open', [filePath]);
+        } else {
+          await _shareFile();
+        }
       }
     } catch (e) {
-      // Fallback to share
       await _shareFile();
     }
   }
