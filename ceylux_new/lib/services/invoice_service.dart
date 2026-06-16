@@ -640,7 +640,7 @@ class InvoiceService {
     return html;
   }
 
-  static pw.Document _generatePDF(AppOrder order, String htmlContent, {Uint8List? logoBitmap}) {
+  static pw.Document _generatePDF(AppOrder? order, String htmlContent, {Uint8List? logoBitmap}) {
     final pdf = pw.Document();
     
     // Parse HTML using html_parser
@@ -665,7 +665,7 @@ class InvoiceService {
         final childWidget = _buildElement(child, cssRules, logoBitmap);
         
         // Wrap header in Stack with paid stamp if paid
-        if (child.classes.contains('header') && order.isPaid) {
+        if (child.classes.contains('header') && order != null && order.isPaid) {
           childrenWidgets.add(
             pw.Stack(
               children: [
@@ -1964,6 +1964,284 @@ class InvoiceService {
     } catch (e) {
       print('❌ Error in sendInitialInvoiceEmail: $e');
     }
+  }
+
+  static Future<String> _generateCustomerStatementHTML(
+    Customer customer,
+    List<AppOrder> orders,
+    List<Map<String, dynamic>> payments,
+    String tierName,
+    int discount,
+  ) async {
+    final generationDate = DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now());
+    
+    final sortedOrders = List<AppOrder>.from(orders)
+      ..sort((a, b) => b.date.compareTo(a.date));
+      
+    final sortedPayments = List<Map<String, dynamic>>.from(payments)
+      ..sort((a, b) {
+        final dateA = a['payment_date']?.toString() ?? '';
+        final dateB = b['payment_date']?.toString() ?? '';
+        return dateB.compareTo(dateA);
+      });
+
+    final ordersRows = sortedOrders.isEmpty
+        ? '<tr><td colspan="5" style="text-align: center; color: #888; padding: 15px;">No orders found.</td></tr>'
+        : sortedOrders.map((o) {
+            final badgeClass = (o.status == 'Completed' || o.status == 'Delivered')
+                ? 'status-completed'
+                : (o.status == 'Cancelled' || o.status == 'Canceled')
+                    ? 'status-cancelled'
+                    : 'status-pending';
+            return '''
+              <tr>
+                <td class="font-bold">${o.id}</td>
+                <td>${o.date}</td>
+                <td>${o.paymentMethodName ?? '—'}</td>
+                <td><span class="status-badge $badgeClass">${o.status}</span></td>
+                <td class="text-right font-bold">Rs. ${NumberFormat('#,###').format(o.total)}</td>
+              </tr>
+            ''';
+          }).join('');
+
+    final paymentsRows = sortedPayments.isEmpty
+        ? '<tr><td colspan="3" style="text-align: center; color: #888; padding: 15px;">No payments recorded.</td></tr>'
+        : sortedPayments.map((p) {
+            final amount = double.tryParse(p['amount']?.toString() ?? '0') ?? 0.0;
+            final date = p['payment_date']?.toString() ?? '';
+            final note = p['notes']?.toString() ?? '—';
+            return '''
+              <tr>
+                <td>$date</td>
+                <td>$note</td>
+                <td class="text-right font-bold" style="color: #2E7D5E;">+ Rs. ${NumberFormat('#,###').format(amount)}</td>
+              </tr>
+            ''';
+          }).join('');
+
+    final formattedSpent = NumberFormat('#,###').format(customer.totalSpent);
+    final formattedOutstanding = NumberFormat('#,###').format(customer.outstandingBalance);
+    final formattedTotalPaid = NumberFormat('#,###').format(customer.totalPaid);
+    final formattedRemainingDue = NumberFormat('#,###').format(customer.remainingDue);
+
+    return '''
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Customer Statement - ${customer.name}</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #ffffff; padding: 20px; color: #1e1e24; }
+        .container { max-width: 900px; margin: 0 auto; background: white; border: 1px solid #e1e1e8; border-radius: 12px; overflow: hidden; }
+        
+        .header { display: flex; justify-content: space-between; align-items: flex-start; background: linear-gradient(135deg, #1E1E24 0%, #2D2D37 100%); color: white; padding: 30px 40px; border-bottom: 4px solid #C5A059; }
+        .header-title-block h1 { font-size: 24px; color: #C5A059; font-weight: bold; margin-bottom: 5px; letter-spacing: 1.5px; }
+        .header-title-block p { color: #e5e5ea; font-size: 12px; }
+        .header-right { text-align: right; }
+        .header-right .company-name { font-size: 18px; font-weight: bold; color: #ffffff; margin-bottom: 5px; }
+        .header-right .date { font-size: 11px; color: rgba(255, 255, 255, 0.7); }
+        
+        .summary-boxes { display: flex; gap: 8px; padding: 25px 40px; background: #fafafc; border-bottom: 1px solid #eaeaea; }
+        .summary-box { flex: 1; padding: 10px 5px; background: white; border: 1px solid #e1e1e8; border-radius: 8px; text-align: center; height: 50px; }
+        .summary-box.highlight { border-color: #C5A059; background: #fdfaf2; }
+        .summary-box .label { font-size: 7.5px; text-transform: uppercase; color: #666; font-weight: bold; margin-bottom: 4px; letter-spacing: 0.3px; }
+        .summary-box .value { font-size: 11px; font-weight: bold; color: #1E1E24; white-space: nowrap; }
+        .summary-box.highlight .value { color: #B8920A; }
+        .summary-box.danger .value { color: #B03A2E; }
+        
+        .details-section { display: flex; gap: 20px; padding: 25px 40px; border-bottom: 1px solid #eaeaea; }
+        .details-col { flex: 1; }
+        .details-col h3 { font-size: 11px; color: #1E1E24; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; border-left: 3px solid #C5A059; padding-left: 8px; }
+        .details-col p { font-size: 12px; color: #444; line-height: 1.6; }
+        
+        .section-title { font-size: 13px; color: #1E1E24; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; margin: 25px 40px 10px 40px; border-left: 3px solid #125D9E; padding-left: 8px; }
+        
+        .table-container { padding: 0 40px; margin-bottom: 20px; }
+        .data-table { width: 100%; border-collapse: collapse; margin-top: 5px; }
+        .data-table th { background: #fafafc; padding: 10px 12px; text-align: left; font-size: 11px; font-weight: bold; color: #666; border-bottom: 2px solid #eaeaea; }
+        .data-table td { padding: 10px 12px; font-size: 11px; color: #333; border-bottom: 1px solid #eaeaea; }
+        .data-table .text-right { text-align: right; }
+        .data-table .font-bold { font-weight: bold; }
+        
+        .status-badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 9px; font-weight: bold; }
+        .status-completed { background: #d4edda; color: #155724; }
+        .status-pending { background: #fff3cd; color: #856404; }
+        .status-cancelled { background: #f8d7da; color: #721c24; }
+        
+        .footer { padding: 30px 40px; text-align: center; font-size: 10px; color: #888; border-top: 1px solid #eaeaea; background: #fafafc; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-title-block">
+                <h4>CUSTOMER ACCOUNT STATEMENT</h4>
+                <p>Account statement for ${customer.name}</p>
+            </div>
+            <div class="header-right">
+                <div class="company-name">CEYLUX</div>
+                <div class="date">Generated: $generationDate</div>
+            </div>
+        </div>
+        
+        <div class="summary-boxes">
+            <div class="summary-box">
+                <div class="label">Total Spent</div>
+                <div class="value">Rs. $formattedSpent</div>
+            </div>
+            <div class="summary-box">
+                <div class="label">Total Orders</div>
+                <div class="value">${customer.totalOrders} Orders</div>
+            </div>
+            <div class="summary-box highlight">
+                <div class="label">Outstanding</div>
+                <div class="value">Rs. $formattedOutstanding</div>
+            </div>
+            <div class="summary-box">
+                <div class="label">Total Paid</div>
+                <div class="value">Rs. $formattedTotalPaid</div>
+            </div>
+            <div class="summary-box danger">
+                <div class="label">Balance Due</div>
+                <div class="value">Rs. $formattedRemainingDue</div>
+            </div>
+        </div>
+        
+        <div class="details-section">
+            <div class="details-col">
+                <h3>Customer Details</h3>
+                <p>Name: ${customer.name}</p>
+                <p>Phone: ${customer.phone.isNotEmpty ? customer.phone : '—'}</p>
+                <p>Email: ${customer.email.isNotEmpty ? customer.email : '—'}</p>
+                <p>Address: ${customer.address.isNotEmpty ? customer.address : '—'}</p>
+            </div>
+            <div class="details-col">
+                <h3>Loyalty Status</h3>
+                <p>Loyalty Tier: $tierName</p>
+                <p>Discount Rate: $discount% OFF</p>
+                <p>Owner Rating: ${customer.ownerRating > 0 ? '${customer.ownerRating.toStringAsFixed(1)} / 5.0' : 'Unrated'}</p>
+            </div>
+        </div>
+        
+        <div class="section-title">Order History</div>
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th style="width: 20%;">Order ID</th>
+                        <th style="width: 20%;">Date</th>
+                        <th style="width: 25%;">Payment Method</th>
+                        <th style="width: 15%;">Status</th>
+                        <th style="width: 20%;" class="text-right">Total Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    $ordersRows
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="section-title">Collected Payments History</div>
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th style="width: 25%;">Payment Date</th>
+                        <th style="width: 50%;">Notes / Remarks</th>
+                        <th style="width: 25%;" class="text-right">Amount Paid</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    $paymentsRows
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="footer">
+            <p>Thank you for shopping with CEYLUX Fashion Boutique!</p>
+        </div>
+    </div>
+</body>
+</html>
+''';
+  }
+
+  static Future<File> downloadCustomerStatement(
+    Customer customer,
+    List<AppOrder> orders,
+    List<Map<String, dynamic>> payments,
+    String tierName,
+    int discount,
+  ) async {
+    final html = await _generateCustomerStatementHTML(customer, orders, payments, tierName, discount);
+    final logoBitmap = await _getLogoBitmap();
+    
+    final pdf = _generatePDF(null, html, logoBitmap: logoBitmap);
+    final bytes = await pdf.save();
+
+    String dir = '';
+    if (Platform.isAndroid) {
+      try {
+        dir = '/storage/emulated/0/Download';
+        final file = File('$dir/CEYLUX_Statement_${customer.name.replaceAll(' ', '_')}.pdf');
+        await file.writeAsBytes(bytes);
+        return file;
+      } catch (_) {
+        final extDirs = await getExternalStorageDirectories(type: StorageDirectory.downloads);
+        if (extDirs != null && extDirs.isNotEmpty) {
+          dir = extDirs.first.path;
+        } else {
+          final extDir = await getExternalStorageDirectory();
+          dir = extDir?.path ?? '/storage/emulated/0/Download';
+        }
+      }
+    } else if (Platform.isIOS) {
+      final docsDir = await getApplicationDocumentsDirectory();
+      dir = docsDir.path;
+    } else if (Platform.isWindows) {
+      dir = '${Platform.environment['USERPROFILE']}\\Downloads';
+    } else if (Platform.isLinux) {
+      dir = '${Platform.environment['HOME']}/Downloads';
+    } else if (Platform.isMacOS) {
+      dir = '${Platform.environment['HOME']}/Downloads';
+    }
+
+    final file = File('$dir/CEYLUX_Statement_${customer.name.replaceAll(' ', '_')}.pdf');
+    await file.writeAsBytes(bytes);
+    return file;
+  }
+
+  static Future<void> shareCustomerStatement(
+    Customer customer,
+    List<AppOrder> orders,
+    List<Map<String, dynamic>> payments,
+    String tierName,
+    int discount,
+  ) async {
+    final html = await _generateCustomerStatementHTML(customer, orders, payments, tierName, discount);
+    final logoBitmap = await _getLogoBitmap();
+    
+    final pdf = _generatePDF(null, html, logoBitmap: logoBitmap);
+    final bytes = await pdf.save();
+    
+    final dir = await getTemporaryDirectory();
+    final file = File('${dir.path}/CEYLUX_Statement_${customer.name.replaceAll(' ', '_')}.pdf');
+    await file.writeAsBytes(bytes);
+
+    final msg = '📄 *Customer Account Statement - CEYLUX* 📄\n\n'
+      'Customer: *${customer.name}*\n'
+      'Total Spent: Rs. ${NumberFormat('#,###').format(customer.totalSpent)}\n'
+      'Outstanding: Rs. ${NumberFormat('#,###').format(customer.outstandingBalance)}\n'
+      'Total Paid: Rs. ${NumberFormat('#,###').format(customer.totalPaid)}\n'
+      'Remaining Due: Rs. ${NumberFormat('#,###').format(customer.remainingDue)}\n\n'
+      'Please find the attached PDF account statement report. Thank you!';
+
+    await Share.shareXFiles(
+      [XFile(file.path, mimeType: 'application/pdf')],
+      subject: 'CEYLUX Account Statement - ${customer.name}',
+      text: msg,
+    );
   }
 }
 

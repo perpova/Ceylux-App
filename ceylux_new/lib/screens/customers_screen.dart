@@ -12,6 +12,7 @@ import '../utils/theme.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/animation_widgets.dart';
 import '../services/invoice_service.dart';
+import '../widgets/download_notification.dart';
 
 // Rating helpers
 class _RatingInfo {
@@ -1457,43 +1458,79 @@ class CustomerDetailSheetState extends State<CustomerDetailSheet> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Icon(Icons.account_balance_wallet_outlined, size: 16, color: AppColors.warning),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'Credit & Balance',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.warning,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                   Row(
                     children: [
-                      Icon(Icons.account_balance_wallet_outlined, size: 16, color: AppColors.warning),
+                      GestureDetector(
+                        onTap: _shareStatement,
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: AppColors.gold.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: AppColors.gold.withOpacity(0.3)),
+                          ),
+                          child: Icon(Icons.share, size: 14, color: AppColors.gold),
+                        ),
+                      ),
                       const SizedBox(width: 6),
-                      Text(
-                        'Credit & Balance Tracking',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.warning,
+                      GestureDetector(
+                        onTap: _downloadStatement,
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                          ),
+                          child: Icon(Icons.download, size: 14, color: AppColors.primary),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: _showRecordPaymentDialog,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.add, size: 12, color: Colors.white),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Record Payment',
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ],
-                  ),
-                  GestureDetector(
-                    onTap: _showRecordPaymentDialog,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.add, size: 12, color: Colors.white),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Record Payment',
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                   ),
                 ],
               ),
@@ -1581,84 +1618,77 @@ class CustomerDetailSheetState extends State<CustomerDetailSheet> {
                               : o.status == 'Pending'
                                   ? AppColors.warning
                                   : AppColors.muted;
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: AppColors.card,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: AppColors.border),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                      return GestureDetector(
+                        onTap: () => _showOrderDetailsDialog(o),
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: AppColors.card,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: AppColors.border),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      o.id,
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.textColor,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '${o.date} • ${o.paymentMethodName}',
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 10,
+                                        color: AppColors.muted,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Text(
-                                    o.id,
+                                    'Rs. ${NumberFormat('#,###').format(o.total)}',
                                     style: GoogleFonts.plusJakartaSans(
                                       fontSize: 12,
                                       fontWeight: FontWeight.bold,
                                       color: AppColors.textColor,
                                     ),
                                   ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    '${o.date} • ${o.paymentMethodName}',
-                                    style: GoogleFonts.plusJakartaSans(
-                                      fontSize: 10,
-                                      color: AppColors.muted,
-                                      fontWeight: FontWeight.w500,
+                                  const SizedBox(height: 4),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: statusColor.withOpacity(0.12),
+                                      borderRadius: BorderRadius.circular(4),
                                     ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  ...o.items.map((item) => Padding(
-                                    padding: const EdgeInsets.only(top: 2),
                                     child: Text(
-                                      '• ${item.qty}x ${item.name} (${item.size}${item.color.isNotEmpty ? ' - ${item.color}' : ''})',
+                                      o.status,
                                       style: GoogleFonts.plusJakartaSans(
-                                        fontSize: 10,
-                                        color: AppColors.textColor.withOpacity(0.8),
+                                        fontSize: 9,
+                                        color: statusColor,
+                                        fontWeight: FontWeight.bold,
                                       ),
                                     ),
-                                  )),
+                                  ),
                                 ],
                               ),
-                            ),
-                            const SizedBox(width: 8),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Text(
-                                  'Rs. ${NumberFormat('#,###').format(o.total)}',
-                                  style: GoogleFonts.plusJakartaSans(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.textColor,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: statusColor.withOpacity(0.12),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Text(
-                                    o.status,
-                                    style: GoogleFonts.plusJakartaSans(
-                                      fontSize: 9,
-                                      color: statusColor,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       );
                     }).toList(),
@@ -2092,6 +2122,477 @@ class CustomerDetailSheetState extends State<CustomerDetailSheet> {
           },
         );
       },
+    );
+  }
+
+  void _showOrderDetailsDialog(AppOrder o) {
+    final statusColor = (o.status == 'Cancelled' || o.status == 'Canceled')
+        ? AppColors.danger
+        : (o.status == 'Completed' || o.status == 'Delivered')
+            ? AppColors.success
+            : o.status == 'Pending'
+                ? AppColors.warning
+                : AppColors.muted;
+
+    final int subtotal = o.items.fold<int>(0, (sum, item) => sum + item.subtotal);
+    final int itemDiscounts = o.items.fold<int>(0, (sum, item) => sum + item.discountAmount);
+    final int billDiscountAmount = ((subtotal - itemDiscounts) * o.discountPercentage) ~/ 100;
+    final int afterBillDiscount = subtotal - itemDiscounts - billDiscountAmount;
+    final int loyaltyDiscountAmount = (afterBillDiscount * o.loyaltyDiscount) ~/ 100;
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) {
+        return AlertDialog(
+          backgroundColor: AppColors.card,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                o.id,
+                style: GoogleFonts.outfit(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textColor,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: statusColor.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: statusColor.withOpacity(0.3), width: 0.8),
+                ),
+                child: Text(
+                  o.status,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 10,
+                    color: statusColor,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.calendar_today_outlined, size: 12, color: AppColors.muted),
+                      const SizedBox(width: 4),
+                      Text(
+                        o.date,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 11,
+                          color: AppColors.muted,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      if (o.paymentMethodName != null && o.paymentMethodName!.isNotEmpty) ...[
+                        const SizedBox(width: 12),
+                        Icon(Icons.payment_outlined, size: 12, color: AppColors.muted),
+                        const SizedBox(width: 4),
+                        Text(
+                          o.paymentMethodName!,
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 11,
+                            color: AppColors.muted,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  Text(
+                    'Items Ordered',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+
+                  Divider(color: AppColors.border, height: 1),
+                  const SizedBox(height: 8),
+
+                  ...o.items.map((item) {
+                    final itemSubtotal = item.qty * item.price;
+                    final itemDiscountAmt = (itemSubtotal * item.discount) ~/ 100;
+                    final itemTotal = itemSubtotal - itemDiscountAmt;
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: AppColors.primary.withOpacity(0.15)),
+                            ),
+                            child: Text(
+                              '${item.qty}x',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  item.name,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textColor,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Row(
+                                  children: [
+                                    if (item.size.isNotEmpty)
+                                      Text(
+                                        'Size: ${item.size}',
+                                        style: GoogleFonts.plusJakartaSans(
+                                          fontSize: 10,
+                                          color: AppColors.muted,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    if (item.size.isNotEmpty && item.color.isNotEmpty)
+                                      Text(
+                                        '  |  ',
+                                        style: GoogleFonts.plusJakartaSans(
+                                          fontSize: 10,
+                                          color: AppColors.border,
+                                        ),
+                                      ),
+                                    if (item.color.isNotEmpty)
+                                      Text(
+                                        'Color: ${item.color}',
+                                        style: GoogleFonts.plusJakartaSans(
+                                          fontSize: 10,
+                                          color: AppColors.muted,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                                if (item.discount > 0) ...[
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '${item.discount}% off (Rs. ${NumberFormat('#,###').format(item.price)} each)',
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 10,
+                                      color: AppColors.danger,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                'Rs. ${NumberFormat('#,###').format(itemTotal)}',
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.textColor,
+                                ),
+                              ),
+                              if (item.qty > 1 && item.discount == 0)
+                                Text(
+                                  'Rs. ${NumberFormat('#,###').format(item.price)} each',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 9,
+                                    color: AppColors.muted,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+
+                  const SizedBox(height: 12),
+                  Divider(color: AppColors.border, height: 1),
+                  const SizedBox(height: 12),
+
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Subtotal',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 11,
+                          color: AppColors.muted,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      Text(
+                        'Rs. ${NumberFormat('#,###').format(subtotal)}',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 11,
+                          color: AppColors.textColor,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+
+                  if (itemDiscounts > 0) ...[
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Item Discounts',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 11,
+                            color: AppColors.danger,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        Text(
+                          '- Rs. ${NumberFormat('#,###').format(itemDiscounts)}',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 11,
+                            color: AppColors.danger,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                  ],
+
+                  if (billDiscountAmount > 0) ...[
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Bill Discount (${o.discountPercentage}%)',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 11,
+                            color: AppColors.danger,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        Text(
+                          '- Rs. ${NumberFormat('#,###').format(billDiscountAmount)}',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 11,
+                            color: AppColors.danger,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                  ],
+
+                  if (loyaltyDiscountAmount > 0) ...[
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Loyalty Discount (${o.loyaltyDiscount}%)',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 11,
+                            color: AppColors.gold,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        Text(
+                          '- Rs. ${NumberFormat('#,###').format(loyaltyDiscountAmount)}',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 11,
+                            color: AppColors.gold,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                  ],
+
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Total Amount',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textColor,
+                        ),
+                      ),
+                      Text(
+                        'Rs. ${NumberFormat('#,###').format(o.total)}',
+                        style: GoogleFonts.outfit(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.gold,
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  if ((o.deliveryMethodName != null && o.deliveryMethodName!.isNotEmpty) ||
+                      (o.customerAddress != null && o.customerAddress!.isNotEmpty) ||
+                      (o.deliveryNotes != null && o.deliveryNotes!.isNotEmpty) ||
+                      (o.trackingNumber != null && o.trackingNumber!.isNotEmpty)) ...[
+                    const SizedBox(height: 12),
+                    Divider(color: AppColors.border, height: 1),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Delivery Information',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    if (o.deliveryMethodName != null && o.deliveryMethodName!.isNotEmpty) ...[
+                      _dialogInfoRow('Method', o.deliveryMethodName!),
+                      const SizedBox(height: 4),
+                    ],
+                    if (o.customerAddress != null && o.customerAddress!.isNotEmpty) ...[
+                      _dialogInfoRow('Address', o.customerAddress!),
+                      const SizedBox(height: 4),
+                    ],
+                    if (o.trackingNumber != null && o.trackingNumber!.isNotEmpty) ...[
+                      _dialogInfoRow('Tracking #', o.trackingNumber!),
+                      const SizedBox(height: 4),
+                    ],
+                    if (o.deliveryNotes != null && o.deliveryNotes!.isNotEmpty) ...[
+                      _dialogInfoRow('Notes', o.deliveryNotes!),
+                      const SizedBox(height: 4),
+                    ],
+                  ],
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogCtx),
+              child: Text(
+                'Close',
+                style: GoogleFonts.plusJakartaSans(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _dialogInfoRow(String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 75,
+          child: Text(
+            '$label:',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 11,
+              color: AppColors.muted,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 11,
+              color: AppColors.textColor,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _shareStatement() async {
+    setState(() => _uploading = true);
+    try {
+      final discount = _getDiscount();
+      final currentQualifiedTier = _getCurrentQualifiedTier();
+      final tierName = currentQualifiedTier != null 
+          ? '${currentQualifiedTier.emoji} ${currentQualifiedTier.name}' 
+          : '🥉 Bronze';
+
+      await InvoiceService.shareCustomerStatement(
+        widget.customer,
+        _customerOrders,
+        _payments,
+        tierName,
+        discount,
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error sharing statement: $e'),
+            backgroundColor: AppColors.danger,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _uploading = false);
+    }
+  }
+
+  void _downloadStatement() {
+    final discount = _getDiscount();
+    final currentQualifiedTier = _getCurrentQualifiedTier();
+    final tierName = currentQualifiedTier != null 
+        ? '${currentQualifiedTier.emoji} ${currentQualifiedTier.name}' 
+        : '🥉 Bronze';
+
+    final fileName = 'CEYLUX_Statement_${widget.customer.name.replaceAll(' ', '_')}.pdf';
+
+    DownloadNotification.show(
+      context,
+      fileName: fileName,
+      downloadFuture: InvoiceService.downloadCustomerStatement(
+        widget.customer,
+        _customerOrders,
+        _payments,
+        tierName,
+        discount,
+      ),
     );
   }
 
