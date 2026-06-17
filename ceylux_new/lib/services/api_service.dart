@@ -139,6 +139,33 @@ class ApiService {
     }
   }
 
+  Stream<List<Map<String, dynamic>>> paymentsStream() async* {
+    while (true) {
+      try {
+        final r = await _client.get(Uri.parse('$baseUrl/payments'));
+        if (r.statusCode == 200) {
+          final list = jsonDecode(r.body) as List;
+          yield list.map((m) => Map<String, dynamic>.from(m)).toList();
+        } else {
+          // Fallback if the endpoint is not yet deployed on the server
+          final customers = await getCustomers();
+          final allPayments = <Map<String, dynamic>>[];
+          final futures = customers
+              .where((c) => c.totalPaid > 0)
+              .map((c) => getCustomerPayments(c.id).then((pts) {
+                    allPayments.addAll(pts);
+                  }).catchError((_) {}))
+              .toList();
+          await Future.wait(futures);
+          yield allPayments;
+        }
+      } catch (_) {
+        yield [];
+      }
+      await Future.delayed(const Duration(seconds: 3));
+    }
+  }
+
   Future<void> addOrder(AppOrder o) async {
     final response = await _client.post(Uri.parse('$baseUrl/orders'),
         headers: {'Content-Type': 'application/json'}, body: jsonEncode(o.toMap()));
