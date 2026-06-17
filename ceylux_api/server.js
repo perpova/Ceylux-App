@@ -525,6 +525,16 @@ app.post('/customers/:id/payments', async (req, res) => {
   }
 });
 
+// Get all customer payments across all customers
+app.get('/payments', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM customer_payments ORDER BY created_at DESC');
+    res.json(rows);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── ORDERS ─────────────────────────────────────────────────────────────────
 app.get('/orders', async (req, res) => {
   try {
