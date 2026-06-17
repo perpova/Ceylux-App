@@ -282,18 +282,7 @@ class _RevenueDetailsScreenState extends State<RevenueDetailsScreen> {
                           totalProfit += orderProfit;
                         }
 
-                        // 3. Outstanding Credit Balance
-                        final creditAndCodOrders = filteredOrders.where((order) {
-                          final isCreditOrCod = order.paymentMethodName == 'Credit' ||
-                                                order.paymentMethodName == 'Cash on Delivery (C.O.D.)';
-                          final isNotCancelled = order.status.toLowerCase() != 'cancelled' &&
-                                                 order.status.toLowerCase() != 'canceled';
-                          final isUnpaid = !order.isPaid;
-                          return isCreditOrCod && isNotCancelled && isUnpaid;
-                        }).toList();
-                        final outstandingCredit = creditAndCodOrders.fold<int>(0, (sum, order) => sum + order.total);
-
-                        // 4. Received Money
+                        // 3. Received Money
                         final immediatePaidOrders = filteredOrders.where((order) {
                           final isImmediate = order.paymentMethodName != 'Credit' &&
                                               order.paymentMethodName != 'Cash on Delivery (C.O.D.)';
@@ -320,6 +309,13 @@ class _RevenueDetailsScreenState extends State<RevenueDetailsScreen> {
                         });
 
                         final double totalReceivedMoney = immediatePaidAmount + creditCollections;
+
+                        // 4. Outstanding Credit Balance
+                        final double totalCreditOrdersInPeriod = nonCancelledOrders
+                            .where((o) => o.paymentMethodName == 'Credit' ||
+                                          o.paymentMethodName == 'Cash on Delivery (C.O.D.)')
+                            .fold<double>(0.0, (sum, o) => sum + o.total);
+                        final double outstandingCredit = (totalCreditOrdersInPeriod - creditCollections).clamp(0.0, double.infinity);
 
                         // Sort products by quantity sold
                         final sortedProducts = productStats.entries.toList()
@@ -367,7 +363,7 @@ class _RevenueDetailsScreenState extends State<RevenueDetailsScreen> {
                                 ),
                                 _PremiumStatCard(
                                   label: 'Outstanding Credit',
-                                  value: 'Rs. ${NumberFormat('#,###').format(outstandingCredit)}',
+                                  value: 'Rs. ${NumberFormat('#,###').format(outstandingCredit.round())}',
                                   icon: Icons.pending_actions,
                                   color: AppColors.danger,
                                   gradientColors: [AppColors.danger.withOpacity(0.15), AppColors.danger.withOpacity(0.02)],
