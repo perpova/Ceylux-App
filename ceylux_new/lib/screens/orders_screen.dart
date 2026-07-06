@@ -22,8 +22,9 @@ import '../widgets/download_notification.dart';
 
 class OrdersScreen extends StatefulWidget {
   final bool filterPending;
+  final String? initialSearchQuery;
   
-  const OrdersScreen({super.key, this.filterPending = false});
+  const OrdersScreen({super.key, this.filterPending = false, this.initialSearchQuery});
   
   @override
   State<OrdersScreen> createState() => _OrdersScreenState();
@@ -40,6 +41,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
   void initState() {
     super.initState();
     _filter = widget.filterPending ? 'Pending' : 'All';
+    _searchQuery = widget.initialSearchQuery ?? '';
+    _searchCtrl.text = _searchQuery;
   }
 
   @override
@@ -48,6 +51,15 @@ class _OrdersScreenState extends State<OrdersScreen> {
     if (widget.filterPending != oldWidget.filterPending) {
       setState(() {
         _filter = widget.filterPending ? 'Pending' : 'All';
+      });
+    }
+    if (widget.initialSearchQuery != oldWidget.initialSearchQuery) {
+      setState(() {
+        _searchQuery = widget.initialSearchQuery ?? '';
+        _searchCtrl.text = _searchQuery;
+        if (_searchQuery.isNotEmpty) {
+          _filter = 'All'; // Reset status filter to show programmatic searches
+        }
       });
     }
   }

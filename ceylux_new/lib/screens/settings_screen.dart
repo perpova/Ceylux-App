@@ -62,6 +62,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _loadPaymentMethods();
     // Listen to theme changes and rebuild in real-time
     themeNotifier.addListener(_onThemeChanged);
+    userProfileNotifier.addListener(_loadUser);
   }
 
   Future<void> _loadEmailSettings() async {
@@ -85,6 +86,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   void dispose() {
     themeNotifier.removeListener(_onThemeChanged);
+    userProfileNotifier.removeListener(_loadUser);
     _gmailEmailController.dispose();
     _gmailAppPasswordController.dispose();
     super.dispose();

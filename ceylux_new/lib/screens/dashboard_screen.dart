@@ -15,7 +15,13 @@ import 'customers_screen.dart';
 import 'orders_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
-  final Function(int tabIndex, {bool filterPending})? onTabChange;
+  final Function(
+    int tabIndex, {
+    bool filterPending,
+    String? stockSearch,
+    String? ordersSearch,
+    String? customersSearch,
+  })? onTabChange;
   const DashboardScreen({super.key, this.onTabChange});
 
   @override
@@ -385,6 +391,11 @@ class _DashboardScreenState extends State<DashboardScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       ...lowItems.take(3).map((item) => CeyluxCard(
+                            onTap: () {
+                              if (widget.onTabChange != null) {
+                                widget.onTabChange!(1, stockSearch: item.sku);
+                              }
+                            },
                             child: Row(
                               children: [
                                 _itemThumb(item),
@@ -495,6 +506,11 @@ class _DashboardScreenState extends State<DashboardScreen>
                       : Column(
                           children: orders
                               .map((o) => CeyluxCard(
+                                    onTap: () {
+                                      if (widget.onTabChange != null) {
+                                        widget.onTabChange!(2, ordersSearch: o.id);
+                                      }
+                                    },
                                     child: Row(
                                       mainAxisAlignment:
                                           MainAxisAlignment.spaceBetween,
@@ -595,10 +611,15 @@ class _DashboardScreenState extends State<DashboardScreen>
                   final content = customers.isEmpty
                       ? null
                       : Column(
-                          children: customers.take(3).map((c) {
-                            final tier = Tiers.getTier(c.totalSpent);
-                            return CeyluxCard(
-                              child: Row(
+                              children: customers.take(3).map((c) {
+                                final tier = Tiers.getTier(c.totalSpent);
+                                return CeyluxCard(
+                                  onTap: () {
+                                    if (widget.onTabChange != null) {
+                                      widget.onTabChange!(3, customersSearch: c.name);
+                                    }
+                                  },
+                                  child: Row(
                                 children: [
                                   UserAvatar(
                                       name: c.name,

@@ -130,6 +130,8 @@ class _ProfileDialogState extends State<ProfileDialog> {
           _isUploading = false;
         });
 
+        userProfileNotifier.value++;
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -165,6 +167,45 @@ class _ProfileDialogState extends State<ProfileDialog> {
   }
 
   Future<void> _saveProfile() async {
+    if (_nameController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Name is required',
+              style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+          backgroundColor: AppColors.danger,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    if (_phoneController.text.isNotEmpty) {
+      final phoneClean = _phoneController.text.replaceAll(RegExp(r'\D'), '');
+      if (phoneClean.length != 10) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Mobile number must be exactly 10 digits',
+                style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+            backgroundColor: AppColors.danger,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+    }
+
+    if (_emailController.text.trim().isNotEmpty && !_emailController.text.contains('@')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Invalid email address (must contain @)',
+              style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+          backgroundColor: AppColors.danger,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isUploading = true);
 
     try {
@@ -190,6 +231,8 @@ class _ProfileDialogState extends State<ProfileDialog> {
         _isEditing = false;
         _isUploading = false;
       });
+
+      userProfileNotifier.value++;
 
       if (mounted) {
         widget.onProfileUpdated();

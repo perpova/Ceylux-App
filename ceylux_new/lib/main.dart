@@ -609,6 +609,9 @@ class _HomeShellState extends State<HomeShell> {
   String _userName = '';
   String? _profileImagePath;
   bool _filterPendingOrders = false;
+  String? _stockSearchQuery;
+  String? _ordersSearchQuery;
+  String? _customersSearchQuery;
 
   final _navItems = const [
     {'icon': Icons.home_rounded,         'label': 'Home'},
@@ -622,10 +625,17 @@ class _HomeShellState extends State<HomeShell> {
   void initState() {
     super.initState();
     _loadUser();
+    userProfileNotifier.addListener(_loadUser);
     // Initialize network error handler
     WidgetsBinding.instance.addPostFrameCallback((_) {
       NetworkErrorHandler().initialize(context);
     });
+  }
+
+  @override
+  void dispose() {
+    userProfileNotifier.removeListener(_loadUser);
+    super.dispose();
   }
 
   Future<void> _loadUser() async {
@@ -754,16 +764,22 @@ class _HomeShellState extends State<HomeShell> {
         index: _tab,
         children: [
           DashboardScreen(
-            onTabChange: (index, {filterPending = false}) {
+            onTabChange: (index, {filterPending = false, stockSearch, ordersSearch, customersSearch}) {
               setState(() {
                 _filterPendingOrders = filterPending;
+                _stockSearchQuery = stockSearch;
+                _ordersSearchQuery = ordersSearch;
+                _customersSearchQuery = customersSearch;
                 _tab = index;
               });
             },
           ),
-          StockScreen(),
-          OrdersScreen(filterPending: _filterPendingOrders),
-          CustomersScreen(),
+          StockScreen(initialSearchQuery: _stockSearchQuery),
+          OrdersScreen(
+            filterPending: _filterPendingOrders,
+            initialSearchQuery: _ordersSearchQuery,
+          ),
+          CustomersScreen(initialSearchQuery: _customersSearchQuery),
           SettingsScreen(),
         ],
       ),
@@ -784,6 +800,10 @@ class _HomeShellState extends State<HomeShell> {
                   if (i == 2) {
                     _filterPendingOrders = false;
                   }
+                  // Clear programmatic queries when navigating via bottom bar
+                  _stockSearchQuery = null;
+                  _ordersSearchQuery = null;
+                  _customersSearchQuery = null;
                 }),
                 behavior: HitTestBehavior.opaque,
                 child: AnimatedContainer(

@@ -35,7 +35,8 @@ _RatingInfo _ratingInfo(double r) =>
     r <= 0 ? _ratings[0] : _ratings[r.clamp(1, 5).toInt()];
 
 class CustomersScreen extends StatefulWidget {
-  const CustomersScreen({super.key});
+  final String? initialSearchQuery;
+  const CustomersScreen({super.key, this.initialSearchQuery});
   @override
   State<CustomersScreen> createState() => _CustomersScreenState();
 }
@@ -45,6 +46,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
   String _filterTier = 'All';
   String _filterRating = 'All';
   final svc = ApiService();
+  late TextEditingController _searchCtrl;
 
   List<Tier> _tiers = [];
   bool _loadingTiers = false;
@@ -52,7 +54,30 @@ class _CustomersScreenState extends State<CustomersScreen> {
   @override
   void initState() {
     super.initState();
+    _search = widget.initialSearchQuery ?? '';
+    _searchCtrl = TextEditingController(text: _search);
     _loadTiers();
+  }
+
+  @override
+  void didUpdateWidget(covariant CustomersScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialSearchQuery != oldWidget.initialSearchQuery) {
+      setState(() {
+        _search = widget.initialSearchQuery ?? '';
+        _searchCtrl.text = _search;
+        if (_search.isNotEmpty) {
+          _filterTier = 'All';
+          _filterRating = 'All';
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _loadTiers() async {
@@ -125,12 +150,23 @@ class _CustomersScreenState extends State<CustomersScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                       child: TextField(
+                    controller: _searchCtrl,
                     style: GoogleFonts.plusJakartaSans(
                         color: AppColors.textColor, fontSize: 14),
                     decoration: InputDecoration(
                         border: InputBorder.none,
                         hintText: 'Search customers...',
-                        hintStyle: TextStyle(color: AppColors.muted)),
+                        hintStyle: TextStyle(color: AppColors.muted),
+                        suffixIcon: _search.isNotEmpty
+                            ? GestureDetector(
+                                onTap: () {
+                                  _searchCtrl.clear();
+                                  setState(() => _search = '');
+                                },
+                                child: Icon(Icons.close_rounded,
+                                    color: AppColors.muted, size: 18),
+                              )
+                            : null),
                     onChanged: (v) => setState(() => _search = v),
                   )),
                 ]),
@@ -581,6 +617,7 @@ class CustomerDetailSheetState extends State<CustomerDetailSheet> {
   late TextEditingController _phoneCtrl;
   late TextEditingController _emailCtrl;
   late TextEditingController _addressCtrl;
+  late Customer _customer;
   final svc = ApiService();
 
   List<Tier> _tiers = [];
@@ -599,14 +636,15 @@ class CustomerDetailSheetState extends State<CustomerDetailSheet> {
   @override
   void initState() {
     super.initState();
-    _ownerRating = widget.customer.ownerRating;
-    _noteCtrl = TextEditingController(text: widget.customer.ownerNote);
-    _phoneCtrl = TextEditingController(text: widget.customer.phone);
-    _emailCtrl = TextEditingController(text: widget.customer.email);
-    _addressCtrl = TextEditingController(text: widget.customer.address);
-    _outstandingBalance = widget.customer.outstandingBalance;
-    _totalPaid = widget.customer.totalPaid;
-    _remainingDue = widget.customer.remainingDue;
+    _customer = widget.customer;
+    _ownerRating = _customer.ownerRating;
+    _noteCtrl = TextEditingController(text: _customer.ownerNote);
+    _phoneCtrl = TextEditingController(text: _customer.phone);
+    _emailCtrl = TextEditingController(text: _customer.email);
+    _addressCtrl = TextEditingController(text: _customer.address);
+    _outstandingBalance = _customer.outstandingBalance;
+    _totalPaid = _customer.totalPaid;
+    _remainingDue = _customer.remainingDue;
     _loadTiers();
     _loadCustomerOrders();
     _loadPayments();
@@ -630,7 +668,7 @@ class CustomerDetailSheetState extends State<CustomerDetailSheet> {
   Future<void> _loadCustomerOrders() async {
     if (mounted) setState(() => _loadingOrders = true);
     try {
-      final orders = await svc.getCustomerOrders(widget.customer.id);
+      final orders = await svc.getCustomerOrders(_customer.id);
       if (mounted) {
         setState(() {
           _customerOrders = orders;
@@ -645,7 +683,7 @@ class CustomerDetailSheetState extends State<CustomerDetailSheet> {
   Future<void> _loadPayments() async {
     if (mounted) setState(() => _loadingPayments = true);
     try {
-      final payments = await svc.getCustomerPayments(widget.customer.id);
+      final payments = await svc.getCustomerPayments(_customer.id);
       if (mounted) {
         setState(() {
           _payments = payments;
@@ -664,8 +702,8 @@ class CustomerDetailSheetState extends State<CustomerDetailSheet> {
       ..sort((a, b) => b.discountPercentage.compareTo(a.discountPercentage));
 
     for (final tier in sortedTiers) {
-      if (widget.customer.totalOrders >= tier.minOrders &&
-          widget.customer.totalSpent >= tier.minSpent &&
+      if (_customer.totalOrders >= tier.minOrders &&
+          _customer.totalSpent >= tier.minSpent &&
           _ownerRating >= tier.minRating) {
         return tier.discountPercentage;
       }
@@ -680,8 +718,8 @@ class CustomerDetailSheetState extends State<CustomerDetailSheet> {
       ..sort((a, b) => b.discountPercentage.compareTo(a.discountPercentage));
 
     for (final tier in sortedTiers) {
-      if (widget.customer.totalOrders >= tier.minOrders &&
-          widget.customer.totalSpent >= tier.minSpent &&
+      if (_customer.totalOrders >= tier.minOrders &&
+          _customer.totalSpent >= tier.minSpent &&
           _ownerRating >= tier.minRating) {
         return tier;
       }
@@ -726,10 +764,13 @@ class CustomerDetailSheetState extends State<CustomerDetailSheet> {
   }
 
   Future<void> _saveNote() async {
-    await svc.updateCustomer(widget.customer
-        .copyWith(ownerRating: _ownerRating, ownerNote: _noteCtrl.text));
+    final updated = _customer.copyWith(ownerRating: _ownerRating, ownerNote: _noteCtrl.text);
+    await svc.updateCustomer(updated);
     if (mounted) {
-      setState(() => _editingNote = false);
+      setState(() {
+        _customer = updated;
+        _editingNote = false;
+      });
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('✓ Note updated',
               style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
@@ -739,27 +780,68 @@ class CustomerDetailSheetState extends State<CustomerDetailSheet> {
   }
 
   Future<void> _saveContactInfo() async {
-    await svc.updateCustomer(widget.customer.copyWith(
+    if (_phoneCtrl.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Phone number is required',
+              style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+      return;
+    }
+
+    final phoneClean = _phoneCtrl.text.replaceAll(RegExp(r'\D'), '');
+    if (phoneClean.length != 10) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Mobile number must be exactly 10 digits',
+              style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+      return;
+    }
+
+    if (_emailCtrl.text.trim().isNotEmpty && !_emailCtrl.text.contains('@')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Invalid email address (must contain @)',
+              style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+      return;
+    }
+
+    final updated = _customer.copyWith(
       phone: _phoneCtrl.text,
       email: _emailCtrl.text,
       address: _addressCtrl.text,
       ownerRating: _ownerRating,
       ownerNote: _noteCtrl.text,
-    ));
+    );
+    await svc.updateCustomer(updated);
     if (mounted) {
-      setState(() => _editingInfo = false);
+      setState(() {
+        _customer = updated;
+        _editingInfo = false;
+      });
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('✓ Contact info updated',
               style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
           backgroundColor: AppColors.success,
-          duration: Duration(seconds: 1)));
+          duration: const Duration(seconds: 1)));
     }
   }
 
   Future<void> _setRating(double r) async {
-    setState(() => _ownerRating = r);
-    await svc.updateCustomer(
-        widget.customer.copyWith(ownerRating: r, ownerNote: _noteCtrl.text));
+    final updated = _customer.copyWith(ownerRating: r, ownerNote: _noteCtrl.text);
+    setState(() {
+      _ownerRating = r;
+      _customer = updated;
+    });
+    await svc.updateCustomer(updated);
     if (mounted)
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(
@@ -780,7 +862,7 @@ class CustomerDetailSheetState extends State<CustomerDetailSheet> {
                     fontWeight: FontWeight.bold,
                     color: AppColors.textColor)),
             content: Text(
-              'Are you sure you want to remove ${widget.customer.name}? This action cannot be undone.',
+              'Are you sure you want to remove ${_customer.name}? This action cannot be undone.',
               style: GoogleFonts.plusJakartaSans(
                   fontSize: 14, color: AppColors.textColor),
             ),
@@ -808,11 +890,11 @@ class CustomerDetailSheetState extends State<CustomerDetailSheet> {
 
     setState(() => _deleting = true);
     try {
-      await svc.deleteCustomer(widget.customer.id);
+      await svc.deleteCustomer(_customer.id);
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('✓ ${widget.customer.name} removed',
+            content: Text('✓ ${_customer.name} removed',
                 style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
             backgroundColor: AppColors.success,
             duration: const Duration(seconds: 2)));
@@ -836,9 +918,12 @@ class CustomerDetailSheetState extends State<CustomerDetailSheet> {
     setState(() => _uploading = true);
     try {
       final url = await svc.uploadPhoto(File(picked.path), 'customers');
-      await svc.updateCustomer(widget.customer.copyWith(photoUrl: url));
+      final updated = _customer.copyWith(photoUrl: url);
+      await svc.updateCustomer(updated);
       if (mounted) {
-        Navigator.pop(context);
+        setState(() {
+          _customer = updated;
+        });
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text('✓ Photo updated',
                 style:
@@ -904,7 +989,7 @@ class CustomerDetailSheetState extends State<CustomerDetailSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final c = widget.customer;
+    final c = _customer;
     final currentQualifiedTier = _getCurrentQualifiedTier();
     final tierForAvatar = currentQualifiedTier != null
         ? Tiers.getTier(currentQualifiedTier.minSpent)
@@ -1372,14 +1457,14 @@ class CustomerDetailSheetState extends State<CustomerDetailSheet> {
                         children: [
                           _discountRequirement(
                             label: 'Orders',
-                            current: widget.customer.totalOrders,
+                            current: _customer.totalOrders,
                             required: tierReq['orders'].toDouble(),
                             icon: Icons.shopping_bag,
                           ),
                           const SizedBox(height: 8),
                           _discountRequirement(
                             label: 'Amount Spent',
-                            current: widget.customer.totalSpent,
+                            current: _customer.totalSpent,
                             required: tierReq['spent'].toDouble(),
                             icon: Icons.attach_money,
                             isAmount: true,
@@ -1387,7 +1472,7 @@ class CustomerDetailSheetState extends State<CustomerDetailSheet> {
                           const SizedBox(height: 8),
                           _discountRequirement(
                             label: 'Rating',
-                            current: (widget.customer.ownerRating * 10).toInt(),
+                            current: (_customer.ownerRating * 10).toInt(),
                             required: (tierReq['rating'] as double) * 10,
                             icon: Icons.star,
                             isRating: true,
@@ -2077,11 +2162,12 @@ class CustomerDetailSheetState extends State<CustomerDetailSheet> {
                       setState(() => _uploading = true);
                     }
                     try {
-                      await svc.recordPayment(widget.customer.id, amount, selectedDate, notesCtrl.text);
+                      await svc.recordPayment(_customer.id, amount, selectedDate, notesCtrl.text);
                       
-                      final updated = await svc.getCustomer(widget.customer.id);
+                      final updated = await svc.getCustomer(_customer.id);
                       if (mounted) {
                         setState(() {
+                          _customer = updated;
                           _outstandingBalance = updated.outstandingBalance;
                           _totalPaid = updated.totalPaid;
                           _remainingDue = updated.remainingDue;
@@ -2554,7 +2640,7 @@ class CustomerDetailSheetState extends State<CustomerDetailSheet> {
           : '🥉 Bronze';
 
       await InvoiceService.shareCustomerStatement(
-        widget.customer,
+        _customer,
         _customerOrders,
         _payments,
         tierName,
@@ -2581,13 +2667,13 @@ class CustomerDetailSheetState extends State<CustomerDetailSheet> {
         ? '${currentQualifiedTier.emoji} ${currentQualifiedTier.name}' 
         : '🥉 Bronze';
 
-    final fileName = 'CEYLUX_Statement_${widget.customer.name.replaceAll(' ', '_')}.pdf';
+    final fileName = 'CEYLUX_Statement_${_customer.name.replaceAll(' ', '_')}.pdf';
 
     DownloadNotification.show(
       context,
       fileName: fileName,
       downloadFuture: InvoiceService.downloadCustomerStatement(
-        widget.customer,
+        _customer,
         _customerOrders,
         _payments,
         tierName,
@@ -3142,7 +3228,40 @@ class _AddCustomerSheetState extends State<_AddCustomerSheet> {
   }
 
   Future<void> _save() async {
-    if (_name.text.isEmpty || _phone.text.isEmpty) return;
+    if (_name.text.trim().isEmpty || _phone.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Name and Phone number are required',
+              style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+      return;
+    }
+
+    final phoneClean = _phone.text.replaceAll(RegExp(r'\D'), '');
+    if (phoneClean.length != 10) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Mobile number must be exactly 10 digits',
+              style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+      return;
+    }
+
+    if (_email.text.trim().isNotEmpty && !_email.text.contains('@')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Invalid email address (must contain @)',
+              style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+      return;
+    }
+
     setState(() => _saving = true);
     try {
       String? photoUrl;

@@ -4,6 +4,9 @@ import 'package:google_fonts/google_fonts.dart';
 // Global theme notifier for reactively switching between System, Light, and Dark modes
 final themeNotifier = ValueNotifier<ThemeMode>(ThemeMode.system);
 
+// Global user profile notifier to trigger real-time updates across screens
+final userProfileNotifier = ValueNotifier<int>(0);
+
 class AppColors {
   // Dynamically resolve whether dark mode is currently active
   static bool get isDark {

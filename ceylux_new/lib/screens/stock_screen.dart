@@ -10,7 +10,8 @@ import '../widgets/common_widgets.dart';
 import '../widgets/animation_widgets.dart';
 
 class StockScreen extends StatefulWidget {
-  const StockScreen({super.key});
+  final String? initialSearchQuery;
+  const StockScreen({super.key, this.initialSearchQuery});
   @override
   State<StockScreen> createState() => _StockScreenState();
 }
@@ -20,6 +21,31 @@ class _StockScreenState extends State<StockScreen> {
   String _search = '';
   DateTime _selectedMonth = DateTime.now();
   final svc = ApiService();
+  late TextEditingController _searchCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _search = widget.initialSearchQuery ?? '';
+    _searchCtrl = TextEditingController(text: _search);
+  }
+
+  @override
+  void didUpdateWidget(covariant StockScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialSearchQuery != oldWidget.initialSearchQuery) {
+      setState(() {
+        _search = widget.initialSearchQuery ?? '';
+        _searchCtrl.text = _search;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
 
   DateTime get _currentMonthStart => DateTime(_selectedMonth.year, _selectedMonth.month, 1);
   DateTime get _currentMonthEnd => DateTime(_selectedMonth.year, _selectedMonth.month + 1, 0, 23, 59, 59);
@@ -50,8 +76,23 @@ class _StockScreenState extends State<StockScreen> {
                     Icon(Icons.search, color: AppColors.muted, size: 18),
                     const SizedBox(width: 8),
                     Expanded(child: TextField(
+                      controller: _searchCtrl,
                       style: GoogleFonts.plusJakartaSans(color: AppColors.textColor, fontSize: 14),
-                      decoration: InputDecoration(border: InputBorder.none, hintText: 'Search by name or SKU...', hintStyle: TextStyle(color: AppColors.muted)),
+                      decoration: InputDecoration(
+                        border: InputBorder.none, 
+                        hintText: 'Search by name or SKU...', 
+                        hintStyle: TextStyle(color: AppColors.muted),
+                        suffixIcon: _search.isNotEmpty
+                            ? GestureDetector(
+                                onTap: () {
+                                  _searchCtrl.clear();
+                                  setState(() => _search = '');
+                                },
+                                child: Icon(Icons.close_rounded,
+                                    color: AppColors.muted, size: 18),
+                              )
+                            : null,
+                      ),
                       onChanged: (v) => setState(() => _search = v),
                     )),
                   ]),
