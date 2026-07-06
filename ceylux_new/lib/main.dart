@@ -661,177 +661,186 @@ class _HomeShellState extends State<HomeShell> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.bg,
-      appBar: AppBar(
-        backgroundColor: AppColors.card,
-        elevation: 0,
-        shadowColor: AppColors.primary.withOpacity(0.1),
-        title: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: Image.asset('assets/images/ceylux_logo.png', width: 140, height: 44, fit: BoxFit.contain),
-          ),
-        ),
-        actions: [
-          Stack(clipBehavior: Clip.none, children: [
-            IconButton(
-              icon: const Icon(Icons.notifications_outlined, color: AppColors.primary),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const NotificationsScreen()),
-                );
-              },
-            ),
-            StreamBuilder<List<StockItem>>(
-              stream: ApiService().stockStream(),
-              builder: (context, snap) {
-                final allItems = snap.data ?? [];
-                return ValueListenableBuilder<Map<String, int>>(
-                  valueListenable: StockAlertsManager.readAlertsNotifier,
-                  builder: (context, readAlerts, _) {
-                    final low = allItems.where((i) {
-                      if (!i.isLowStock && !i.isOutOfStock) return false;
-                      final readQty = readAlerts[i.id];
-                      return readQty != i.totalQty;
-                    }).length;
-                    if (low == 0) return const SizedBox.shrink();
-                    return Positioned(top: 6, right: 6,
-                      child: Container(width: 16, height: 16,
-                        decoration: const BoxDecoration(color: AppColors.danger, shape: BoxShape.circle),
-                        child: Center(child: Text('$low',
-                          style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white)))));
-                  },
-                );
-              },
-            ),
-          ]),
-          Container(
-            margin: const EdgeInsets.only(right: 12),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+    return PopScope(
+      canPop: _tab == 0,
+      onPopInvoked: (didPop) {
+        if (didPop) return;
+        setState(() {
+          _tab = 0;
+        });
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.bg,
+        appBar: AppBar(
+          backgroundColor: AppColors.card,
+          elevation: 0,
+          shadowColor: AppColors.primary.withOpacity(0.1),
+          title: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
             decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: AppColors.border),
+              borderRadius: BorderRadius.circular(6),
             ),
-            child: GestureDetector(
-              onTap: _showProfileDialog,
-              child: Row(children: [
-                Container(
-                  width: 22, height: 22,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    shape: BoxShape.circle,
-                    image: _profileImagePath != null && File(_profileImagePath!).existsSync()
-                        ? DecorationImage(
-                            image: FileImage(File(_profileImagePath!)),
-                            fit: BoxFit.cover,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: Image.asset('assets/images/ceylux_logo.png', width: 140, height: 44, fit: BoxFit.contain),
+            ),
+          ),
+          actions: [
+            Stack(clipBehavior: Clip.none, children: [
+              IconButton(
+                icon: const Icon(Icons.notifications_outlined, color: AppColors.primary),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+                  );
+                },
+              ),
+              StreamBuilder<List<StockItem>>(
+                stream: ApiService().stockStream(),
+                builder: (context, snap) {
+                  final allItems = snap.data ?? [];
+                  return ValueListenableBuilder<Map<String, int>>(
+                    valueListenable: StockAlertsManager.readAlertsNotifier,
+                    builder: (context, readAlerts, _) {
+                      final low = allItems.where((i) {
+                        if (!i.isLowStock && !i.isOutOfStock) return false;
+                        final readQty = readAlerts[i.id];
+                        return readQty != i.totalQty;
+                      }).length;
+                      if (low == 0) return const SizedBox.shrink();
+                      return Positioned(top: 6, right: 6,
+                        child: Container(width: 16, height: 16,
+                          decoration: const BoxDecoration(color: AppColors.danger, shape: BoxShape.circle),
+                          child: Center(child: Text('$low',
+                            style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white)))));
+                    },
+                  );
+                },
+              ),
+            ]),
+            Container(
+              margin: const EdgeInsets.only(right: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: GestureDetector(
+                onTap: _showProfileDialog,
+                child: Row(children: [
+                  Container(
+                    width: 22, height: 22,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary,
+                      shape: BoxShape.circle,
+                      image: _profileImagePath != null && File(_profileImagePath!).existsSync()
+                          ? DecorationImage(
+                              image: FileImage(File(_profileImagePath!)),
+                              fit: BoxFit.cover,
+                            )
+                          : null,
+                    ),
+                    child: _profileImagePath == null || !File(_profileImagePath!).existsSync()
+                        ? Center(
+                            child: Text(
+                              _userName.isNotEmpty ? _userName[0].toUpperCase() : 'U',
+                              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                            ),
                           )
                         : null,
                   ),
-                  child: _profileImagePath == null || !File(_profileImagePath!).existsSync()
-                      ? Center(
-                          child: Text(
-                            _userName.isNotEmpty ? _userName[0].toUpperCase() : 'U',
-                            style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                          ),
-                        )
-                      : null,
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    _userName.split(' ')[0],
-                    style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ]),
-            ),
-          ),
-        ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Container(height: 1, color: AppColors.border),
-        ),
-      ),
-      body: IndexedStack(
-        index: _tab,
-        children: [
-          DashboardScreen(
-            onTabChange: (index, {filterPending = false, stockSearch, ordersSearch, customersSearch}) {
-              setState(() {
-                _filterPendingOrders = filterPending;
-                _stockSearchQuery = stockSearch;
-                _ordersSearchQuery = ordersSearch;
-                _customersSearchQuery = customersSearch;
-                _tab = index;
-              });
-            },
-          ),
-          StockScreen(initialSearchQuery: _stockSearchQuery),
-          OrdersScreen(
-            filterPending: _filterPendingOrders,
-            initialSearchQuery: _ordersSearchQuery,
-          ),
-          CustomersScreen(initialSearchQuery: _customersSearchQuery),
-          SettingsScreen(),
-        ],
-      ),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: AppColors.card,
-          border: Border(top: BorderSide(color: AppColors.border)),
-          boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, -3))],
-        ),
-        child: SafeArea(child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Row(
-            children: List.generate(_navItems.length, (i) {
-              final isActive = _tab == i;
-              return Expanded(child: GestureDetector(
-                onTap: () => setState(() {
-                  _tab = i;
-                  if (i == 2) {
-                    _filterPendingOrders = false;
-                  }
-                  // Clear programmatic queries when navigating via bottom bar
-                  _stockSearchQuery = null;
-                  _ordersSearchQuery = null;
-                  _customersSearchQuery = null;
-                }),
-                behavior: HitTestBehavior.opaque,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  decoration: BoxDecoration(
-                    color: isActive ? AppColors.primary.withOpacity(0.08) : Colors.transparent,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Column(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(_navItems[i]['icon'] as IconData,
-                      color: isActive ? AppColors.primary : AppColors.muted, size: 22),
-                    const SizedBox(height: 3),
-                    Text(_navItems[i]['label'] as String,
-                      style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.bold,
-                        color: isActive ? AppColors.primary : AppColors.muted)),
-                    const SizedBox(height: 3),
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      width: isActive ? 4 : 0, height: isActive ? 4 : 0,
-                      decoration: const BoxDecoration(color: AppColors.gold, shape: BoxShape.circle),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      _userName.split(' ')[0],
+                      style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary),
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ]),
-                ),
-              ));
-            }),
+                  ),
+                ]),
+              ),
+            ),
+          ],
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(1),
+            child: Container(height: 1, color: AppColors.border),
           ),
-        )),
+        ),
+        body: IndexedStack(
+          index: _tab,
+          children: [
+            DashboardScreen(
+              onTabChange: (index, {filterPending = false, stockSearch, ordersSearch, customersSearch}) {
+                setState(() {
+                  _filterPendingOrders = filterPending;
+                  _stockSearchQuery = stockSearch;
+                  _ordersSearchQuery = ordersSearch;
+                  _customersSearchQuery = customersSearch;
+                  _tab = index;
+                });
+              },
+            ),
+            StockScreen(initialSearchQuery: _stockSearchQuery),
+            OrdersScreen(
+              filterPending: _filterPendingOrders,
+              initialSearchQuery: _ordersSearchQuery,
+            ),
+            CustomersScreen(initialSearchQuery: _customersSearchQuery),
+            SettingsScreen(),
+          ],
+        ),
+        bottomNavigationBar: Container(
+          decoration: BoxDecoration(
+            color: AppColors.card,
+            border: Border(top: BorderSide(color: AppColors.border)),
+            boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, -3))],
+          ),
+          child: SafeArea(child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              children: List.generate(_navItems.length, (i) {
+                final isActive = _tab == i;
+                return Expanded(child: GestureDetector(
+                  onTap: () => setState(() {
+                    _tab = i;
+                    if (i == 2) {
+                      _filterPendingOrders = false;
+                    }
+                    // Clear programmatic queries when navigating via bottom bar
+                    _stockSearchQuery = null;
+                    _ordersSearchQuery = null;
+                    _customersSearchQuery = null;
+                  }),
+                  behavior: HitTestBehavior.opaque,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    decoration: BoxDecoration(
+                      color: isActive ? AppColors.primary.withOpacity(0.08) : Colors.transparent,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Column(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(_navItems[i]['icon'] as IconData,
+                        color: isActive ? AppColors.primary : AppColors.muted, size: 22),
+                      const SizedBox(height: 3),
+                      Text(_navItems[i]['label'] as String,
+                        style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.bold,
+                          color: isActive ? AppColors.primary : AppColors.muted)),
+                      const SizedBox(height: 3),
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        width: isActive ? 4 : 0, height: isActive ? 4 : 0,
+                        decoration: const BoxDecoration(color: AppColors.gold, shape: BoxShape.circle),
+                      ),
+                    ]),
+                  ),
+                ));
+              }),
+            ),
+          )),
+        ),
       ),
     );
   }
