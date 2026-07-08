@@ -134,7 +134,8 @@ class _RevenueDetailsScreenState extends State<RevenueDetailsScreen> {
                 scrollDirection: Axis.horizontal,
                 itemCount: 24,
                 itemBuilder: (context, index) {
-                  final date = DateTime.now().subtract(Duration(days: index * 30));
+                  final now = DateTime.now();
+                  final date = DateTime(now.year, now.month - index, 1);
                   final month = date.month;
                   final year = date.year;
                   final isSelected =
@@ -238,13 +239,21 @@ class _RevenueDetailsScreenState extends State<RevenueDetailsScreen> {
                         // 1. Total Revenue
                         final totalRevenue = nonCancelledOrders.fold<int>(0, (a, b) => a + b.total);
 
-                        // 2. Total Profit & Product Breakdown
+                        // 2. Total Profit & Product Breakdown & Total Discounts Given
                         double totalProfit = 0.0;
+                        double totalDiscountsGiven = 0.0;
                         final productStats = <String, Map<String, dynamic>>{};
 
                         for (final order in nonCancelledOrders) {
-                          final itemsSum = order.items.fold<int>(0, (sum, item) => sum + item.total);
-                          final double discountRatio = itemsSum > 0 ? (order.total / itemsSum) : 1.0;
+                          // Calculate discounts for this order
+                          final int subtotal = order.items.fold<int>(0, (sum, item) => sum + item.subtotal);
+                          final int itemDiscounts = order.items.fold<int>(0, (sum, item) => sum + item.discountAmount);
+                          final int billDiscountAmount = ((subtotal - itemDiscounts) * order.discountPercentage) ~/ 100;
+                          final int afterBillDiscount = subtotal - itemDiscounts - billDiscountAmount;
+                          final int loyaltyDiscountAmount = (afterBillDiscount * order.loyaltyDiscount) ~/ 100;
+                          final double orderDiscount = (itemDiscounts + billDiscountAmount + loyaltyDiscountAmount).toDouble();
+                          totalDiscountsGiven += orderDiscount;
+
                           double orderCost = 0.0;
 
                           for (final item in order.items) {
@@ -256,7 +265,8 @@ class _RevenueDetailsScreenState extends State<RevenueDetailsScreen> {
                               )
                             );
                             
-                            final double itemRevenue = item.total * discountRatio;
+                            // Product profit is calculated based on the item selling price (including item discounts, but before bill/loyalty discounts)
+                            final double itemRevenue = item.total.toDouble();
                             final double itemCost = (stockItem.cost * item.qty).toDouble();
                             final double itemProfit = itemRevenue - itemCost;
                             orderCost += itemCost;
@@ -282,15 +292,9 @@ class _RevenueDetailsScreenState extends State<RevenueDetailsScreen> {
                           totalProfit += orderProfit;
                         }
 
-                        // 3. Received Money
-                        final immediatePaidOrders = filteredOrders.where((order) {
-                          final isImmediate = order.paymentMethodName != 'Credit' &&
-                                              order.paymentMethodName != 'Cash on Delivery (C.O.D.)';
-                          final isNotCancelled = order.status.toLowerCase() != 'cancelled' &&
-                                                 order.status.toLowerCase() != 'canceled';
-                          return isImmediate && isNotCancelled;
-                        }).toList();
-                        final immediatePaidAmount = immediatePaidOrders.fold<int>(0, (sum, order) => sum + order.total);
+                        // 3. Received Money & 4. Outstanding Credit Balance (strict period-matching, grouped by customer)
+                        double totalReceivedMoney = 0.0;
+                        double outstandingCredit = 0.0;
 
                         final filteredPayments = payments.where((p) {
                           try {
@@ -303,19 +307,42 @@ class _RevenueDetailsScreenState extends State<RevenueDetailsScreen> {
                           return false;
                         }).toList();
 
-                        final creditCollections = filteredPayments.fold<double>(0.0, (sum, p) {
-                          final amt = double.tryParse(p['amount']?.toString() ?? '0') ?? 0.0;
-                          return sum + amt;
-                        });
+                        // Collect all unique customer IDs from orders in this period or payments in this period
+                        final customerIds = <String>{};
+                        for (final o in filteredOrders) {
+                          if (o.customerId.isNotEmpty) customerIds.add(o.customerId);
+                        }
+                        for (final p in filteredPayments) {
+                          final cid = p['customer_id']?.toString() ?? '';
+                          if (cid.isNotEmpty) customerIds.add(cid);
+                        }
 
-                        final double totalReceivedMoney = immediatePaidAmount + creditCollections;
+                        for (final custId in customerIds) {
+                          final custOrders = nonCancelledOrders.where((o) => o.customerId == custId).toList();
+                          final custPayments = filteredPayments.where((p) => p['customer_id']?.toString() == custId).toList();
 
-                        // 4. Outstanding Credit Balance
-                        final double totalCreditOrdersInPeriod = nonCancelledOrders
-                            .where((o) => o.paymentMethodName == 'Credit' ||
-                                          o.paymentMethodName == 'Cash on Delivery (C.O.D.)')
-                            .fold<double>(0.0, (sum, o) => sum + o.total);
-                        final double outstandingCredit = (totalCreditOrdersInPeriod - creditCollections).clamp(0.0, double.infinity);
+                          // Immediate paid orders of this customer in this period
+                          final double immediatePaidAmount = custOrders
+                              .where((o) {
+                                final isImmediate = o.paymentMethodName != 'Credit' &&
+                                                    o.paymentMethodName != 'Cash on Delivery (C.O.D.)';
+                                return isImmediate && o.isPaid;
+                              })
+                              .fold<double>(0.0, (sum, o) => sum + o.total);
+
+                          // Payments of this customer in this period
+                          final double collectionsAmount = custPayments
+                              .fold<double>(0.0, (sum, p) {
+                                final amt = double.tryParse(p['amount']?.toString() ?? '0') ?? 0.0;
+                                return sum + amt;
+                              });
+
+                          // Total orders of this customer in this period
+                          final double totalOrdersAmount = custOrders.fold<double>(0.0, (sum, o) => sum + o.total);
+
+                          totalReceivedMoney += (immediatePaidAmount + collectionsAmount);
+                          outstandingCredit += (totalOrdersAmount - immediatePaidAmount - collectionsAmount).clamp(0.0, double.infinity);
+                        }
 
                         // Sort products by quantity sold
                         final sortedProducts = productStats.entries.toList()
@@ -328,46 +355,83 @@ class _RevenueDetailsScreenState extends State<RevenueDetailsScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             // REDESIGNED STATS GRID
-                            GridView.count(
-                              crossAxisCount: 2,
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              crossAxisSpacing: 12,
-                              mainAxisSpacing: 12,
-                              childAspectRatio: 1.4,
+                            Column(
                               children: [
-                                _PremiumStatCard(
-                                  label: 'Total Revenue',
-                                  value: 'Rs. ${NumberFormat('#,###').format(totalRevenue)}',
-                                  icon: Icons.wallet,
-                                  color: AppColors.gold,
-                                  gradientColors: [AppColors.gold.withOpacity(0.15), AppColors.gold.withOpacity(0.02)],
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: AspectRatio(
+                                        aspectRatio: 1.4,
+                                        child: _PremiumStatCard(
+                                          label: 'Total Revenue',
+                                          value: 'Rs. ${NumberFormat('#,###').format(totalRevenue)}',
+                                          icon: Icons.wallet,
+                                          color: AppColors.gold,
+                                          gradientColors: [AppColors.gold.withOpacity(0.15), AppColors.gold.withOpacity(0.02)],
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: AspectRatio(
+                                        aspectRatio: 1.4,
+                                        child: _PremiumStatCard(
+                                          label: 'Net Profit',
+                                          value: 'Rs. ${NumberFormat('#,###').format(totalProfit.round())}',
+                                          icon: Icons.show_chart,
+                                          color: AppColors.success,
+                                          gradientColors: [AppColors.success.withOpacity(0.15), AppColors.success.withOpacity(0.02)],
+                                          subtitle: totalRevenue > 0
+                                              ? '${((totalProfit / totalRevenue) * 100).toStringAsFixed(1)}% margin'
+                                              : null,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                _PremiumStatCard(
-                                  label: 'Net Profit',
-                                  value: 'Rs. ${NumberFormat('#,###').format(totalProfit.round())}',
-                                  icon: Icons.show_chart,
-                                  color: AppColors.success,
-                                  gradientColors: [AppColors.success.withOpacity(0.15), AppColors.success.withOpacity(0.02)],
-                                  subtitle: totalRevenue > 0
-                                      ? '${((totalProfit / totalRevenue) * 100).toStringAsFixed(1)}% margin'
-                                      : null,
+                                const SizedBox(height: 12),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: AspectRatio(
+                                        aspectRatio: 1.4,
+                                        child: _PremiumStatCard(
+                                          label: 'Received Money',
+                                          value: 'Rs. ${NumberFormat('#,###').format(totalReceivedMoney.round())}',
+                                          icon: Icons.monetization_on,
+                                          color: const Color(0xFF10B981), // Emerald
+                                          gradientColors: [const Color(0xFF10B981).withOpacity(0.15), const Color(0xFF10B981).withOpacity(0.02)],
+                                          subtitle: 'Immediate + Collections',
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: AspectRatio(
+                                        aspectRatio: 1.4,
+                                        child: _PremiumStatCard(
+                                          label: 'Outstanding Credit',
+                                          value: 'Rs. ${NumberFormat('#,###').format(outstandingCredit.round())}',
+                                          icon: Icons.pending_actions,
+                                          color: AppColors.danger,
+                                          gradientColors: [AppColors.danger.withOpacity(0.15), AppColors.danger.withOpacity(0.02)],
+                                          subtitle: 'Unpaid Credit & COD',
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                _PremiumStatCard(
-                                  label: 'Received Money',
-                                  value: 'Rs. ${NumberFormat('#,###').format(totalReceivedMoney.round())}',
-                                  icon: Icons.monetization_on,
-                                  color: const Color(0xFF10B981), // Emerald
-                                  gradientColors: [const Color(0xFF10B981).withOpacity(0.15), const Color(0xFF10B981).withOpacity(0.02)],
-                                  subtitle: 'Immediate + Collections',
-                                ),
-                                _PremiumStatCard(
-                                  label: 'Outstanding Credit',
-                                  value: 'Rs. ${NumberFormat('#,###').format(outstandingCredit.round())}',
-                                  icon: Icons.pending_actions,
-                                  color: AppColors.danger,
-                                  gradientColors: [AppColors.danger.withOpacity(0.15), AppColors.danger.withOpacity(0.02)],
-                                  subtitle: 'Unpaid Credit & COD',
+                                const SizedBox(height: 12),
+                                AspectRatio(
+                                  aspectRatio: 2.9,
+                                  child: _PremiumStatCard(
+                                    label: 'Total Discount',
+                                    value: 'Rs. ${NumberFormat('#,###').format(totalDiscountsGiven.round())}',
+                                    icon: Icons.percent,
+                                    color: Colors.orange,
+                                    gradientColors: [Colors.orange.withOpacity(0.15), Colors.orange.withOpacity(0.02)],
+                                    subtitle: 'Item + Bill + Loyalty',
+                                  ),
                                 ),
                               ],
                             ),

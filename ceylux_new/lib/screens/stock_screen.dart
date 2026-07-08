@@ -526,7 +526,7 @@ class _StockFormSheetState extends State<_StockFormSheet> {
       backgroundColor: AppColors.card,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       title: Text('Delete Item?', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: AppColors.textColor)),
-      content: Text('${widget.item!.name} delete කරන්නද?', style: GoogleFonts.plusJakartaSans(color: AppColors.muted)),
+      content: Text('${widget.item!.name} delete?', style: GoogleFonts.plusJakartaSans(color: AppColors.muted)),
       actions: [
         ActionButton(onTap: () => Navigator.pop(context, false), label: 'Cancel', isOutlined: true, buttonColor: AppColors.muted),
         const SizedBox(width: 8),
