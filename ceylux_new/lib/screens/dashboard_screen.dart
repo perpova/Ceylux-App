@@ -245,11 +245,15 @@ class _DashboardScreenState extends State<DashboardScreen>
                           final orders = orderSnap.data ?? [];
                           final customers = custSnap.data ?? [];
                           
-                          // Calculate current month revenue
+                          // Calculate current month revenue (excluding cancelled orders)
                           final now = DateTime.now();
                           final currentMonthOrders = orders.where((order) {
                             final orderDate = DateTime.parse(order.date);
-                            return orderDate.year == now.year && orderDate.month == now.month;
+                            final isCancelled = order.status.toLowerCase() == 'cancelled' ||
+                                order.status.toLowerCase() == 'canceled';
+                            return orderDate.year == now.year &&
+                                orderDate.month == now.month &&
+                                !isCancelled;
                           }).toList();
                           
                           final totalRevenue =

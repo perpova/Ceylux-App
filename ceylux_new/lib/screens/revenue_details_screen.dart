@@ -293,7 +293,6 @@ class _RevenueDetailsScreenState extends State<RevenueDetailsScreen> {
                         }
 
                         // 3. Received Money & 4. Outstanding Credit Balance (strict period-matching, grouped by customer)
-                        double totalReceivedMoney = 0.0;
                         double outstandingCredit = 0.0;
 
                         final filteredPayments = payments.where((p) {
@@ -321,13 +320,9 @@ class _RevenueDetailsScreenState extends State<RevenueDetailsScreen> {
                           final custOrders = nonCancelledOrders.where((o) => o.customerId == custId).toList();
                           final custPayments = filteredPayments.where((p) => p['customer_id']?.toString() == custId).toList();
 
-                          // Immediate paid orders of this customer in this period
-                          final double immediatePaidAmount = custOrders
-                              .where((o) {
-                                final isImmediate = o.paymentMethodName != 'Credit' &&
-                                                    o.paymentMethodName != 'Cash on Delivery (C.O.D.)';
-                                return isImmediate && o.isPaid;
-                              })
+                          // We only get Credit and Cash on Delivery (C.O.D.) orders for outstanding credit
+                          final double creditCodOrdersAmount = custOrders
+                              .where((o) => o.paymentMethodName == 'Credit' || o.paymentMethodName == 'Cash on Delivery (C.O.D.)')
                               .fold<double>(0.0, (sum, o) => sum + o.total);
 
                           // Payments of this customer in this period
@@ -337,12 +332,10 @@ class _RevenueDetailsScreenState extends State<RevenueDetailsScreen> {
                                 return sum + amt;
                               });
 
-                          // Total orders of this customer in this period
-                          final double totalOrdersAmount = custOrders.fold<double>(0.0, (sum, o) => sum + o.total);
-
-                          totalReceivedMoney += (immediatePaidAmount + collectionsAmount);
-                          outstandingCredit += (totalOrdersAmount - immediatePaidAmount - collectionsAmount).clamp(0.0, double.infinity);
+                          outstandingCredit += (creditCodOrdersAmount - collectionsAmount).clamp(0.0, double.infinity);
                         }
+
+                        final double totalReceivedMoney = (totalRevenue.toDouble() - outstandingCredit).clamp(0.0, double.infinity);
 
                         // Sort products by quantity sold
                         final sortedProducts = productStats.entries.toList()

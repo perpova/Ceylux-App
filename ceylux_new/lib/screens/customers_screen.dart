@@ -614,6 +614,7 @@ class CustomerDetailSheetState extends State<CustomerDetailSheet> {
   bool _editingInfo = false;
   late double _ownerRating;
   late TextEditingController _noteCtrl;
+  late TextEditingController _nameCtrl;
   late TextEditingController _phoneCtrl;
   late TextEditingController _emailCtrl;
   late TextEditingController _addressCtrl;
@@ -639,6 +640,7 @@ class CustomerDetailSheetState extends State<CustomerDetailSheet> {
     _customer = widget.customer;
     _ownerRating = _customer.ownerRating;
     _noteCtrl = TextEditingController(text: _customer.ownerNote);
+    _nameCtrl = TextEditingController(text: _customer.name);
     _phoneCtrl = TextEditingController(text: _customer.phone);
     _emailCtrl = TextEditingController(text: _customer.email);
     _addressCtrl = TextEditingController(text: _customer.address);
@@ -780,6 +782,17 @@ class CustomerDetailSheetState extends State<CustomerDetailSheet> {
   }
 
   Future<void> _saveContactInfo() async {
+    if (_nameCtrl.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Customer name is required',
+              style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+      return;
+    }
+
     if (_phoneCtrl.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -815,6 +828,7 @@ class CustomerDetailSheetState extends State<CustomerDetailSheet> {
     }
 
     final updated = _customer.copyWith(
+      name: _nameCtrl.text.trim(),
       phone: _phoneCtrl.text,
       email: _emailCtrl.text,
       address: _addressCtrl.text,
@@ -828,7 +842,7 @@ class CustomerDetailSheetState extends State<CustomerDetailSheet> {
         _editingInfo = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('✓ Contact info updated',
+          content: Text('✓ Customer info updated',
               style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
           backgroundColor: AppColors.success,
           duration: const Duration(seconds: 1)));
@@ -1139,6 +1153,10 @@ class CustomerDetailSheetState extends State<CustomerDetailSheet> {
             ]),
             const SizedBox(height: 12),
             if (_editingInfo) ...[
+              GoldTextField(
+                  label: 'Customer Name',
+                  controller: _nameCtrl,
+                  hint: 'Enter customer name'),
               GoldTextField(
                   label: 'Phone',
                   controller: _phoneCtrl,
