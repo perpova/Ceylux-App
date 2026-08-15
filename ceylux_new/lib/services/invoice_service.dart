@@ -494,6 +494,12 @@ class InvoiceService {
                     <span class="value">- Rs. {{LOYALTY_DISCOUNT}}</span>
                 </div>
                 {{/LOYALTY_DISCOUNT}}
+                {{#DELIVERY_CHARGE}}
+                <div class="summary-row">
+                    <span class="label">Delivery Charge:</span>
+                    <span class="value">+ Rs. {{DELIVERY_CHARGE}}</span>
+                </div>
+                {{/DELIVERY_CHARGE}}
                 <div class="summary-row total">
                     <span class="label">TOTAL</span>
                     <span class="value">Rs. {{TOTAL}}</span>
@@ -574,7 +580,7 @@ class InvoiceService {
     int afterBillDiscount = subtotal - itemDiscounts - billDiscountAmount;
     int loyaltyDiscountAmount = (afterBillDiscount * order.loyaltyDiscount) ~/ 100;
     int totalDiscount = itemDiscounts + billDiscountAmount + loyaltyDiscountAmount;
-    int calculatedTotal = subtotal - totalDiscount;
+    int calculatedTotal = subtotal - totalDiscount + order.deliveryCharge;
     
     // Generate items HTML rows with size info included
     String itemsHtml = order.items.map((item) => '''
@@ -632,6 +638,15 @@ class InvoiceService {
       html = html.replaceAll('{{LOYALTY_DISCOUNT_PERCENT}}', '${order.loyaltyDiscount}');
     } else {
       html = html.replaceAll(RegExp(r'\{\{#LOYALTY_DISCOUNT\}\}.*?\{\{/LOYALTY_DISCOUNT\}\}', dotAll: true), '');
+    }
+
+    // Handle delivery charge conditional block
+    if (order.deliveryCharge > 0) {
+      html = html.replaceAll('{{#DELIVERY_CHARGE}}', '');
+      html = html.replaceAll('{{/DELIVERY_CHARGE}}', '');
+      html = html.replaceAll('{{DELIVERY_CHARGE}}', NumberFormat('#,###').format(order.deliveryCharge));
+    } else {
+      html = html.replaceAll(RegExp(r'\{\{#DELIVERY_CHARGE\}\}.*?\{\{/DELIVERY_CHARGE\}\}', dotAll: true), '');
     }
     
     html = html.replaceAll('{{TOTAL}}', NumberFormat('#,###').format(calculatedTotal));

@@ -949,7 +949,7 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
   int get _loyaltyDiscountAmount =>
       (_afterBillDiscount * widget.order.loyaltyDiscount ~/ 100);
   int get _totalAmount =>
-      _totalSubtotal - _totalItemDiscounts - _billDiscountAmount - _loyaltyDiscountAmount;
+      _totalSubtotal - _totalItemDiscounts - _billDiscountAmount - _loyaltyDiscountAmount + widget.order.deliveryCharge;
 
 
   void _showTrackingSheet(BuildContext context, AppOrder order) {
@@ -1588,6 +1588,22 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
                       style: TextStyle(
                           fontSize: 12,
                           color: AppColors.danger,
+                          fontWeight: FontWeight.w600)),
+                ],
+              ),
+            ],
+            if (widget.order.deliveryCharge > 0) ...[
+              const SizedBox(height: 6),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Delivery Charge',
+                      style: TextStyle(fontSize: 12, color: AppColors.muted)),
+                  Text(
+                      '+Rs. ${NumberFormat('#,###').format(widget.order.deliveryCharge)}',
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.gold,
                           fontWeight: FontWeight.w600)),
                 ],
               ),
@@ -2553,6 +2569,9 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
   int _loyaltyDiscount = 0;
   final _loyaltyDiscountCtrl = TextEditingController();
 
+  int _deliveryCharge = 0;
+  final _deliveryChargeCtrl = TextEditingController();
+
   final _trackingNumberCtrl = TextEditingController();
 
   List<Tier> _tiers = [];
@@ -2719,6 +2738,7 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
     _itemSearchCtrl.dispose();
     _overallDiscountCtrl.dispose();
     _loyaltyDiscountCtrl.dispose();
+    _deliveryChargeCtrl.dispose();
     _trackingNumberCtrl.dispose();
     super.dispose();
   }
@@ -2868,7 +2888,7 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
   int get _loyaltyDiscountAmt =>
       (_afterBillDiscount * _loyaltyDiscount ~/ 100);
   int get _grandTotal =>
-      _totalSubtotal - _totalItemDiscounts - _overallDiscountAmt - _loyaltyDiscountAmt;
+      _totalSubtotal - _totalItemDiscounts - _overallDiscountAmt - _loyaltyDiscountAmt + _deliveryCharge;
 
   // Group items by item ID (same item, different sizes)
   Map<String, List<Map<String, dynamic>>> _groupItemsByName() {
@@ -2919,6 +2939,7 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
         date: DateFormat('yyyy-MM-dd').format(now),
         discountPercentage: _overallDiscount,
         loyaltyDiscount: _loyaltyDiscount,
+        deliveryCharge: _deliveryCharge,
         deliveryMethodId: _selectedDeliveryMethodId,
         deliveryMethodName: _selectedDeliveryMethodName,
         paymentMethodId: _selectedPaymentMethodId,
@@ -3869,6 +3890,117 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
 
                     const SizedBox(height: 16),
 
+                    // ── Delivery Charge Section ──────────────────────────
+                    if (_selectedItems.isNotEmpty)
+                      Container(
+                        color: AppColors.card,
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('DELIVERY CHARGE',
+                                style: TextStyle(
+                                    fontSize: 10,
+                                    color: AppColors.muted,
+                                    letterSpacing: 1,
+                                    fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TextField(
+                                    controller: _deliveryChargeCtrl,
+                                    keyboardType: TextInputType.number,
+                                    style: TextStyle(
+                                        color: AppColors.textColor,
+                                        fontSize: 14),
+                                    decoration: InputDecoration(
+                                      hintText: '0',
+                                      hintStyle:
+                                          TextStyle(color: AppColors.muted),
+                                      filled: true,
+                                      fillColor: AppColors.bg,
+                                      prefixText: 'Rs. ',
+                                      prefixStyle: TextStyle(
+                                          color: AppColors.gold,
+                                          fontWeight: FontWeight.bold),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                        borderSide:
+                                            BorderSide(color: AppColors.border),
+                                      ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                        borderSide:
+                                            BorderSide(color: AppColors.border),
+                                      ),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                        borderSide:
+                                            BorderSide(color: AppColors.gold),
+                                      ),
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                              horizontal: 12, vertical: 10),
+                                    ),
+                                    onChanged: (v) {
+                                      final val = int.tryParse(v) ?? 0;
+                                      setState(() =>
+                                          _deliveryCharge = val < 0 ? 0 : val);
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                ...[350, 400, 450, 500]
+                                    .map((amt) => GestureDetector(
+                                          onTap: () {
+                                            if (_deliveryCharge == amt) {
+                                              _deliveryChargeCtrl.clear();
+                                              setState(
+                                                  () => _deliveryCharge = 0);
+                                            } else {
+                                              _deliveryChargeCtrl.text = '$amt';
+                                              setState(
+                                                  () => _deliveryCharge = amt);
+                                            }
+                                          },
+                                          child: Container(
+                                            margin:
+                                                const EdgeInsets.only(left: 6),
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 10, vertical: 10),
+                                            decoration: BoxDecoration(
+                                              color: _deliveryCharge == amt
+                                                  ? AppColors.gold
+                                                      .withOpacity(0.15)
+                                                  : AppColors.bg,
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                              border: Border.all(
+                                                color: _deliveryCharge == amt
+                                                    ? AppColors.gold
+                                                    : AppColors.border,
+                                              ),
+                                            ),
+                                            child: Text('Rs. $amt',
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: _deliveryCharge == amt
+                                                      ? AppColors.gold
+                                                      : AppColors.muted,
+                                                )),
+                                          ),
+                                        ))
+                                    .toList(),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+
+                    const SizedBox(height: 16),
+
                     // ── Total Section ───────────────────────────────────
                     if (_selectedItems.isNotEmpty)
                       Container(
@@ -3937,6 +4069,24 @@ class _NewOrderScreenState extends State<_NewOrderScreen> {
                                       style: TextStyle(
                                           fontSize: 12,
                                           color: AppColors.danger)),
+                                ],
+                              ),
+                            ],
+                            if (_deliveryCharge > 0) ...[
+                              const SizedBox(height: 6),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text('Delivery Charge',
+                                      style: TextStyle(
+                                          color: AppColors.muted,
+                                          fontSize: 12)),
+                                  Text('+Rs. ${_deliveryCharge}',
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          color: AppColors.gold,
+                                          fontWeight: FontWeight.w600)),
                                 ],
                               ),
                             ],

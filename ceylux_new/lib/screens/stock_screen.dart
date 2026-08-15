@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../services/api_service.dart';
 import '../models/stock_item.dart';
+import '../models/order.dart';
 import '../utils/theme.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/animation_widgets.dart';
@@ -264,6 +266,26 @@ class _StockCard extends StatelessWidget {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  GestureDetector(
+                    onTap: () => _showBuyingCustomersSheet(context, item),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: AppColors.primary.withOpacity(0.4)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.people_alt_rounded, size: 11, color: AppColors.primary),
+                          const SizedBox(width: 3),
+                          Text('Buyers', style: GoogleFonts.plusJakartaSans(fontSize: 9, color: AppColors.primary, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
                   if (item.discount > 0) ...[
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -736,10 +758,34 @@ class _StockFormSheetState extends State<_StockFormSheet> {
 
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
           Text(_isEdit ? 'Edit Item' : 'Add New Item', style: GoogleFonts.outfit(fontSize: 20, color: AppColors.primary, fontWeight: FontWeight.bold)),
-          if (_isEdit) GestureDetector(onTap: _delete, child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(color: AppColors.danger.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-            child: Text('Delete', style: GoogleFonts.plusJakartaSans(color: AppColors.danger, fontSize: 12, fontWeight: FontWeight.bold)))),
+          if (_isEdit)
+            Row(
+              children: [
+                GestureDetector(
+                  onTap: () => _showBuyingCustomersSheet(context, widget.item!),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.people_alt_rounded, size: 14, color: AppColors.primary),
+                        const SizedBox(width: 4),
+                        Text('Buying Customers', style: GoogleFonts.plusJakartaSans(color: AppColors.primary, fontSize: 11, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                GestureDetector(onTap: _delete, child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(color: AppColors.danger.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                  child: Text('Delete', style: GoogleFonts.plusJakartaSans(color: AppColors.danger, fontSize: 12, fontWeight: FontWeight.bold)))),
+              ],
+            ),
         ]),
         const SizedBox(height: 20),
 
@@ -1199,6 +1245,523 @@ class _MonthYearPickerState extends State<_MonthYearPicker> {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+void _showBuyingCustomersSheet(BuildContext context, StockItem item) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (_) => _BuyingCustomersSheet(item: item),
+  );
+}
+
+class _BuyingCustomersSheet extends StatefulWidget {
+  final StockItem item;
+  const _BuyingCustomersSheet({required this.item});
+
+  @override
+  State<_BuyingCustomersSheet> createState() => _BuyingCustomersSheetState();
+}
+
+class _BuyingCustomersSheetState extends State<_BuyingCustomersSheet> {
+  final ApiService _svc = ApiService();
+  String _search = '';
+  final TextEditingController _searchCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.85,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: EdgeInsets.fromLTRB(
+          20, 20, 20, MediaQuery.of(context).padding.bottom + 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Drag Handle & Close
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Row(
+                  children: [
+                    Text(widget.item.emoji, style: const TextStyle(fontSize: 22)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.item.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.outfit(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textColor,
+                            ),
+                          ),
+                          Text(
+                            'Purchasing Customers List',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 11,
+                              color: AppColors.muted,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: AppColors.bg,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Icon(Icons.close, color: AppColors.muted, size: 18),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Divider(color: AppColors.border, height: 1),
+          const SizedBox(height: 14),
+
+          // Search Field
+          Container(
+            decoration: BoxDecoration(
+              color: AppColors.bg,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AppColors.border),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(
+              children: [
+                Icon(Icons.search, color: AppColors.muted, size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: _searchCtrl,
+                    style: GoogleFonts.plusJakartaSans(
+                        color: AppColors.textColor, fontSize: 13),
+                    decoration: InputDecoration(
+                      border: InputBorder.none,
+                      hintText: 'Search customer by name or phone...',
+                      hintStyle: TextStyle(color: AppColors.muted, fontSize: 12),
+                      suffixIcon: _search.isNotEmpty
+                          ? GestureDetector(
+                              onTap: () {
+                                _searchCtrl.clear();
+                                setState(() => _search = '');
+                              },
+                              child: Icon(Icons.close_rounded,
+                                  color: AppColors.muted, size: 18),
+                            )
+                          : null,
+                    ),
+                    onChanged: (val) => setState(() => _search = val.trim().toLowerCase()),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          // Content StreamBuilder
+          Expanded(
+            child: StreamBuilder<List<AppOrder>>(
+              stream: _svc.ordersStream(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return const LoadingAnimation(message: 'Loading customer data...');
+                }
+
+                final orders = snapshot.data ?? [];
+                
+                // Group purchases by customer
+                final Map<String, _CustomerPurchaseGroup> customerGroups = {};
+
+                for (final order in orders) {
+                  // Skip cancelled orders
+                  if (order.status.toLowerCase() == 'cancelled' ||
+                      order.status.toLowerCase() == 'canceled') {
+                    continue;
+                  }
+
+                  // Find matching items in this order
+                  for (final item in order.items) {
+                    bool match = item.name.trim().toLowerCase() ==
+                        widget.item.name.trim().toLowerCase() ||
+                        (widget.item.sku.isNotEmpty &&
+                            item.name.toLowerCase().contains(widget.item.sku.toLowerCase()));
+
+                    if (match) {
+                      final key = order.customerId.isNotEmpty
+                          ? order.customerId
+                          : order.customerName;
+
+                      if (!customerGroups.containsKey(key)) {
+                        customerGroups[key] = _CustomerPurchaseGroup(
+                          customerId: order.customerId,
+                          customerName: order.customerName,
+                          customerPhone: order.customerPhone ?? '',
+                          customerAddress: order.customerAddress ?? '',
+                        );
+                      }
+
+                      customerGroups[key]!.addPurchase(
+                        orderRef: order.id,
+                        date: order.date,
+                        status: order.status,
+                        qty: item.qty,
+                        price: item.price,
+                        discount: item.discount,
+                        color: item.color,
+                        size: item.size,
+                      );
+                    }
+                  }
+                }
+
+                var groupList = customerGroups.values.toList();
+                
+                // Sort by total quantity purchased descending
+                groupList.sort((a, b) => b.totalQty.compareTo(a.totalQty));
+
+                // Filter by search
+                if (_search.isNotEmpty) {
+                  groupList = groupList.where((g) =>
+                      g.customerName.toLowerCase().contains(_search) ||
+                      g.customerPhone.toLowerCase().contains(_search)).toList();
+                }
+
+                if (groupList.isEmpty) {
+                  return Container(
+                    padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
+                    alignment: Alignment.center,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.people_outline, size: 48, color: AppColors.muted),
+                        const SizedBox(height: 12),
+                        Text(
+                          _search.isNotEmpty
+                              ? 'No customer matched "$_search"'
+                              : 'No customers have bought this item yet',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 13,
+                            color: AppColors.muted,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                // Total metrics summary header
+                final totalUnitsSold = groupList.fold<int>(0, (sum, g) => sum + g.totalQty);
+                final totalRevenue = groupList.fold<int>(0, (sum, g) => sum + g.totalSpent);
+
+                return Column(
+                  children: [
+                    // Summary Banner
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _metricCell('Customers', '${groupList.length}'),
+                          Container(width: 1, height: 24, color: AppColors.border),
+                          _metricCell('Total Units', '$totalUnitsSold pcs'),
+                          Container(width: 1, height: 24, color: AppColors.border),
+                          _metricCell('Total Revenue', 'Rs. ${NumberFormat('#,###').format(totalRevenue)}'),
+                        ],
+                      ),
+                    ),
+
+                    Expanded(
+                      child: ListView.builder(
+                        physics: const BouncingScrollPhysics(),
+                        itemCount: groupList.length,
+                        itemBuilder: (context, i) {
+                          final group = groupList[i];
+                          return _CustomerPurchaseCard(group: group);
+                        },
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _metricCell(String label, String value) {
+    return Column(
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.plusJakartaSans(fontSize: 9, color: AppColors.muted, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.bold),
+        ),
+      ],
+    );
+  }
+}
+
+class _CustomerPurchaseGroup {
+  final String customerId;
+  final String customerName;
+  final String customerPhone;
+  final String customerAddress;
+  final List<Map<String, dynamic>> purchases = [];
+
+  _CustomerPurchaseGroup({
+    required this.customerId,
+    required this.customerName,
+    required this.customerPhone,
+    required this.customerAddress,
+  });
+
+  void addPurchase({
+    required String orderRef,
+    required String date,
+    required String status,
+    required int qty,
+    required int price,
+    required int discount,
+    required String color,
+    required String size,
+  }) {
+    final subtotal = qty * price;
+    final discountAmt = subtotal * discount ~/ 100;
+    final total = subtotal - discountAmt;
+
+    purchases.add({
+      'orderRef': orderRef,
+      'date': date,
+      'status': status,
+      'qty': qty,
+      'price': price,
+      'discount': discount,
+      'color': color,
+      'size': size,
+      'total': total,
+    });
+  }
+
+  int get totalQty => purchases.fold<int>(0, (sum, p) => sum + (p['qty'] as int));
+  int get totalSpent => purchases.fold<int>(0, (sum, p) => sum + (p['total'] as int));
+  String get lastDate => purchases.isNotEmpty ? purchases.first['date'] : '';
+}
+
+class _CustomerPurchaseCard extends StatefulWidget {
+  final _CustomerPurchaseGroup group;
+  const _CustomerPurchaseCard({required this.group});
+
+  @override
+  State<_CustomerPurchaseCard> createState() => _CustomerPurchaseCardState();
+}
+
+class _CustomerPurchaseCardState extends State<_CustomerPurchaseCard> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final group = widget.group;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: AppColors.bg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        children: [
+          ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+            leading: CircleAvatar(
+              backgroundColor: AppColors.primary.withOpacity(0.15),
+              radius: 20,
+              child: Text(
+                group.customerName.isNotEmpty ? group.customerName[0].toUpperCase() : '?',
+                style: GoogleFonts.outfit(
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primary,
+                  fontSize: 16,
+                ),
+              ),
+            ),
+            title: Text(
+              group.customerName,
+              style: GoogleFonts.plusJakartaSans(
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+                color: AppColors.textColor,
+              ),
+            ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (group.customerPhone.isNotEmpty)
+                  Text(
+                    group.customerPhone,
+                    style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.muted),
+                  ),
+                Text(
+                  '${group.purchases.length} order${group.purchases.length == 1 ? '' : 's'} • Last: ${group.lastDate}',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.muted),
+                ),
+              ],
+            ),
+            trailing: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  '${group.totalQty} units',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                    color: AppColors.primary,
+                  ),
+                ),
+                Text(
+                  'Rs. ${NumberFormat('#,###').format(group.totalSpent)}',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 10,
+                    color: AppColors.muted,
+                  ),
+                ),
+              ],
+            ),
+            onTap: () => setState(() => _expanded = !_expanded),
+          ),
+
+          if (_expanded) ...[
+            Divider(color: AppColors.border, height: 1),
+            Container(
+              padding: const EdgeInsets.all(12),
+              color: AppColors.card.withOpacity(0.5),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'PURCHASE DETAILS',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.muted,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ...group.purchases.map((p) => Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Order ${p['orderRef']} • ${p['color'] != null && p['color'].toString().isNotEmpty ? "${p['color']} • " : ""}${p['size']} (Qty: ${p['qty']})',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 11,
+                              color: AppColors.textColor,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          'Rs. ${NumberFormat('#,###').format(p['total'])}',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )).toList(),
+                  if (group.customerPhone.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        GestureDetector(
+                          onTap: () async {
+                            final uri = Uri.parse('tel:${group.customerPhone}');
+                            if (await canLaunchUrl(uri)) launchUrl(uri);
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppColors.success.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: AppColors.success.withOpacity(0.3)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.phone, size: 12, color: AppColors.success),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Call Customer',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 10,
+                                    color: AppColors.success,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );

@@ -109,6 +109,7 @@ async function initDB() {
         total DECIMAL(10,2) DEFAULT 0.00,
         discount_percentage INT DEFAULT 0,
         loyalty_discount INT DEFAULT 0,
+        delivery_charge DECIMAL(10,2) DEFAULT 0.00,
         status VARCHAR(50) DEFAULT 'Pending',
         date VARCHAR(50),
         delivery_method_id VARCHAR(100),
@@ -122,6 +123,10 @@ async function initDB() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
+    try {
+      await pool.query(`ALTER TABLE orders ADD COLUMN delivery_charge DECIMAL(10,2) DEFAULT 0.00`);
+    } catch (_) {}
 
 
     // 5. tiers table
@@ -547,15 +552,15 @@ app.get('/orders', async (req, res) => {
 
 app.post('/orders', async (req, res) => {
   try {
-    const { order_ref, customer_id, customer_name, customer_address, customer_phone, items, total, status, date, discount_percentage, loyalty_discount, delivery_method_id, delivery_method_name, payment_proof_url, delivery_notes, payment_method_id, payment_method_name, is_paid, tracking_number } = req.body;
+    const { order_ref, customer_id, customer_name, customer_address, customer_phone, items, total, status, date, discount_percentage, loyalty_discount, delivery_charge, delivery_method_id, delivery_method_name, payment_proof_url, delivery_notes, payment_method_id, payment_method_name, is_paid, tracking_number } = req.body;
     
     const conn = await pool.getConnection();
     try {
       await conn.beginTransaction();
 
       const [result] = await conn.query(
-        'INSERT INTO orders (order_ref, customer_id, customer_name, customer_address, customer_phone, items, total, status, date, discount_percentage, loyalty_discount, delivery_method_id, delivery_method_name, payment_proof_url, delivery_notes, payment_method_id, payment_method_name, is_paid, tracking_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [order_ref, customer_id, customer_name, customer_address, customer_phone, JSON.stringify(items), total, status, date, discount_percentage || 0, loyalty_discount || 0, delivery_method_id || null, delivery_method_name || null, payment_proof_url || null, delivery_notes || null, payment_method_id || null, payment_method_name || null, is_paid ? 1 : 0, tracking_number || '']
+        'INSERT INTO orders (order_ref, customer_id, customer_name, customer_address, customer_phone, items, total, status, date, discount_percentage, loyalty_discount, delivery_charge, delivery_method_id, delivery_method_name, payment_proof_url, delivery_notes, payment_method_id, payment_method_name, is_paid, tracking_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [order_ref, customer_id, customer_name, customer_address, customer_phone, JSON.stringify(items), total, status, date, discount_percentage || 0, loyalty_discount || 0, delivery_charge || 0, delivery_method_id || null, delivery_method_name || null, payment_proof_url || null, delivery_notes || null, payment_method_id || null, payment_method_name || null, is_paid ? 1 : 0, tracking_number || '']
       );
 
       const isCancelled = status && (status.toLowerCase() === 'cancelled' || status.toLowerCase() === 'canceled');
@@ -808,7 +813,7 @@ app.put('/orders/:id/status', async (req, res) => {
 
 app.put('/orders/:id', async (req, res) => {
   try {
-    const { order_ref, customer_id, customer_name, customer_address, customer_phone, items, total, status, date, discount_percentage, loyalty_discount, delivery_method_id, delivery_method_name, payment_proof_url, delivery_notes, payment_method_id, payment_method_name, is_paid, tracking_number } = req.body;
+    const { order_ref, customer_id, customer_name, customer_address, customer_phone, items, total, status, date, discount_percentage, loyalty_discount, delivery_charge, delivery_method_id, delivery_method_name, payment_proof_url, delivery_notes, payment_method_id, payment_method_name, is_paid, tracking_number } = req.body;
     
     const conn = await pool.getConnection();
     try {
@@ -882,8 +887,8 @@ app.put('/orders/:id', async (req, res) => {
 
       // 2. Update the order in DB
       await conn.query(
-        'UPDATE orders SET order_ref = ?, customer_id = ?, customer_name = ?, customer_address = ?, customer_phone = ?, items = ?, total = ?, status = ?, date = ?, discount_percentage = ?, loyalty_discount = ?, delivery_method_id = ?, delivery_method_name = ?, payment_proof_url = ?, delivery_notes = ?, payment_method_id = ?, payment_method_name = ?, is_paid = ?, tracking_number = ? WHERE id = ? OR order_ref = ?',
-        [order_ref, customer_id, customer_name, customer_address, customer_phone, JSON.stringify(items), total, status, date, discount_percentage || 0, loyalty_discount || 0, delivery_method_id || null, delivery_method_name || null, payment_proof_url || null, delivery_notes || null, payment_method_id || null, payment_method_name || null, is_paid ? 1 : 0, tracking_number || '', req.params.id, req.params.id]
+        'UPDATE orders SET order_ref = ?, customer_id = ?, customer_name = ?, customer_address = ?, customer_phone = ?, items = ?, total = ?, status = ?, date = ?, discount_percentage = ?, loyalty_discount = ?, delivery_charge = ?, delivery_method_id = ?, delivery_method_name = ?, payment_proof_url = ?, delivery_notes = ?, payment_method_id = ?, payment_method_name = ?, is_paid = ?, tracking_number = ? WHERE id = ? OR order_ref = ?',
+        [order_ref, customer_id, customer_name, customer_address, customer_phone, JSON.stringify(items), total, status, date, discount_percentage || 0, loyalty_discount || 0, delivery_charge || 0, delivery_method_id || null, delivery_method_name || null, payment_proof_url || null, delivery_notes || null, payment_method_id || null, payment_method_name || null, is_paid ? 1 : 0, tracking_number || '', req.params.id, req.params.id]
       );
 
       // 3. Deduct stock levels for new items only if new status is not cancelled

@@ -15,7 +15,7 @@ class ApiService {
   factory ApiService() => _instance;
   ApiService._();
 
-  static const String baseUrl = 'https://ceylux23.perpova.cloud';
+  static const String baseUrl = 'https://ceylux23.perpova.net';
 
   final _uuid = const Uuid();
   final _client = http.Client();
